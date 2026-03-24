@@ -1,399 +1,237 @@
 # Project Ideas From The Free API And Dataset Catalog
 
-This file collects all project ideas generated from the APIs and datasets referenced in `README.md`. The ideas are intentionally broad in style and ambition, but they all lean on the catalog's strengths in public APIs, open datasets, geospatial data, climate data, government data, transport, and finance.
+This file collects all project ideas generated from the APIs and datasets referenced in `README.md`. Ideas are grouped by category and ordered within each category by estimated commercial viability (strongest first).
 
-## High-Concept
+---
 
-### Ghost Ports
+## A. Commodity & Energy Trading Intelligence
 
-A live maritime anomaly map using `aisstream` or `AIS Hub` plus weather feeds such as `AviationWeather` and public port datasets. The product highlights ships drifting oddly, loitering offshore, or clustering near bad weather, then generates incident summaries around what changed in the area.
+1. **Tank Farm Watch** — The global oil market's most closely guarded secret is inventory levels, and the physical reality is that crude oil must be stored somewhere visible from space. Tank Farm Watch uses `Airbus` optical satellite imagery to measure floating-roof tank fill levels at the roughly 30 strategic tank farm clusters that matter globally — Cushing (Oklahoma), Saldanha Bay (South Africa), Fujairah (UAE), Ningbo-Zhoushan (China), Rotterdam, and others. Floating-roof tanks literally rise and fall with inventory; shadow-length analysis on high-resolution imagery yields fill-level estimates within 5-10% accuracy. The system correlates these measurements with `aisstream` AIS data to track every tanker approaching or departing these facilities — vessel draft readings (deeper draft = fuller cargo) provide a secondary inventory signal. When Cushing tanks are at 95% capacity, three VLCCs are idling offshore Fujairah, and `Alpha Vantage` WTI-Brent spread is in steep contango, the storage-play trade is crowded and crude prices face downward pressure. Oil trading desks currently pay orbital-imagery firms $50K+ per month for cruder versions of this analysis. Tank Farm Watch's edge is the fusion of tank-level inventory with vessel-level logistics — knowing not just how full the tanks are, but what is arriving and departing — creating a full supply-chain inventory model that no single data source provides alone.
 
-### Market Weather
+2. **Crop Futures Oracle** — The fundamental inefficiency in agricultural commodity markets is temporal: the USDA publishes crop condition reports on a weekly and monthly cadence, but satellite imagery updates every five days, and the vegetation does not wait for bureaucratic schedules. Crop Futures Oracle ingests `Sentinel-2` NDVI (Normalized Difference Vegetation Index) imagery across every major growing region globally, detects crop stress signatures — chlorophyll decline, irregular growth patterns, moisture deficit indicators — and correlates them with `NOAA` weather forecast models (precipitation, temperature anomalies, growing degree days) and `USDA NASS` soil moisture readings. The system then maps these physical signals against `USDA` crop progress reports and `Alpha Vantage` commodity futures curves for corn, soybeans, wheat, and cotton. The alpha is in the gap: when satellite imagery shows a 15% NDVI decline across the western Iowa corn belt three weeks before the next USDA Crop Production report, the futures market has not yet priced the shortfall. Commodity trading desks would pay $25K+/month because even a 48-hour informational edge on a single crop report translates to millions in positioning advantage. Agricultural lenders and crop insurers pay because they need to re-estimate portfolio exposure in near-real-time, not after the harvest fails.
 
-Combine market data from `Alpha Vantage` with climate or air-quality feeds such as `AQICN` or `Aemet`. The app helps users explore whether pollution spikes, heat waves, or storm events correlate with price moves in logistics, airlines, agriculture, or energy.
+3. **Grid Arbitrage** — Electricity markets are among the last major commodity markets where physical intelligence still trumps financial modeling, because a power grid is a real-time physical system where local supply-demand mismatches create enormous price volatility. Grid Arbitrage fuses `EIA` electricity generation and consumption data with `National Grid ESO` balancing mechanism feeds and `NOAA`/`Tomorrow.io` weather forecasts (wind speed at hub height for wind farms, solar irradiance for PV installations, temperature-driven demand curves). The non-obvious layer is satellite reconnaissance: `Sentinel-2` imagery detects new solar and wind farm construction months before these facilities appear in official interconnection queues (construction pads, panel arrays, and turbine foundations are visible at 10-meter resolution), while the `Global Power Plant Database` provides the baseline capacity map. When the system detects that a 400MW solar farm in ERCOT is 80% complete but not yet in the market's supply forecast, or that three coal plants in PJM have gone cold (no thermal signature on Sentinel-2 SWIR bands) despite being listed as available capacity, traders can position ahead of the official capacity updates. Overlay `Alpha Vantage` natural gas and coal prices to model fuel-switching economics, and you have a comprehensive view of where grid stress will emerge. Energy trading firms and renewable developers pay $15K+/month because electricity price spikes are measured in hundreds of dollars per megawatt-hour and last only hours.
 
-### Museum DJ
+4. **Power Plant Pulse** — The electricity sector has a transparency problem: grid operators know which plants are running, but the market does not — and the information asymmetry moves billions. Power Plant Pulse starts with the `Global Power Plant Database` as its facility registry (35,000+ plants worldwide) and overlays `Sentinel-2` thermal infrared and shortwave infrared imagery to detect operational status — a running coal or gas plant has a distinct thermal signature, and a plant that has gone cold mid-week when demand is high is a market-moving event. `NOAA` and `Tomorrow.io` weather data feeds wind speed and solar irradiance forecasts to predict renewable output hour-by-hour, while `EIA` electricity generation data provides the official but delayed production baseline. The non-obvious signal layer is hyperlocal `AQICN` and `PurpleAir` air quality data: a sudden spike in PM2.5 and SO2 readings downwind of a coal plant that was reportedly offline confirms it has quietly restarted — or a drop in emissions near an operating plant confirms an unreported outage. Correlate all of this with `Alpha Vantage` utility equity prices and natural gas futures, and the platform tells energy traders not just what the grid looks like right now, but what the market has failed to notice. Energy trading firms pay because unscheduled outages and stealth restarts create price dislocations measured in millions per hour. Utility equity analysts pay because a fleet's actual capacity factor — verified by satellite, not management guidance — is the single best predictor of quarterly earnings.
 
-Use the `Art Institute of Chicago` API plus audio datasets or music APIs to generate visual playlists. A user chooses a mood, era, or palette, and the system turns artworks into soundtrack-driven rooms with transitions and narration.
+5. **Commodity Disruption Monitor** — Use vessel tracking, weather, port throughput proxies, and FX or market APIs to spot supply chain disruptions before they appear in pricing. The product targets commodity traders, procurement teams, and market researchers.
 
-### Parliament Lens
+6. **Freight Rate Shadow Index** — Build a synthetic freight stress index from vessel traffic, port congestion, weather disruption, and route-level movement signals. It becomes an alternative market indicator for traders, analysts, and procurement teams who care about shipping stress before official datasets catch up.
 
-Use government and parliamentary APIs such as `openparldata` or other open government datasets to build a political search engine. Track topics, speakers, sentiment shifts, and changes in language across parties and time.
+7. **The Periodic Table of Trade** — Imagine clicking on any element in the periodic table and watching the entire global economy reorganize around it. The Periodic Table of Trade transforms Mendeleev's grid into a living supply-chain atlas: select Lithium and the map zooms to the blinding white salt flats of the Salar de Atacama, then traces bulk carriers crawling across the Pacific via AIS vessel streams, follows them into Chinese battery megafactories pinned on OpenStreetMap, and finishes with a spot price chart ticking alongside Tesla and CATL equity curves. Select Cobalt and you are in the DRC; select Gallium and you are watching Chinese export controls reshape the semiconductor supply chain in real time. Crystal structure data comes from the `Crystallography Open Database` and `AFLOW Materials Database`, giving each element a molecular identity beyond its ticker symbol. Commodity and equity prices stream from `Alpha Vantage`, vessel movements arrive in real time from `aisstream` WebSockets, and all geography resolves through `OpenStreetMap/Nominatim` geocoding. The result is a chemistry-first lens on global capitalism — a tool that reminds you every iPhone screen starts as a handful of rare earth oxides dug from Inner Mongolian tailings ponds, shipped across three oceans, and refined through six countries before it lights up in your pocket.
 
-### SkyChain
+8. **Inflation Microscope** — Track category-level inflation proxies using open food, energy, shipping, weather, and agriculture datasets. The product helps finance teams, economists, and media explain inflation pressure using observed drivers instead of only lagging indices.
 
-Merge `AviationAPI`, `AviationWeather`, and airport or airspace datasets into a route risk explorer. The product scores flight windows based on visibility, weather risk, delays, and alternate options, while presenting the result as an operational planning surface.
+---
 
-### Signal From Shore
+## B. Maritime & Supply Chain Intelligence
 
-Combine `aisstream`, coastline and geospatial datasets, and article or event feeds to produce coastal intelligence cards. The system summarizes vessel, weather, and infrastructure activity around a region over a defined period.
+9. **Sanctions Cartography** — Compliance departments at commodity traders, banks, and shipping firms currently rely on static screening: they check a name against a list and move on. Sanctions Cartography turns this into a living, geographic intelligence layer. By streaming real-time vessel positions from `aisstream` AIS data and continuously cross-referencing vessel ownership chains against `OpenSanctions` entity graphs and the `trade.gov Consolidated Screening List`, the platform builds a dynamic map of sanctioned-entity shipping activity worldwide. When a vessel with a third-tier ownership link to a sanctioned entity deviates from its declared route and enters a port where your client has cargo, the system fires an alert — not after the fact, but while the ship is still 200 nautical miles out. Layer in `UN Comtrade` bilateral trade flow data to detect anomalous trade corridors (a sudden spike in "agricultural equipment" exports from a known transshipment hub to a sanctioned destination), and you have something no compliance tool currently offers: spatial pattern detection across ownership, movement, and trade flows simultaneously. This is a $10K+/month SaaS product because the alternative is a $50M fine from OFAC, and the combination of real-time AIS streaming with entity resolution across multiple sanctions databases creates a technical moat that simple list-screening vendors cannot replicate.
 
-## Useful Weird
+10. **PortPulse** — A shipping lane and port congestion intelligence tool using `aisstream` or `AIS Hub`, weather feeds like `AviationWeather` or `Aemet`, and public port or location datasets. The audience is freight forwarders, commodity traders, and insurers who want early warning on slowdowns, reroutes, or unusual vessel behavior.
 
-### API Safari
+11. **Trade Chokepoint Monitor** — Use `aisstream`, `AIS Hub`, port and coastline datasets, and weather feeds to monitor strategic maritime chokepoints such as canals, straits, and major port approaches. The product is aimed at traders, logistics operators, insurers, and analysts who want early alerts on congestion, route stress, or unusual vessel clustering.
 
-A discovery playground built from this repository's own catalog. Users browse APIs and datasets by topic, auth model, freshness, and weirdness, then launch example calls and small interactive demos.
+12. **Vessel Pharmacology** — Somewhere in the Arabian Sea right now, a bulk carrier is leaving Nhava Sheva port carrying thousands of tons of active pharmaceutical ingredients — the raw molecular building blocks that become the pills in your medicine cabinet. If that ship slows down, turns back, or never left, a drug shortage could ripple through American and European pharmacies in 90 days. Vessel Pharmacology makes this invisible supply chain visible by correlating real-time vessel tracking with pharmaceutical intelligence. AIS vessel data from `aisstream` monitors departures and transit times from major API manufacturing ports — Nhava Sheva and Mundra (India), Shanghai and Ningbo (China), Incheon (South Korea) — while `DrugBank` and `DrugCentral` provide the mapping between manufacturing origins and specific drug products. When vessel departures from Gujarat drop 30 percent in a monsoon month, the system cross-references which molecules are predominantly manufactured there, flags the corresponding drugs in shortage risk databases, and correlates with pharma equity movements from `Alpha Vantage`. Port and factory locations resolve through `OpenStreetMap`. The result is a pharmacological early warning system built from ship positions — because the global drug supply is, at its core, a maritime logistics problem that nobody tracks at the vessel level.
 
-### Dataset Tinder
+13. **Cold Chain Exposure Radar** — Use weather, traffic, transit, port, and regional infrastructure datasets to model how fragile temperature-sensitive supply chains are across routes and facilities. Customers could include food distributors, pharma operators, and insurers.
 
-A recommendation interface for datasets and APIs. Users swipe through resources matched to their interests, stack, and skill level, and the app suggests realistic weekend or startup-sized project ideas.
+14. **Ghost Ports** — A live maritime anomaly map using `aisstream` or `AIS Hub` plus weather feeds such as `AviationWeather` and public port datasets. The product highlights ships drifting oddly, loitering offshore, or clustering near bad weather, then generates incident summaries around what changed in the area.
 
-### Public Data Dating App
+15. **Signal From Shore** — Combine `aisstream`, coastline and geospatial datasets, and article or event feeds to produce coastal intelligence cards. The system summarizes vessel, weather, and infrastructure activity around a region over a defined period.
 
-A playful matchmaking product that pairs people by the kinds of datasets and API domains they obsess over. The core mechanic is personality through public data taste rather than conventional profile prompts.
+---
 
-### Fictional OSINT
+## C. Insurance, Risk & Climate Finance
 
-Use public entertainment APIs such as `An API Of Ice And Fire`, `AniList`, `AmiiboAPI`, and similar sources to treat fictional universes like intelligence domains. Build faction graphs, timelines, event maps, and operational dashboards for imaginary worlds.
+16. **Underwriter's Eye** — Property insurance underwriting is still shockingly manual: an adjuster drives to a house, takes photos, and fills out a form. Underwriter's Eye replaces this with a continuous, satellite-derived risk score for any address on Earth. The system ingests `Sentinel-2` multispectral imagery to assess roof condition (reflectance degradation correlates with age and wear), vegetation encroachment (wildfire fuel load within 100 meters), and standing water proximity. It layers `USGS earthquake hazard` probability maps, `NOAA flood zone` delineations, and FEMA NFIP claims history for the area. Then it adds non-obvious environmental risk from `EPA TRI` toxic release inventory data (a chemical plant two miles upwind is a liability event waiting to happen) and hyperlocal `PurpleAir` air quality readings as a proxy for industrial activity and wildfire smoke exposure. Finally, `building violation` and `building permit` records reveal whether the property has unresolved structural issues or unpermitted additions that void standard risk models. The output is a single composite score, updated quarterly with fresh satellite passes, delivered via API to underwriting workflows. Insurance carriers pay because a 2% improvement in loss-ratio prediction on a $500M book of business is worth tens of millions annually. Real estate investors and mortgage lenders pay because they need the same risk view across entire portfolios, and no one else is fusing orbital imagery with ground-truth regulatory data at the parcel level.
 
-### Weather For Humans
+17. **Flood Clock** — Every coastal property in America has a ticking clock, and no one is showing the homeowner, the lender, or the insurer what time it reads. Flood Clock combines `NOAA` sea level rise projection scenarios (multiple RCP pathways), `USGS Water Services` real-time stream gauge and tidal data, `FEMA` flood insurance rate map delineations, and historical `Sentinel-2` satellite imagery analysis of water extent changes over the past decade to produce two numbers for any property: the "first flood date" (the year the property is statistically likely to experience its first flood event under current trajectory) and the "permanent inundation date" (when mean high tide reaches the structure's foundation elevation). These dates are displayed alongside the property's current market value, outstanding mortgage term, and insurance premium trajectory using `building footprint` data for precise elevation modeling and parcel-level resolution. A mortgage lender issuing a 30-year note on a property whose first-flood date is 2041 is making an 18-year bet, not a 30-year one. Insurance companies pay because this is actuarial table data for the climate era. Coastal real estate investors pay because the spread between current market price and flood-adjusted value is the entire trade. Municipal bond analysts pay because a city whose tax base is 40% inside the 2050 inundation zone has a credit problem no one is pricing.
 
-Aggregate weather, air quality, and city infrastructure signals using sources such as `AccuWeather`, `7Timer!`, `AQICN`, and local transport data. Instead of raw metrics, the output is practical guidance for how a city will feel and function today.
+18. **Insurance Exposure Map** — Combine weather, climate, air quality, flood and fire hazard datasets, and parcel or building data where available. The result is a risk summary product for brokers, underwriters, and property managers.
 
-### City Pulse
+19. **Plate Tectonics Real Estate** — Your city has a credit rating from Moody's. But does it have a credit rating from the Earth? Plate Tectonics Real Estate assigns every city on the planet a geological credit rating — AAA to junk — based on the tectonic, volcanic, seismic, and sea-level forces operating beneath and around it on timescales from decades to millennia. Tokyo, drifting 8 centimeters per year toward the Pacific subduction zone and overdue for a Tokai megathrust event, gets a different rating than Winnipeg sitting comfortably on the Canadian Shield craton. San Francisco, straddling the San Andreas transform fault with 4 meters of accumulated strain energy, rates differently than Denver. Miami, built on porous Pleistocene limestone barely above a rising Atlantic, occupies its own category of slow-motion catastrophe. The system fuses earthquake history from the `USGS Earthquake Catalog`, volcanic threat data from the `Smithsonian Global Volcanism Program` database, millimeter-precision ground deformation velocities from `EarthScope GPS/GNSS networks`, sea-level rise projections from `NOAA Tides and Currents`, and city geocoding from `Nominatim`. The output is a searchable table where you type any city and receive a geological credit report: current tectonic regime, historical seismicity, active volcanic systems, measured ground velocity vector, projected sea-level exposure, and a composite rating that tells you whether the planet itself considers your real estate a safe investment.
 
-Combine transport, air quality, weather, civic data, and public event data into a real-time liveliness index for a city. Users can compare neighborhoods or time windows to decide where to go and when.
+20. **Carbon Adjacent Screener** — Use emissions datasets, industrial facility maps, climate layers, and public company data to identify businesses or regions likely to be repriced by regulatory or operational climate pressure. The product targets funds, research desks, and ESG teams that want more concrete evidence than generic ratings.
 
-## Art And Experimental
+21. **Tectonic Markets** — A real-time earthquake financial impact analyzer that fuses seismology, maritime tracking, commodity markets, and space weather into a single interactive dashboard. The app polls the `USGS Earthquake Feed` for M4.5+ events worldwide and maps each quake against a curated database of ~150 major global economic assets (semiconductor fabs, ports, refineries, mines, shipping chokepoints, data centers). It computes a "Seismic Market Impact Score" (0-100) weighting seismic severity, economic proximity, population exposure, tsunami risk, and geomagnetic storm conditions. Affected assets are linked to publicly traded companies and commodity sectors via `Alpha Vantage`, live vessel traffic near epicenters streams in from `aisstream` WebSockets, and a `NOAA Space Weather` overlay shows Kp index and solar wind as a risk multiplier. The interface is a dark, terminal-aesthetic MapLibre map with pulsing quake markers, impact radius circles, infrastructure pins, vessel dots, and financial sparklines. This is essentially what billion-dollar quant funds do with alternative data — earthquake near TSMC fabs moves semiconductor stocks, tremor near the Strait of Hormuz spikes oil futures — but built as a scrappy open-source version from five free APIs. Stack: Next.js 14, TypeScript, MapLibre GL JS, SQLite, Tailwind CSS.
 
-### Data Tarot
+---
 
-Pull from public datasets and APIs to generate daily readings. Air quality, vessel positions, stock candles, parliamentary quotes, and artworks become symbolic cards that reflect the current world state.
+## D. Financial Markets & Alternative Data
 
-### The Planet Has A Mood
+22. **Clinical Trial Arbitrage** — Biotech stock prices move 30-80% on clinical trial readouts, and the market is remarkably unsophisticated about predicting outcomes. Clinical Trial Arbitrage builds a systematic intelligence layer by cross-referencing ClinicalTrials.gov registry data (trial design, endpoints, enrollment, timelines) with `DrugBank` drug-target interaction profiles and `ChEMBL` bioactivity assay data for the same molecular targets. The core insight is mechanism-of-action clustering: when Company X's Phase III trial targets the same biological pathway that Company Y's compound just failed on, and the `ChEMBL` selectivity profiles show similar off-target binding patterns, that is a quantifiable risk signal the market is not pricing into Company X's stock — trackable via `Alpha Vantage` equity data. Conversely, when a new trial registers for a novel target where `ChEMBL` shows clean selectivity and `DrugBank` interaction data suggests low toxicity risk, the probability-weighted upside may exceed current valuation. The platform tracks hundreds of active trials, clusters them by mechanism, scores each on a composite probability metric, and alerts subscribers to mispriced risk/reward setups days or weeks before readouts. Biotech-focused hedge funds would pay $20K+/month because a single correctly predicted Phase III outcome can return tens of millions. Pharma business development teams pay because identifying which competitors' pipelines are scientifically fragile informs billion-dollar M&A decisions.
 
-Use climate, space, air quality, finance, and news-adjacent datasets to create a daily audiovisual piece. The system converts global conditions into a mood board or ambient composition.
+23. **Macro Local** — A platform that links public market data from `Alpha Vantage` to real-world indicators such as weather, shipping activity, air quality, crop conditions, or energy demand proxies. The product is aimed at investors and researchers looking for non-consensus signals.
 
-### Archive Time Machine
+24. **Small-Cap Event Radar** — Link public company or market feeds with government procurement, transport, environmental, and trade datasets. The goal is to surface obscure second-order signals that may matter before earnings or analyst coverage catches up.
 
-Combine `Archive.org` with public datasets and trend-style APIs to reconstruct how a topic felt in a specific year. The product becomes a way to explore the cultural, political, and market atmosphere of a moment in time.
+25. **Earnings Geography** — Combine `XBRL`, company filings, `Alpha Vantage`, address and administrative datasets, and geospatial layers to map where revenue exposure actually lives. Investors could see how sensitive a business is to specific regions, corridors, or environmental risks.
 
-## Business And Geo
+26. **Listed Infrastructure Watch** — Track public infrastructure operators, logistics businesses, airlines, ports, and utilities using market data plus transport, weather, and geospatial signals. The pitch is a real-world dashboard for investors who want operational context behind listed infrastructure names.
 
-### PortPulse
+27. **Procurement To Market Signal Engine** — Link government procurement and open public sector datasets with listed company and sector market data. The goal is to detect demand signals, regional contract concentration, or procurement shifts before they are widely priced into public markets.
 
-A shipping lane and port congestion intelligence tool using `aisstream` or `AIS Hub`, weather feeds like `AviationWeather` or `Aemet`, and public port or location datasets. The audience is freight forwarders, commodity traders, and insurers who want early warning on slowdowns, reroutes, or unusual vessel behavior.
+28. **Weather-Sensitive Basket Builder** — Use `Aemet`, `AQICN`, climate datasets, and public market feeds to generate thematic baskets tied to weather or environmental conditions. The product is less about prediction certainty and more about giving investors a structured way to test climate-linked theses.
 
-### Store Siting Engine
+29. **Market Weather** — Combine market data from `Alpha Vantage` with climate or air-quality feeds such as `AQICN` or `Aemet`. The app helps users explore whether pollution spikes, heat waves, or storm events correlate with price moves in logistics, airlines, agriculture, or energy.
 
-Combine administrative boundary datasets, address APIs such as `adresse.data.gouv.fr`, open government demographics, business registries, and transport layers. The product ranks possible retail, clinic, warehouse, or EV charging sites based on access, density, and competition.
+30. **Aurora Arbitrage** — The northern lights are not just beautiful — they are a financial event. When a coronal mass ejection slams into Earth's magnetosphere and the Kp index spikes above 7, the same geomagnetic storm painting green curtains across Scandinavian skies is simultaneously inducing currents in long-distance power lines, degrading GPS timing for high-frequency trading systems, increasing atmospheric drag on low-orbit satellites, and forcing polar aviation reroutes that burn tens of thousands of dollars in extra fuel. Aurora Arbitrage renders this duality on a single screen: the left panel shows the aurora oval forecast expanding southward in real time; the right panel shows utility stock prices twitching, satellite operator telemetry degrading, and transpolar flight paths bending away from the pole. Data flows from the `NOAA Space Weather Prediction Center` (solar wind, Kp index, 30-minute aurora forecast), `Alpha Vantage` for real-time equity prices on utilities and satellite operators, `CelesTrak` for tracking orbital decay acceleration on LEO constellations, and `ADS-B Exchange` for monitoring polar flight reroutes in real time. It is the rare app where sublime natural beauty and cold financial consequence occupy the same pixel.
 
-### Sales Territory Optimizer
+---
 
-Use administrative division datasets, open address data, and public economic indicators to redraw sales territories. The value is improved territory balance, more rational routing, and clearer regional ownership.
+## E. Treasury, Trade & FX
 
-### Regional Expansion Screener
+31. **Export Compass** — Mid-market manufacturers — the $20M-$500M revenue companies that make up the backbone of the economy — know they should export, but the complexity of identifying viable markets, navigating tariffs, and screening buyers is paralyzing. Export Compass solves this end-to-end. It starts with `UN Comtrade` bilateral trade flow data to identify which countries are importing your HS-code product category, from which competitors, and in what volumes — revealing markets where demand exists but your country's share is low. The platform then pulls `trade.gov` tariff rate data to calculate your landed-cost advantage or disadvantage versus incumbent suppliers, and surfaces active `trade.gov Trade Leads` (foreign government procurement opportunities) matching your product codes. Every potential buyer and intermediary is automatically screened against `OpenSanctions` and the `trade.gov Consolidated Screening List` for compliance. `Alpha Vantage` FX rate data and trend analysis flags currency-driven pricing opportunities. The product charges $2-5K/month and targets the 300,000+ US manufacturers who currently rely on trade shows and cold outreach. Trade promotion agencies could license it as infrastructure for their advisory programs. The moat is the integration: no one else stitches together market sizing, tariff math, compliance screening, and FX exposure into a single workflow for a non-specialist user.
 
-Merge country and regional open data, business registry datasets, labor indicators, tax or regulatory sources, and FX feeds such as `Amdoren` or `Alpha Vantage`. This helps operators decide which markets are most attractive for expansion.
+32. **FX Stress Dashboard** — Combine `Alpha Vantage` or `Amdoren` with country-level open economic and political datasets. Treasury teams and international operators can use it to understand corridor-specific currency risk rather than monitoring exchange rates in isolation.
 
-### Insurance Exposure Map
+33. **Treasury Route Planner** — Combine FX feeds, country risk indicators, port and transport data, and supplier geographies to help CFO and treasury teams assess where cash-flow timing and currency exposure are most fragile. This could sit between treasury software and supply-chain analytics.
 
-Combine weather, climate, air quality, flood and fire hazard datasets, and parcel or building data where available. The result is a risk summary product for brokers, underwriters, and property managers.
+34. **Cross-Border Corridor Scorecard** — Combine `World Bank Finance`, FX feeds like `Alpha Vantage`, transport datasets, address and administrative boundary datasets, and open trade indicators. The product ranks specific business corridors by currency risk, logistics friction, and local market potential rather than by country averages.
 
-## Financial
+35. **Regional Expansion Screener** — Merge country and regional open data, business registry datasets, labor indicators, tax or regulatory sources, and FX feeds such as `Amdoren` or `Alpha Vantage`. This helps operators decide which markets are most attractive for expansion.
 
-### Macro Local
+---
 
-A platform that links public market data from `Alpha Vantage` to real-world indicators such as weather, shipping activity, air quality, crop conditions, or energy demand proxies. The product is aimed at investors and researchers looking for non-consensus signals.
+## F. Real Estate, Site Selection & Property Intelligence
 
-### Commodity Disruption Monitor
+36. **Talent Terrain** — Every Fortune 500 company making a site-selection decision for a new office, factory, or R&D center hires consultants who spend six months assembling the same data manually. Talent Terrain automates this into a living intelligence platform. It ingests `Census Bureau` commuting flow data (LODES dataset) to map where workers actually live relative to employment centers, revealing which metros have untapped labor sheds. `Adzuna` job posting data (volume, titles, salary ranges) quantifies real-time hiring competition by skill category — if every tech company in Austin is posting for the same ML engineers, wage inflation is inevitable. `Building permit` data reveals where new commercial construction is headed (a surge in office permits in a suburb signals future employer competition 18-24 months out), while university enrollment and graduation data from IPEDS identifies emerging talent pipelines by discipline. Layer in BLS cost-of-employment indices and `Census` demographic projections, and the platform scores any metro area on talent availability, competition intensity, wage trajectory, and retention risk. HR strategy teams at large employers pay $8K+/month because a bad site-selection decision wastes $20-50M. Venture capital firms pay because evaluating whether a portfolio company's location supports its hiring plan is due-diligence table stakes.
 
-Use vessel tracking, weather, port throughput proxies, and FX or market APIs to spot supply chain disruptions before they appear in pricing. The product targets commodity traders, procurement teams, and market researchers.
+37. **Store Siting Engine** — Combine administrative boundary datasets, address APIs such as `adresse.data.gouv.fr`, open government demographics, business registries, and transport layers. The product ranks possible retail, clinic, warehouse, or EV charging sites based on access, density, and competition.
 
-### FX Stress Dashboard
+38. **Industrial Footprint Scanner** — Combine `Toxic Release Inventory Facilities`, geospatial basemaps, parcel and land-use data, and local demographics to build a site intelligence product for investors, consultancies, and real-estate operators. The main value is understanding environmental exposure, neighboring land use, and community risk around industrial properties.
 
-Combine `Alpha Vantage` or `Amdoren` with country-level open economic and political datasets. Treasury teams and international operators can use it to understand corridor-specific currency risk rather than monitoring exchange rates in isolation.
+39. **Construction Friction Map** — Combine traffic crashes, transit layers, parcel data, environmental facilities, and local government datasets to show where development projects are likely to hit operational friction. The product would help developers and infrastructure teams screen locations before expensive diligence work begins.
 
-### Small-Cap Event Radar
+40. **Sales Territory Optimizer** — Use administrative division datasets, open address data, and public economic indicators to redraw sales territories. The value is improved territory balance, more rational routing, and clearer regional ownership.
 
-Link public company or market feeds with government procurement, transport, environmental, and trade datasets. The goal is to surface obscure second-order signals that may matter before earnings or analyst coverage catches up.
+---
 
-### Inflation Microscope
+## G. Environment, Agriculture & Earth Observation
 
-Track category-level inflation proxies using open food, energy, shipping, weather, and agriculture datasets. The product helps finance teams, economists, and media explain inflation pressure using observed drivers instead of only lagging indices.
+41. **Forest Stress Early Warning** — Use `Global Forest Watch Open Data Portal`, `Google Earth Engine`, climate datasets, and forest benchmark archives to detect abnormal canopy change, heat stress, or disturbance patterns. This could support insurers, conservation groups, commodity buyers, or climate researchers.
 
-## Science And Geo
+42. **Crop Stress Mosaic** — Use climate, rainfall, land-cover, and remote sensing datasets to surface early signs of agricultural stress by region. The product could serve commodity researchers, agritech teams, agricultural lenders, and food supply-chain planners.
 
-### FieldLab Planner
+43. **Hydrology Watch** — Merge rainfall and weather feeds, watershed and river geodata, land cover data, and public hydrology datasets to monitor runoff and flood potential. The target users are agriculture, local authorities, and environmental consultancies.
 
-Use `Aemet`, `AQICN`, terrain layers, and open environmental datasets to help research teams choose fieldwork windows and sites. The value is fewer wasted trips and better sampling conditions.
+44. **Airshed Simulator** — Use `AQICN`, meteorological datasets, emissions sources, traffic data, and terrain layers to explain where bad air likely came from and where it is moving next. The tool could serve public agencies, journalists, schools, and industrial compliance teams.
 
-### Urban Health Atlas
+45. **Biodiversity Conflict Mapper** — Combine protected areas, land use, infrastructure, shipping or transport, and climate data to flag places where development pressure overlaps with ecological sensitivity. This supports consultants, NGOs, and infrastructure firms during early screening.
 
-Combine air quality, transport, weather, census, public health, and land-use datasets into neighborhood-level exposure maps. Public health groups and local governments can use it to identify high-risk zones and intervention priorities.
+46. **Wetland Loss Tracker** — Merge remote sensing imagery, hydrology data, parcel and land-use layers, and biodiversity datasets to monitor wetland degradation over time. This could support conservation groups, permitting consultants, and climate adaptation programs.
 
-### Hydrology Watch
+47. **Atmospheric Operations Console** — Use air quality, meteorology, emissions datasets, and geospatial layers to monitor atmospheric conditions that affect compliance, safety, or research quality. The product could serve industrial operators, researchers, and municipalities.
 
-Merge rainfall and weather feeds, watershed and river geodata, land cover data, and public hydrology datasets to monitor runoff and flood potential. The target users are agriculture, local authorities, and environmental consultancies.
+48. **FieldLab Planner** — Use `Aemet`, `AQICN`, terrain layers, and open environmental datasets to help research teams choose fieldwork windows and sites. The value is fewer wasted trips and better sampling conditions.
 
-### Biodiversity Conflict Mapper
+49. **Gravity Anomaly Prospector** — Earth's gravitational field is not uniform. It ripples and warps in response to subsurface density variations — a massive iron ore deposit pulls the local gravity field fractionally stronger, a salt dome creates a measurable deficit, and a buried magma chamber distorts the geoid in ways that orbiting satellites can detect with exquisite precision. Gravity Anomaly Prospector turns this physics into a speculative resource-discovery tool. It renders the global gravity field from the `ICGEM` satellite gravity data as a richly contoured map, then overlays known extraction sites from the `USGS Mineral Resources Data System` and well location data from public petroleum datasets like Alberta's `Athabasca` well records. The provocation is in the gaps: regions where gravity says something anomalously dense exists at depth but where no active mining or drilling operation appears on the map. These become speculative prospects that the tool scores by cross-referencing nearby geological context, surface mineralogy from `AFLOW` materials databases, and the current commodity prices and mining equity valuations from `Alpha Vantage`. It is geophysics as venture capital — using the literal shape of Earth's gravitational field to prospect for resources that human exploration has not yet reached, and pricing what might be underground before anyone has drilled a single hole.
 
-Combine protected areas, land use, infrastructure, shipping or transport, and climate data to flag places where development pressure overlaps with ecological sensitivity. This supports consultants, NGOs, and infrastructure firms during early screening.
+---
 
-### Atmospheric Operations Console
+## H. Urban Systems, Transit & Civic Intelligence
 
-Use air quality, meteorology, emissions datasets, and geospatial layers to monitor atmospheric conditions that affect compliance, safety, or research quality. The product could serve industrial operators, researchers, and municipalities.
+50. **Transit Viability Lab** — Use `GTFS`, `GTFS-RT`, `Bus Observatory API`, `Citymapper API`, and commuting-flow datasets to score how well a district is actually served by transit. This could sell to developers, city planners, or employers deciding where to locate offices, housing, or public services.
 
-## Fast Bets
+51. **Mobility Access Underwriter** — Use transit, bike-share, commuting, and neighborhood datasets to score how reachable jobs, schools, and services are from a location. This could support developers, lenders, employers, and public agencies evaluating location quality.
 
-### Strongest Commercial Wedges
+52. **Last-Mile Reality Checker** — Combine parcel, address, transit, bike-share, traffic, and road network datasets to test whether a warehouse, clinic, or retail site is truly accessible in practice. This helps operators avoid choosing sites that look good on paper but fail at street level.
 
-- `PortPulse`: strong visual story, obvious commercial users, and a differentiated data angle.
-- `Store Siting Engine`: practical B2B value and relatively straightforward MVP scope.
-- `Macro Local`: good foundation for a research product, paid newsletter, or analytics subscription.
+53. **Urban Health Atlas** — Combine air quality, transport, weather, census, public health, and land-use datasets into neighborhood-level exposure maps. Public health groups and local governments can use it to identify high-risk zones and intervention priorities.
 
-### Strongest Repo-Aligned Idea
+54. **Urban Heat Intervention Planner** — Combine land-use data, urban datasets, satellite imagery, tree cover benchmarks, and air quality feeds to rank neighborhoods by likely heat burden and intervention potential. The product helps cities decide where shade, trees, cooling infrastructure, or transit improvements will have the biggest effect.
 
-- `API Safari`: directly leverages the catalog itself and could become a meta-product around discovery, testing, and curation.
+55. **Vision Zero Command Board** — Combine `Traffic Crashes`, `Traffic Fatalities`, commuting flows, transit access, and land-use data into a safety prioritization surface for cities. The pitch is to make infrastructure tradeoffs visible block by block instead of buried in annual reports.
 
-### Strongest Attention-Grabbing Idea
+56. **Civic Frustration Index** — Blend 311-style civic datasets, traffic crashes, transit reliability, air quality, and environmental facility locations into a single neighborhood stress score. The product could help media, advocacy groups, and city teams identify where daily life is breaking down first.
 
-- `Data Tarot`: weird enough to stand out quickly while still grounded in the catalog's data sources.
+57. **Bus Reliability Auditor** — Use `GTFS`, `GTFS-RT`, `BusPositions API`, `MTA Bus Time API`, and local transit datasets to show where agencies promise service but fail to deliver it consistently. The product could serve journalists, transit advocates, local governments, and riders.
 
-## More Ideas
+58. **City Pulse** — Combine transport, air quality, weather, civic data, and public event data into a real-time liveliness index for a city. Users can compare neighborhoods or time windows to decide where to go and when.
 
-This batch was generated after a fresh pass over `README.md` to pull in more signals from transport, remote sensing, government, urban, and finance-heavy resources.
+59. **Weather For Humans** — Aggregate weather, air quality, and city infrastructure signals using sources such as `AccuWeather`, `7Timer!`, `AQICN`, and local transport data. Instead of raw metrics, the output is practical guidance for how a city will feel and function today.
 
-## Business, Geo, And Infrastructure
+---
 
-### Trade Chokepoint Monitor
+## I. Infrastructure & Resilience
 
-Use `aisstream`, `AIS Hub`, port and coastline datasets, and weather feeds to monitor strategic maritime chokepoints such as canals, straits, and major port approaches. The product is aimed at traders, logistics operators, insurers, and analysts who want early alerts on congestion, route stress, or unusual vessel clustering.
+60. **Utility Outage Opportunity Finder** — Use weather, grid-adjacent public datasets, land use, climate risk, and demographic layers to identify regions with chronic resilience gaps. The product could support energy startups, backup power companies, and municipal resilience programs.
 
-### Industrial Footprint Scanner
+61. **Rural Service Desert Mapper** — Blend `USDA Food Environment Atlas`, commuting-flow data, health and transport datasets, and administrative boundaries to identify underserved regions for clinics, food access, finance, or public services. This could become a planning tool for NGOs, governments, and operators entering underserved markets.
 
-Combine `Toxic Release Inventory Facilities`, geospatial basemaps, parcel and land-use data, and local demographics to build a site intelligence product for investors, consultancies, and real-estate operators. The main value is understanding environmental exposure, neighboring land use, and community risk around industrial properties.
+---
 
-### Transit Viability Lab
+## J. Pharma, Biotech & Drug Discovery
 
-Use `GTFS`, `GTFS-RT`, `Bus Observatory API`, `Citymapper API`, and commuting-flow datasets to score how well a district is actually served by transit. This could sell to developers, city planners, or employers deciding where to locate offices, housing, or public services.
+62. **The Drug Molecule Stock Exchange** — What if every drug molecule had a ticker symbol, a market cap, and a price chart? The Drug Molecule Stock Exchange treats the global pharmaceutical pipeline as a synthetic financial market where molecules are traded like securities. Each compound receives a dynamically calculated market capitalization derived from its bioactivity profile in `ChEMBL` (potency across hundreds of assays), binding affinity scores from `BindingDB`, ADMET toxicity predictions, patent landscape from `DrugBank`, and clinical trial stage from `DrugCentral`. Molecules IPO when they enter Phase I trials, their synthetic price fluctuates as new assay data arrives, and they delist when development is abandoned. The system renders each molecule as a 3D structure via `PubChem` inside a Bloomberg-style terminal interface, complete with molecular candlestick charts, sector groupings by therapeutic area, and an order book of upcoming catalysts. The killer overlay is correlation with actual pharma equities from `Alpha Vantage`: when Molecule X fails a binding assay, does Company Y's stock anticipate it? The tool makes visible something the pharmaceutical industry already knows intuitively — that billion-dollar market cap swings often trace back to a single hydrogen bond forming or failing to form inside a protein pocket.
 
-### Cross-Border Corridor Scorecard
+63. **Epidemiology Geo Lens** — Combine `World Bank Health Data`, `UNICEF`, `The Global Health Observatory`, environmental data, and urban geospatial layers to study how public health burdens interact with place. The product could target public health researchers, NGOs, and policy teams.
 
-Combine `World Bank Finance`, FX feeds like `Alpha Vantage`, transport datasets, address and administrative boundary datasets, and open trade indicators. The product ranks specific business corridors by currency risk, logistics friction, and local market potential rather than by country averages.
+64. **Biosecurity Logistics Mapper** — Blend transport, airport, port, weather, and health datasets to understand how biological risk could move through real infrastructure networks. This is useful for scenario planning, public health preparedness, and academic research.
 
-### Cold Chain Exposure Radar
+---
 
-Use weather, traffic, transit, port, and regional infrastructure datasets to model how fragile temperature-sensitive supply chains are across routes and facilities. Customers could include food distributors, pharma operators, and insurers.
+## K. Space, Orbital & Aviation
 
-### Construction Friction Map
+65. **Orbital Congestion Terminal** — Combine `CelesTrak API`, `NORAD TLE Data`, `Heavens-Above API`, and launch datasets into a monitoring tool for orbital crowding, pass windows, and conjunction risk. It could be positioned as a lightweight intelligence layer for satellite operators, researchers, and educators.
 
-Combine traffic crashes, transit layers, parcel data, environmental facilities, and local government datasets to show where development projects are likely to hit operational friction. The product would help developers and infrastructure teams screen locations before expensive diligence work begins.
+66. **Space Weather Operations Desk** — Use `NOAA Space Weather Prediction Center`, `NASA Heliophysics Data`, and satellite or orbital resources to monitor solar conditions that could affect communications, aviation, power systems, or satellite operations. The audience includes satellite startups, defense-adjacent operators, and science teams.
 
-### Utility Outage Opportunity Finder
+67. **SkyChain** — Merge `AviationAPI`, `AviationWeather`, and airport or airspace datasets into a route risk explorer. The product scores flight windows based on visibility, weather risk, delays, and alternate options, while presenting the result as an operational planning surface.
 
-Use weather, grid-adjacent public datasets, land use, climate risk, and demographic layers to identify regions with chronic resilience gaps. The product could support energy startups, backup power companies, and municipal resilience programs.
+68. **Launch Window Market** — Use launch, weather, orbital, and space weather datasets to estimate operational quality for mission windows. This could become an internal planning product for launch-adjacent teams or an educational simulator for the commercial space industry.
 
-### Rural Service Desert Mapper
+69. **Exoplanet Portfolio** — Use the `NASA Exoplanet Archive API`, `Open Astronomy Catalog API`, and market-style portfolio metaphors to build a system for tracking discovery pipelines, novelty scores, and mission relevance. It is a science product presented with the UX discipline of a financial terminal.
 
-Blend `USDA Food Environment Atlas`, commuting-flow data, health and transport datasets, and administrative boundaries to identify underserved regions for clinics, food access, finance, or public services. This could become a planning tool for NGOs, governments, and operators entering underserved markets.
+70. **Planetary Surface Desk** — Combine `Open Planetary Map`, `Mars Trek API`, `NASA APIs`, and imagery resources into a research workspace for comparing terrains, features, and mission targets across planetary bodies. The core value is synthesis and exploration rather than raw data access.
 
-## Financial And Market Intelligence
+---
 
-### Earnings Geography
+## L. Government, Politics & Humanitarian
 
-Combine `XBRL`, company filings, `Alpha Vantage`, address and administrative datasets, and geospatial layers to map where revenue exposure actually lives. Investors could see how sensitive a business is to specific regions, corridors, or environmental risks.
+71. **Parliament Lens** — Use government and parliamentary APIs such as `openparldata` or other open government datasets to build a political search engine. Track topics, speakers, sentiment shifts, and changes in language across parties and time.
 
-### Weather-Sensitive Basket Builder
+72. **Humanitarian Field Intelligence Board** — Build on `HDX`, weather, mobility, transport, and health datasets to give humanitarian teams a fast operational picture of a region. The differentiator would be turning fragmented public inputs into decision-ready field summaries rather than static maps.
 
-Use `Aemet`, `AQICN`, climate datasets, and public market feeds to generate thematic baskets tied to weather or environmental conditions. The product is less about prediction certainty and more about giving investors a structured way to test climate-linked theses.
+---
 
-### Listed Infrastructure Watch
+## M. Science Crossovers & Experimental
 
-Track public infrastructure operators, logistics businesses, airlines, ports, and utilities using market data plus transport, weather, and geospatial signals. The pitch is a real-world dashboard for investors who want operational context behind listed infrastructure names.
+73. **Deep Time Portfolio** — Copper does not come from a mine. Copper comes from ancient ocean-floor hydrothermal vents where superheated water deposited metal sulfides into Precambrian sediments 2.1 billion years ago, sediments that were later folded, faulted, and thrust to the surface by tectonic collisions across geological epochs. The mine is just where we happen to dig today. Deep Time Portfolio forces investors to confront the geological timescales behind every commodity they trade, overlaying billions of years of Earth history onto real-time financial data. Click on copper and watch the interface zoom from a 2.1-billion-year-old stratigraphic column through plate reconstruction animations to a modern geological map of the Chilean Andes, then snap to today's extraction rate, remaining reserves, and live spot price from `Alpha Vantage`. Geological context comes from the `Macrostrat` API for stratigraphic and lithological data across deep time. Mineral deposit locations and reserve data flow from `USGS Mineral Resources`, crystal structures and material properties from `AFLOW` and the `Materials Project`, and all mine and infrastructure geography resolves through `OpenStreetMap`. The philosophical punch is in the math: humanity extracts in decades what took planetary-scale processes billions of years to concentrate.
 
-### Procurement To Market Signal Engine
+74. **Synaptic Markets** — What if the global financial system is not a machine but a brain — and we could diagnose it the way neuroscientists diagnose seizures? Synaptic Markets borrows visualization frameworks and signal-processing algorithms from neuroscience to render market structure as a living neural network. Stock exchanges become brain regions mapped onto a 3D connectome, trade flows become axonal bundles whose thickness reflects capital velocity, and volatility becomes the firing rate of individual neurons. The real provocation is computational: it applies EEG analysis techniques — power spectral density, event-related potentials, coherence analysis — from the `BCI Competition IV datasets` to financial time series from `Alpha Vantage` and `FRED`, detecting patterns that map uncannily onto neurological states. Low-VIX sideways markets register as slow-wave sleep. The minutes before a flash crash look like pre-seizure aura. A coordinated global selloff resembles a grand mal event propagating across hemispheres. Structural reference data from the `Allen Brain Atlas` provides the anatomical scaffolding for the visualization, so you are literally watching the market think, dream, and occasionally convulse.
 
-Link government procurement and open public sector datasets with listed company and sector market data. The goal is to detect demand signals, regional contract concentration, or procurement shifts before they are widely priced into public markets.
+75. **Cosmic Ray Trading Floor** — Every second, subatomic particles forged in supernovae and active galactic nuclei slam into Earth's atmosphere at nearly the speed of light, producing cascading showers of secondary particles that occasionally flip a single bit in a computer's memory from 0 to 1. These single-event upsets are not theoretical — they are documented, quantified by NASA, and they increase at altitude and during solar minimum when Earth's magnetic shielding weakens. Cosmic Ray Trading Floor asks an unsettling question: what happens when those bit flips occur inside trading systems, satellite guidance, or power grid controllers? The dashboard correlates cosmic ray muon flux data from the `IceCube Neutrino Observatory` with surface radiation measurements from `NOAA SURFRAD`, geomagnetic shielding status from the `NOAA Space Weather Prediction Center`, satellite anomaly reports cross-referenced against `CelesTrak` orbital data, and financial market microstructure glitches surfaced through `Alpha Vantage` tick data. The result is part rigorous radiation physics, part speculative forensics — a tool that lets you watch the cosmic ray flux climb during solar minimum and ask whether that mysterious trading halt was triggered not by software bugs but by a particle that left a dying star ten million years ago.
 
-### Treasury Route Planner
+76. **Seismic Vinyl** — The Earth is already making music — we just cannot hear it. Earthquake seismograms are waveforms, identical in structure to audio signals, except their frequencies sit far below the 20 Hz floor of human perception. Seismic Vinyl pitch-shifts these planetary recordings into the audible range and produces them as listenable tracks, each earthquake becoming a unique composition with its own character, duration, and emotional texture. A magnitude 7 subduction event off Japan becomes a deep, rolling bass drone as the P-wave arrives, a grinding mid-range swell as the S-wave follows, and a shimmering, decaying surface wave tail that can last minutes. A shallow M5 strike-slip in Chile sounds completely different — sharp, percussive, brief. Raw seismogram data comes from the `USGS Earthquake Hazards Program` real-time feeds and the `STEAD` archive of labeled waveforms, processed through `ObsPy` for instrument response removal and frequency manipulation. The album art for each release is auto-generated from the seismogram's spectrogram — a visual fingerprint as unique as the sound. The final layer is financial rhythm: market tick data from `Alpha Vantage` modulates the tempo, so bull markets accelerate the beat and crashes slow it to a dirge. The result is a record collection pressed by plate tectonics.
 
-Combine FX feeds, country risk indicators, port and transport data, and supplier geographies to help CFO and treasury teams assess where cash-flow timing and currency exposure are most fragile. This could sit between treasury software and supply-chain analytics.
+---
 
-### Carbon Adjacent Screener
+## N. Art, Culture & Playful
 
-Use emissions datasets, industrial facility maps, climate layers, and public company data to identify businesses or regions likely to be repriced by regulatory or operational climate pressure. The product targets funds, research desks, and ESG teams that want more concrete evidence than generic ratings.
+77. **Data Tarot** — Pull from public datasets and APIs to generate daily readings. Air quality, vessel positions, stock candles, parliamentary quotes, and artworks become symbolic cards that reflect the current world state.
 
-### Freight Rate Shadow Index
+78. **Museum DJ** — Use the `Art Institute of Chicago` API plus audio datasets or music APIs to generate visual playlists. A user chooses a mood, era, or palette, and the system turns artworks into soundtrack-driven rooms with transitions and narration.
 
-Build a synthetic freight stress index from vessel traffic, port congestion, weather disruption, and route-level movement signals. It becomes an alternative market indicator for traders, analysts, and procurement teams who care about shipping stress before official datasets catch up.
+79. **The Planet Has A Mood** — Use climate, space, air quality, finance, and news-adjacent datasets to create a daily audiovisual piece. The system converts global conditions into a mood board or ambient composition.
 
-## Science, Environment, And Remote Sensing
+80. **Archive Time Machine** — Combine `Archive.org` with public datasets and trend-style APIs to reconstruct how a topic felt in a specific year. The product becomes a way to explore the cultural, political, and market atmosphere of a moment in time.
 
-### Forest Stress Early Warning
+81. **Fictional OSINT** — Use public entertainment APIs such as `An API Of Ice And Fire`, `AniList`, `AmiiboAPI`, and similar sources to treat fictional universes like intelligence domains. Build faction graphs, timelines, event maps, and operational dashboards for imaginary worlds.
 
-Use `Global Forest Watch Open Data Portal`, `Google Earth Engine`, climate datasets, and forest benchmark archives to detect abnormal canopy change, heat stress, or disturbance patterns. This could support insurers, conservation groups, commodity buyers, or climate researchers.
+---
 
-### Urban Heat Intervention Planner
+## O. Meta & Platform
 
-Combine land-use data, urban datasets, satellite imagery, tree cover benchmarks, and air quality feeds to rank neighborhoods by likely heat burden and intervention potential. The product helps cities decide where shade, trees, cooling infrastructure, or transit improvements will have the biggest effect.
+82. **Vertical Intelligence Studio** — Build a configurable platform where a user picks a domain such as ports, cities, climate, health, or satellites, then assembles a tailored dashboard from free datasets and APIs. The business model is not the raw data but the opinionated assembly, monitoring, and narrative layer.
 
-### Airshed Simulator
+83. **Signal Cookbook** — A product that packages reusable cross-dataset recipes such as "port congestion plus weather plus FX" or "air quality plus traffic plus demographics." It is effectively a library of investable, insurable, or research-grade signal combinations powered by the catalog.
 
-Use `AQICN`, meteorological datasets, emissions sources, traffic data, and terrain layers to explain where bad air likely came from and where it is moving next. The tool could serve public agencies, journalists, schools, and industrial compliance teams.
+84. **Dataset Due Diligence Workbench** — Turn this repository into a practical analyst tool that scores resources for freshness, licensing clarity, operational reliability, and composability. Instead of just listing APIs and datasets, it helps founders and analysts decide which ones are safe to build on.
 
-### Wetland Loss Tracker
+85. **API Safari** — A discovery playground built from this repository's own catalog. Users browse APIs and datasets by topic, auth model, freshness, and weirdness, then launch example calls and small interactive demos.
 
-Merge remote sensing imagery, hydrology data, parcel and land-use layers, and biodiversity datasets to monitor wetland degradation over time. This could support conservation groups, permitting consultants, and climate adaptation programs.
+86. **Dataset Tinder** — A recommendation interface for datasets and APIs. Users swipe through resources matched to their interests, stack, and skill level, and the app suggests realistic weekend or startup-sized project ideas.
 
-### Crop Stress Mosaic
-
-Use climate, rainfall, land-cover, and remote sensing datasets to surface early signs of agricultural stress by region. The product could serve commodity researchers, agritech teams, agricultural lenders, and food supply-chain planners.
-
-### Humanitarian Field Intelligence Board
-
-Build on `HDX`, weather, mobility, transport, and health datasets to give humanitarian teams a fast operational picture of a region. The differentiator would be turning fragmented public inputs into decision-ready field summaries rather than static maps.
-
-### Space Weather Operations Desk
-
-Use `NOAA Space Weather Prediction Center`, `NASA Heliophysics Data`, and satellite or orbital resources to monitor solar conditions that could affect communications, aviation, power systems, or satellite operations. The audience includes satellite startups, defense-adjacent operators, and science teams.
-
-### Orbital Congestion Terminal
-
-Combine `CelesTrak API`, `NORAD TLE Data`, `Heavens-Above API`, and launch datasets into a monitoring tool for orbital crowding, pass windows, and conjunction risk. It could be positioned as a lightweight intelligence layer for satellite operators, researchers, and educators.
-
-## Urban, Mobility, And Civic Systems
-
-### Bus Reliability Auditor
-
-Use `GTFS`, `GTFS-RT`, `BusPositions API`, `MTA Bus Time API`, and local transit datasets to show where agencies promise service but fail to deliver it consistently. The product could serve journalists, transit advocates, local governments, and riders.
-
-### Vision Zero Command Board
-
-Combine `Traffic Crashes`, `Traffic Fatalities`, commuting flows, transit access, and land-use data into a safety prioritization surface for cities. The pitch is to make infrastructure tradeoffs visible block by block instead of buried in annual reports.
-
-### Mobility Access Underwriter
-
-Use transit, bike-share, commuting, and neighborhood datasets to score how reachable jobs, schools, and services are from a location. This could support developers, lenders, employers, and public agencies evaluating location quality.
-
-### Civic Frustration Index
-
-Blend 311-style civic datasets, traffic crashes, transit reliability, air quality, and environmental facility locations into a single neighborhood stress score. The product could help media, advocacy groups, and city teams identify where daily life is breaking down first.
-
-### Last-Mile Reality Checker
-
-Combine parcel, address, transit, bike-share, traffic, and road network datasets to test whether a warehouse, clinic, or retail site is truly accessible in practice. This helps operators avoid choosing sites that look good on paper but fail at street level.
-
-## Science-Heavy And Slightly Wild
-
-### Tectonic Markets
-
-A real-time earthquake financial impact analyzer that fuses seismology, maritime tracking, commodity markets, and space weather into a single interactive dashboard. The app polls the `USGS Earthquake Feed` for M4.5+ events worldwide and maps each quake against a curated database of ~150 major global economic assets (semiconductor fabs, ports, refineries, mines, shipping chokepoints, data centers). It computes a "Seismic Market Impact Score" (0-100) weighting seismic severity, economic proximity, population exposure, tsunami risk, and geomagnetic storm conditions. Affected assets are linked to publicly traded companies and commodity sectors via `Alpha Vantage`, live vessel traffic near epicenters streams in from `aisstream` WebSockets, and a `NOAA Space Weather` overlay shows Kp index and solar wind as a risk multiplier. The interface is a dark, terminal-aesthetic MapLibre map with pulsing quake markers, impact radius circles, infrastructure pins, vessel dots, and financial sparklines. This is essentially what billion-dollar quant funds do with alternative data — earthquake near TSMC fabs moves semiconductor stocks, tremor near the Strait of Hormuz spikes oil futures — but built as a scrappy open-source version from five free APIs. Stack: Next.js 14, TypeScript, MapLibre GL JS, SQLite, Tailwind CSS.
-
-### Exoplanet Portfolio
-
-Use the `NASA Exoplanet Archive API`, `Open Astronomy Catalog API`, and market-style portfolio metaphors to build a system for tracking discovery pipelines, novelty scores, and mission relevance. It is a science product presented with the UX discipline of a financial terminal.
-
-### Planetary Surface Desk
-
-Combine `Open Planetary Map`, `Mars Trek API`, `NASA APIs`, and imagery resources into a research workspace for comparing terrains, features, and mission targets across planetary bodies. The core value is synthesis and exploration rather than raw data access.
-
-### Launch Window Market
-
-Use launch, weather, orbital, and space weather datasets to estimate operational quality for mission windows. This could become an internal planning product for launch-adjacent teams or an educational simulator for the commercial space industry.
-
-### Epidemiology Geo Lens
-
-Combine `World Bank Health Data`, `UNICEF`, `The Global Health Observatory`, environmental data, and urban geospatial layers to study how public health burdens interact with place. The product could target public health researchers, NGOs, and policy teams.
-
-### Biosecurity Logistics Mapper
-
-Blend transport, airport, port, weather, and health datasets to understand how biological risk could move through real infrastructure networks. This is useful for scenario planning, public health preparedness, and academic research.
-
-## Science, Finance, And Geo Crossovers
-
-### The Periodic Table of Trade
-
-Imagine clicking on any element in the periodic table and watching the entire global economy reorganize around it. The Periodic Table of Trade transforms Mendeleev's grid into a living supply-chain atlas: select Lithium and the map zooms to the blinding white salt flats of the Salar de Atacama, then traces bulk carriers crawling across the Pacific via AIS vessel streams, follows them into Chinese battery megafactories pinned on OpenStreetMap, and finishes with a spot price chart ticking alongside Tesla and CATL equity curves. Select Cobalt and you are in the DRC; select Gallium and you are watching Chinese export controls reshape the semiconductor supply chain in real time. Crystal structure data comes from the `Crystallography Open Database` and `AFLOW Materials Database`, giving each element a molecular identity beyond its ticker symbol. Commodity and equity prices stream from `Alpha Vantage`, vessel movements arrive in real time from `aisstream` WebSockets, and all geography resolves through `OpenStreetMap/Nominatim` geocoding. The result is a chemistry-first lens on global capitalism — a tool that reminds you every iPhone screen starts as a handful of rare earth oxides dug from Inner Mongolian tailings ponds, shipped across three oceans, and refined through six countries before it lights up in your pocket.
-
-### Aurora Arbitrage
-
-The northern lights are not just beautiful — they are a financial event. When a coronal mass ejection slams into Earth's magnetosphere and the Kp index spikes above 7, the same geomagnetic storm painting green curtains across Scandinavian skies is simultaneously inducing currents in long-distance power lines, degrading GPS timing for high-frequency trading systems, increasing atmospheric drag on low-orbit satellites, and forcing polar aviation reroutes that burn tens of thousands of dollars in extra fuel. Aurora Arbitrage renders this duality on a single screen: the left panel shows the aurora oval forecast expanding southward in real time; the right panel shows utility stock prices twitching, satellite operator telemetry degrading, and transpolar flight paths bending away from the pole. Data flows from the `NOAA Space Weather Prediction Center` (solar wind, Kp index, 30-minute aurora forecast), `Alpha Vantage` for real-time equity prices on utilities and satellite operators, `CelesTrak` for tracking orbital decay acceleration on LEO constellations, and `ADS-B Exchange` for monitoring polar flight reroutes in real time. It is the rare app where sublime natural beauty and cold financial consequence occupy the same pixel.
-
-### Synaptic Markets
-
-What if the global financial system is not a machine but a brain — and we could diagnose it the way neuroscientists diagnose seizures? Synaptic Markets borrows visualization frameworks and signal-processing algorithms from neuroscience to render market structure as a living neural network. Stock exchanges become brain regions mapped onto a 3D connectome, trade flows become axonal bundles whose thickness reflects capital velocity, and volatility becomes the firing rate of individual neurons. The real provocation is computational: it applies EEG analysis techniques — power spectral density, event-related potentials, coherence analysis — from the `BCI Competition IV datasets` to financial time series from `Alpha Vantage` and `FRED`, detecting patterns that map uncannily onto neurological states. Low-VIX sideways markets register as slow-wave sleep. The minutes before a flash crash look like pre-seizure aura. A coordinated global selloff resembles a grand mal event propagating across hemispheres. Structural reference data from the `Allen Brain Atlas` provides the anatomical scaffolding for the visualization, so you are literally watching the market think, dream, and occasionally convulse.
-
-### Cosmic Ray Trading Floor
-
-Every second, subatomic particles forged in supernovae and active galactic nuclei slam into Earth's atmosphere at nearly the speed of light, producing cascading showers of secondary particles that occasionally flip a single bit in a computer's memory from 0 to 1. These single-event upsets are not theoretical — they are documented, quantified by NASA, and they increase at altitude and during solar minimum when Earth's magnetic shielding weakens. Cosmic Ray Trading Floor asks an unsettling question: what happens when those bit flips occur inside trading systems, satellite guidance, or power grid controllers? The dashboard correlates cosmic ray muon flux data from the `IceCube Neutrino Observatory` with surface radiation measurements from `NOAA SURFRAD`, geomagnetic shielding status from the `NOAA Space Weather Prediction Center`, satellite anomaly reports cross-referenced against `CelesTrak` orbital data, and financial market microstructure glitches surfaced through `Alpha Vantage` tick data. The result is part rigorous radiation physics, part speculative forensics — a tool that lets you watch the cosmic ray flux climb during solar minimum and ask whether that mysterious trading halt was triggered not by software bugs but by a particle that left a dying star ten million years ago.
-
-### Deep Time Portfolio
-
-Copper does not come from a mine. Copper comes from ancient ocean-floor hydrothermal vents where superheated water deposited metal sulfides into Precambrian sediments 2.1 billion years ago, sediments that were later folded, faulted, and thrust to the surface by tectonic collisions across geological epochs. The mine is just where we happen to dig today. Deep Time Portfolio forces investors to confront the geological timescales behind every commodity they trade, overlaying billions of years of Earth history onto real-time financial data. Click on copper and watch the interface zoom from a 2.1-billion-year-old stratigraphic column through plate reconstruction animations to a modern geological map of the Chilean Andes, then snap to today's extraction rate, remaining reserves, and live spot price from `Alpha Vantage`. Geological context comes from the `Macrostrat` API for stratigraphic and lithological data across deep time. Mineral deposit locations and reserve data flow from `USGS Mineral Resources`, crystal structures and material properties from `AFLOW` and the `Materials Project`, and all mine and infrastructure geography resolves through `OpenStreetMap`. The philosophical punch is in the math: humanity extracts in decades what took planetary-scale processes billions of years to concentrate.
-
-### The Drug Molecule Stock Exchange
-
-What if every drug molecule had a ticker symbol, a market cap, and a price chart? The Drug Molecule Stock Exchange treats the global pharmaceutical pipeline as a synthetic financial market where molecules are traded like securities. Each compound receives a dynamically calculated market capitalization derived from its bioactivity profile in `ChEMBL` (potency across hundreds of assays), binding affinity scores from `BindingDB`, ADMET toxicity predictions, patent landscape from `DrugBank`, and clinical trial stage from `DrugCentral`. Molecules IPO when they enter Phase I trials, their synthetic price fluctuates as new assay data arrives, and they delist when development is abandoned. The system renders each molecule as a 3D structure via `PubChem` inside a Bloomberg-style terminal interface, complete with molecular candlestick charts, sector groupings by therapeutic area, and an order book of upcoming catalysts. The killer overlay is correlation with actual pharma equities from `Alpha Vantage`: when Molecule X fails a binding assay, does Company Y's stock anticipate it? The tool makes visible something the pharmaceutical industry already knows intuitively — that billion-dollar market cap swings often trace back to a single hydrogen bond forming or failing to form inside a protein pocket.
-
-### Seismic Vinyl
-
-The Earth is already making music — we just cannot hear it. Earthquake seismograms are waveforms, identical in structure to audio signals, except their frequencies sit far below the 20 Hz floor of human perception. Seismic Vinyl pitch-shifts these planetary recordings into the audible range and produces them as listenable tracks, each earthquake becoming a unique composition with its own character, duration, and emotional texture. A magnitude 7 subduction event off Japan becomes a deep, rolling bass drone as the P-wave arrives, a grinding mid-range swell as the S-wave follows, and a shimmering, decaying surface wave tail that can last minutes. A shallow M5 strike-slip in Chile sounds completely different — sharp, percussive, brief. Raw seismogram data comes from the `USGS Earthquake Hazards Program` real-time feeds and the `STEAD` archive of labeled waveforms, processed through `ObsPy` for instrument response removal and frequency manipulation. The album art for each release is auto-generated from the seismogram's spectrogram — a visual fingerprint as unique as the sound. The final layer is financial rhythm: market tick data from `Alpha Vantage` modulates the tempo, so bull markets accelerate the beat and crashes slow it to a dirge. The result is a record collection pressed by plate tectonics.
-
-### Plate Tectonics Real Estate
-
-Your city has a credit rating from Moody's. But does it have a credit rating from the Earth? Plate Tectonics Real Estate assigns every city on the planet a geological credit rating — AAA to junk — based on the tectonic, volcanic, seismic, and sea-level forces operating beneath and around it on timescales from decades to millennia. Tokyo, drifting 8 centimeters per year toward the Pacific subduction zone and overdue for a Tokai megathrust event, gets a different rating than Winnipeg sitting comfortably on the Canadian Shield craton. San Francisco, straddling the San Andreas transform fault with 4 meters of accumulated strain energy, rates differently than Denver. Miami, built on porous Pleistocene limestone barely above a rising Atlantic, occupies its own category of slow-motion catastrophe. The system fuses earthquake history from the `USGS Earthquake Catalog`, volcanic threat data from the `Smithsonian Global Volcanism Program` database, millimeter-precision ground deformation velocities from `EarthScope GPS/GNSS networks`, sea-level rise projections from `NOAA Tides and Currents`, and city geocoding from `Nominatim`. The output is a searchable table where you type any city and receive a geological credit report: current tectonic regime, historical seismicity, active volcanic systems, measured ground velocity vector, projected sea-level exposure, and a composite rating that tells you whether the planet itself considers your real estate a safe investment.
-
-### Vessel Pharmacology
-
-Somewhere in the Arabian Sea right now, a bulk carrier is leaving Nhava Sheva port carrying thousands of tons of active pharmaceutical ingredients — the raw molecular building blocks that become the pills in your medicine cabinet. If that ship slows down, turns back, or never left, a drug shortage could ripple through American and European pharmacies in 90 days. Vessel Pharmacology makes this invisible supply chain visible by correlating real-time vessel tracking with pharmaceutical intelligence. AIS vessel data from `aisstream` monitors departures and transit times from major API manufacturing ports — Nhava Sheva and Mundra (India), Shanghai and Ningbo (China), Incheon (South Korea) — while `DrugBank` and `DrugCentral` provide the mapping between manufacturing origins and specific drug products. When vessel departures from Gujarat drop 30 percent in a monsoon month, the system cross-references which molecules are predominantly manufactured there, flags the corresponding drugs in shortage risk databases, and correlates with pharma equity movements from `Alpha Vantage`. Port and factory locations resolve through `OpenStreetMap`. The result is a pharmacological early warning system built from ship positions — because the global drug supply is, at its core, a maritime logistics problem that nobody tracks at the vessel level.
-
-### Gravity Anomaly Prospector
-
-Earth's gravitational field is not uniform. It ripples and warps in response to subsurface density variations — a massive iron ore deposit pulls the local gravity field fractionally stronger, a salt dome creates a measurable deficit, and a buried magma chamber distorts the geoid in ways that orbiting satellites can detect with exquisite precision. Gravity Anomaly Prospector turns this physics into a speculative resource-discovery tool. It renders the global gravity field from the `ICGEM` satellite gravity data as a richly contoured map, then overlays known extraction sites from the `USGS Mineral Resources Data System` and well location data from public petroleum datasets like Alberta's `Athabasca` well records. The provocation is in the gaps: regions where gravity says something anomalously dense exists at depth but where no active mining or drilling operation appears on the map. These become speculative prospects that the tool scores by cross-referencing nearby geological context, surface mineralogy from `AFLOW` materials databases, and the current commodity prices and mining equity valuations from `Alpha Vantage`. It is geophysics as venture capital — using the literal shape of Earth's gravitational field to prospect for resources that human exploration has not yet reached, and pricing what might be underground before anyone has drilled a single hole.
-
-## Commercial Products
-
-### Sanctions Cartography
-
-Compliance departments at commodity traders, banks, and shipping firms currently rely on static screening: they check a name against a list and move on. Sanctions Cartography turns this into a living, geographic intelligence layer. By streaming real-time vessel positions from `aisstream` AIS data and continuously cross-referencing vessel ownership chains against `OpenSanctions` entity graphs and the `trade.gov Consolidated Screening List`, the platform builds a dynamic map of sanctioned-entity shipping activity worldwide. When a vessel with a third-tier ownership link to a sanctioned entity deviates from its declared route and enters a port where your client has cargo, the system fires an alert — not after the fact, but while the ship is still 200 nautical miles out. Layer in `UN Comtrade` bilateral trade flow data to detect anomalous trade corridors (a sudden spike in "agricultural equipment" exports from a known transshipment hub to a sanctioned destination), and you have something no compliance tool currently offers: spatial pattern detection across ownership, movement, and trade flows simultaneously. This is a $10K+/month SaaS product because the alternative is a $50M fine from OFAC, and the combination of real-time AIS streaming with entity resolution across multiple sanctions databases creates a technical moat that simple list-screening vendors cannot replicate.
-
-### Underwriter's Eye
-
-Property insurance underwriting is still shockingly manual: an adjuster drives to a house, takes photos, and fills out a form. Underwriter's Eye replaces this with a continuous, satellite-derived risk score for any address on Earth. The system ingests `Sentinel-2` multispectral imagery to assess roof condition (reflectance degradation correlates with age and wear), vegetation encroachment (wildfire fuel load within 100 meters), and standing water proximity. It layers `USGS earthquake hazard` probability maps, `NOAA flood zone` delineations, and FEMA NFIP claims history for the area. Then it adds non-obvious environmental risk from `EPA TRI` toxic release inventory data (a chemical plant two miles upwind is a liability event waiting to happen) and hyperlocal `PurpleAir` air quality readings as a proxy for industrial activity and wildfire smoke exposure. Finally, `building violation` and `building permit` records reveal whether the property has unresolved structural issues or unpermitted additions that void standard risk models. The output is a single composite score, updated quarterly with fresh satellite passes, delivered via API to underwriting workflows. Insurance carriers pay because a 2% improvement in loss-ratio prediction on a $500M book of business is worth tens of millions annually. Real estate investors and mortgage lenders pay because they need the same risk view across entire portfolios, and no one else is fusing orbital imagery with ground-truth regulatory data at the parcel level.
-
-### Crop Futures Oracle
-
-The fundamental inefficiency in agricultural commodity markets is temporal: the USDA publishes crop condition reports on a weekly and monthly cadence, but satellite imagery updates every five days, and the vegetation does not wait for bureaucratic schedules. Crop Futures Oracle ingests `Sentinel-2` NDVI (Normalized Difference Vegetation Index) imagery across every major growing region globally, detects crop stress signatures — chlorophyll decline, irregular growth patterns, moisture deficit indicators — and correlates them with `NOAA` weather forecast models (precipitation, temperature anomalies, growing degree days) and `USDA NASS` soil moisture readings. The system then maps these physical signals against `USDA` crop progress reports and `Alpha Vantage` commodity futures curves for corn, soybeans, wheat, and cotton. The alpha is in the gap: when satellite imagery shows a 15% NDVI decline across the western Iowa corn belt three weeks before the next USDA Crop Production report, the futures market has not yet priced the shortfall. Commodity trading desks would pay $25K+/month because even a 48-hour informational edge on a single crop report translates to millions in positioning advantage. Agricultural lenders and crop insurers pay because they need to re-estimate portfolio exposure in near-real-time, not after the harvest fails.
-
-### Grid Arbitrage
-
-Electricity markets are among the last major commodity markets where physical intelligence still trumps financial modeling, because a power grid is a real-time physical system where local supply-demand mismatches create enormous price volatility. Grid Arbitrage fuses `EIA` electricity generation and consumption data with `National Grid ESO` balancing mechanism feeds and `NOAA`/`Tomorrow.io` weather forecasts (wind speed at hub height for wind farms, solar irradiance for PV installations, temperature-driven demand curves). The non-obvious layer is satellite reconnaissance: `Sentinel-2` imagery detects new solar and wind farm construction months before these facilities appear in official interconnection queues (construction pads, panel arrays, and turbine foundations are visible at 10-meter resolution), while the `Global Power Plant Database` provides the baseline capacity map. When the system detects that a 400MW solar farm in ERCOT is 80% complete but not yet in the market's supply forecast, or that three coal plants in PJM have gone cold (no thermal signature on Sentinel-2 SWIR bands) despite being listed as available capacity, traders can position ahead of the official capacity updates. Overlay `Alpha Vantage` natural gas and coal prices to model fuel-switching economics, and you have a comprehensive view of where grid stress will emerge. Energy trading firms and renewable developers pay $15K+/month because electricity price spikes are measured in hundreds of dollars per megawatt-hour and last only hours.
-
-### Tank Farm Watch
-
-The global oil market's most closely guarded secret is inventory levels, and the physical reality is that crude oil must be stored somewhere visible from space. Tank Farm Watch uses `Airbus` optical satellite imagery to measure floating-roof tank fill levels at the roughly 30 strategic tank farm clusters that matter globally — Cushing (Oklahoma), Saldanha Bay (South Africa), Fujairah (UAE), Ningbo-Zhoushan (China), Rotterdam, and others. Floating-roof tanks literally rise and fall with inventory; shadow-length analysis on high-resolution imagery yields fill-level estimates within 5-10% accuracy. The system correlates these measurements with `aisstream` AIS data to track every tanker approaching or departing these facilities — vessel draft readings (deeper draft = fuller cargo) provide a secondary inventory signal. When Cushing tanks are at 95% capacity, three VLCCs are idling offshore Fujairah, and `Alpha Vantage` WTI-Brent spread is in steep contango, the storage-play trade is crowded and crude prices face downward pressure. Oil trading desks currently pay orbital-imagery firms $50K+ per month for cruder versions of this analysis. Tank Farm Watch's edge is the fusion of tank-level inventory with vessel-level logistics — knowing not just how full the tanks are, but what is arriving and departing — creating a full supply-chain inventory model that no single data source provides alone.
-
-### Talent Terrain
-
-Every Fortune 500 company making a site-selection decision for a new office, factory, or R&D center hires consultants who spend six months assembling the same data manually. Talent Terrain automates this into a living intelligence platform. It ingests `Census Bureau` commuting flow data (LODES dataset) to map where workers actually live relative to employment centers, revealing which metros have untapped labor sheds. `Adzuna` job posting data (volume, titles, salary ranges) quantifies real-time hiring competition by skill category — if every tech company in Austin is posting for the same ML engineers, wage inflation is inevitable. `Building permit` data reveals where new commercial construction is headed (a surge in office permits in a suburb signals future employer competition 18-24 months out), while university enrollment and graduation data from IPEDS identifies emerging talent pipelines by discipline. Layer in BLS cost-of-employment indices and `Census` demographic projections, and the platform scores any metro area on talent availability, competition intensity, wage trajectory, and retention risk. HR strategy teams at large employers pay $8K+/month because a bad site-selection decision wastes $20-50M. Venture capital firms pay because evaluating whether a portfolio company's location supports its hiring plan is due-diligence table stakes.
-
-### Export Compass
-
-Mid-market manufacturers — the $20M-$500M revenue companies that make up the backbone of the economy — know they should export, but the complexity of identifying viable markets, navigating tariffs, and screening buyers is paralyzing. Export Compass solves this end-to-end. It starts with `UN Comtrade` bilateral trade flow data to identify which countries are importing your HS-code product category, from which competitors, and in what volumes — revealing markets where demand exists but your country's share is low. The platform then pulls `trade.gov` tariff rate data to calculate your landed-cost advantage or disadvantage versus incumbent suppliers, and surfaces active `trade.gov Trade Leads` (foreign government procurement opportunities) matching your product codes. Every potential buyer and intermediary is automatically screened against `OpenSanctions` and the `trade.gov Consolidated Screening List` for compliance. `Alpha Vantage` FX rate data and trend analysis flags currency-driven pricing opportunities. The product charges $2-5K/month and targets the 300,000+ US manufacturers who currently rely on trade shows and cold outreach. Trade promotion agencies could license it as infrastructure for their advisory programs. The moat is the integration: no one else stitches together market sizing, tariff math, compliance screening, and FX exposure into a single workflow for a non-specialist user.
-
-### Flood Clock
-
-Every coastal property in America has a ticking clock, and no one is showing the homeowner, the lender, or the insurer what time it reads. Flood Clock combines `NOAA` sea level rise projection scenarios (multiple RCP pathways), `USGS Water Services` real-time stream gauge and tidal data, `FEMA` flood insurance rate map delineations, and historical `Sentinel-2` satellite imagery analysis of water extent changes over the past decade to produce two numbers for any property: the "first flood date" (the year the property is statistically likely to experience its first flood event under current trajectory) and the "permanent inundation date" (when mean high tide reaches the structure's foundation elevation). These dates are displayed alongside the property's current market value, outstanding mortgage term, and insurance premium trajectory using `building footprint` data for precise elevation modeling and parcel-level resolution. A mortgage lender issuing a 30-year note on a property whose first-flood date is 2041 is making an 18-year bet, not a 30-year one. Insurance companies pay because this is actuarial table data for the climate era. Coastal real estate investors pay because the spread between current market price and flood-adjusted value is the entire trade. Municipal bond analysts pay because a city whose tax base is 40% inside the 2050 inundation zone has a credit problem no one is pricing.
-
-### Clinical Trial Arbitrage
-
-Biotech stock prices move 30-80% on clinical trial readouts, and the market is remarkably unsophisticated about predicting outcomes. Clinical Trial Arbitrage builds a systematic intelligence layer by cross-referencing ClinicalTrials.gov registry data (trial design, endpoints, enrollment, timelines) with `DrugBank` drug-target interaction profiles and `ChEMBL` bioactivity assay data for the same molecular targets. The core insight is mechanism-of-action clustering: when Company X's Phase III trial targets the same biological pathway that Company Y's compound just failed on, and the `ChEMBL` selectivity profiles show similar off-target binding patterns, that is a quantifiable risk signal the market is not pricing into Company X's stock — trackable via `Alpha Vantage` equity data. Conversely, when a new trial registers for a novel target where `ChEMBL` shows clean selectivity and `DrugBank` interaction data suggests low toxicity risk, the probability-weighted upside may exceed current valuation. The platform tracks hundreds of active trials, clusters them by mechanism, scores each on a composite probability metric, and alerts subscribers to mispriced risk/reward setups days or weeks before readouts. Biotech-focused hedge funds would pay $20K+/month because a single correctly predicted Phase III outcome can return tens of millions. Pharma business development teams pay because identifying which competitors' pipelines are scientifically fragile informs billion-dollar M&A decisions.
-
-### Power Plant Pulse
-
-The electricity sector has a transparency problem: grid operators know which plants are running, but the market does not — and the information asymmetry moves billions. Power Plant Pulse starts with the `Global Power Plant Database` as its facility registry (35,000+ plants worldwide) and overlays `Sentinel-2` thermal infrared and shortwave infrared imagery to detect operational status — a running coal or gas plant has a distinct thermal signature, and a plant that has gone cold mid-week when demand is high is a market-moving event. `NOAA` and `Tomorrow.io` weather data feeds wind speed and solar irradiance forecasts to predict renewable output hour-by-hour, while `EIA` electricity generation data provides the official but delayed production baseline. The non-obvious signal layer is hyperlocal `AQICN` and `PurpleAir` air quality data: a sudden spike in PM2.5 and SO2 readings downwind of a coal plant that was reportedly offline confirms it has quietly restarted — or a drop in emissions near an operating plant confirms an unreported outage. Correlate all of this with `Alpha Vantage` utility equity prices and natural gas futures, and the platform tells energy traders not just what the grid looks like right now, but what the market has failed to notice. Energy trading firms pay because unscheduled outages and stealth restarts create price dislocations measured in millions per hour. Utility equity analysts pay because a fleet's actual capacity factor — verified by satellite, not management guidance — is the single best predictor of quarterly earnings.
-
-## Productizable Meta-Ideas
-
-### Dataset Due Diligence Workbench
-
-Turn this repository into a practical analyst tool that scores resources for freshness, licensing clarity, operational reliability, and composability. Instead of just listing APIs and datasets, it helps founders and analysts decide which ones are safe to build on.
-
-### Signal Cookbook
-
-A product that packages reusable cross-dataset recipes such as "port congestion plus weather plus FX" or "air quality plus traffic plus demographics." It is effectively a library of investable, insurable, or research-grade signal combinations powered by the catalog.
-
-### Vertical Intelligence Studio
-
-Build a configurable platform where a user picks a domain such as ports, cities, climate, health, or satellites, then assembles a tailored dashboard from free datasets and APIs. The business model is not the raw data but the opinionated assembly, monitoring, and narrative layer.
+87. **Public Data Dating App** — A playful matchmaking product that pairs people by the kinds of datasets and API domains they obsess over. The core mechanic is personality through public data taste rather than conventional profile prompts.

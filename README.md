@@ -16,18 +16,22 @@ Freestyle is a local catalog and search app for free APIs, open datasets, and re
 1. Install dependencies in both app roots:
    - `npm install`
    - `cd web && npm install`
-2. Start the database:
+2. Copy `.env.example` to `.env` and fill in your keys
+3. Start the database:
    - `docker compose up -d db`
-3. Load data into Postgres:
+4. (Optional) Install Ollama and pull a model for local LLM inference:
+   - Install from https://ollama.com
+   - `ollama pull qwen2.5:32b` (or `qwen2.5:7b` for a faster, smaller model)
+5. Load data into Postgres:
    - `npm run seed`
    - `npm run embed`
-4. If you need to rebuild the catalog from source first:
+6. If you need to rebuild the catalog from source first:
    - make sure `free-stuff/` is present
    - run `npm run generate`
    - then rerun `npm run seed`
-5. Start the backend:
+7. Start the backend:
    - `npm run server`
-6. Start the frontend in another terminal:
+8. Start the frontend in another terminal:
    - `npm run dev:web`
 
 Defaults:
@@ -36,11 +40,14 @@ Defaults:
 - Frontend dev server: Vite default on `http://localhost:5173`
 - Database URL: `postgresql://freestyle:freestyle@localhost:5433/freestyle`
 
-Optional env vars:
+Optional env vars (see `.env.example`):
 
 - `DATABASE_URL` to point at a different Postgres instance
 - `PORT` to change the API port
-- `GEMINI_API_KEY` for the AI-assisted `discover` and `recheck` jobs
+- `LLM_PROVIDER` — `ollama` (default, free local inference) or `gemini` (paid API)
+- `OLLAMA_MODEL` — which Ollama model to use (default: `qwen2.5:32b`)
+- `OLLAMA_URL` — Ollama server URL (default: `http://localhost:11434`)
+- `GEMINI_API_KEY` — required for web search grounding in `discover` and `recheck`, even when using Ollama
 
 ## Important Run Targets
 
@@ -52,8 +59,8 @@ Optional env vars:
 - `npm run dev:web` starts the Vite frontend in `web/`; extra Vite args can be forwarded, for example `npm run dev:web -- --host 0.0.0.0 --port 4173`
 - `npm run build:web` builds the frontend for production
 - `npm run search -- "your query"` runs a CLI semantic search against the DB; example: `npm run search -- "satellite imagery for agriculture"`
-- `npm run discover` runs the Gemini-assisted discovery flow and adds verified resources; examples: `GEMINI_API_KEY=... npm run discover -- "free biodiversity datasets"`, `GEMINI_API_KEY=... npm run discover -- --process-queue`, or `GEMINI_API_KEY=... npm run discover -- --loop` to run continuously with auto-selected topics
-- `npm run recheck` revalidates existing resources and refreshes metadata/health; example: `GEMINI_API_KEY=... npm run recheck -- 25`
+- `npm run discover` runs the AI-assisted discovery flow and adds verified resources; examples: `npm run discover -- "free biodiversity datasets"`, `npm run discover -- --process-queue`, or `npm run discover -- --loop` to run continuously with auto-selected topics
+- `npm run recheck` revalidates existing resources and refreshes metadata/health; example: `npm run recheck -- 25`
 
 Notes:
 

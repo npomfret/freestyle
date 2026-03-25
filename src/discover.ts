@@ -154,8 +154,12 @@ const toolDeclarations: FunctionDeclaration[] = [
           type: Type.STRING,
           description: "One-sentence description of what this resource provides",
         },
+        analysis: {
+          type: Type.STRING,
+          description: "A 2-4 sentence analysis covering: what data/service it provides and in what format, how to access it (API key, open, rate limits), what makes it notable, and any caveats (freshness, coverage, free tier limits).",
+        },
       },
-      required: ["name", "url", "kinds", "topics", "description"],
+      required: ["name", "url", "kinds", "topics", "description", "analysis"],
     },
   },
   {
@@ -315,6 +319,7 @@ async function executeTool(
         kinds: (args.kinds as string[]).map(Kind),
         topics: (args.topics as string[]).map(Topic),
         description: args.description as string,
+        analysis: args.analysis as string | undefined,
       });
     case "fetch_page":
       return fetchPage({ url: Url(args.url as string) });
@@ -378,6 +383,7 @@ For each candidate resource:
 - kinds: "api" (has HTTP endpoints), "dataset" (downloadable data), "service" (hosted tool), "code" (repo/library)
 - topics: assign 1-4 from: ${TOPIC_LABELS.join(", ")}
 - description: one clear sentence about what it provides and why it's useful
+- analysis: 2-4 sentences covering what data/service it provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats
 
 ## Workflow
 1. web_search to find candidates

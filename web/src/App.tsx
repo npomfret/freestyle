@@ -20,6 +20,7 @@ interface Resource {
   topics: string[];
   sources: Source[];
   descriptions: string[];
+  analysis?: string | null;
 }
 
 interface PagedResponse {
@@ -68,6 +69,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   // Track current search/browse mode for loadMore
   const modeRef = useRef<{ type: "search" | "browse"; query?: string; topic?: string; kind?: string }>({ type: "browse" });
@@ -181,10 +183,12 @@ function App() {
     setQuery("");
   };
 
-  const renderCard = (r: Resource, showAge?: boolean) => (
-    <div key={r.id} className="card">
-      <div className="card-header">
-        <a href={r.url} target="_blank" rel="noopener noreferrer">
+  const renderCard = (r: Resource, showAge?: boolean) => {
+    const isExpanded = expandedId === r.id;
+    return (
+    <div key={r.id} className={`card ${isExpanded ? "card-expanded" : ""}`}>
+      <div className="card-header" onClick={() => setExpandedId(isExpanded ? null : r.id)} style={{ cursor: r.analysis ? "pointer" : undefined }}>
+        <a href={r.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
           {r.name}
         </a>
         {r.similarity != null && (
@@ -195,9 +199,15 @@ function App() {
         {showAge && r.created_at && (
           <span className="card-age">{timeAgo(r.created_at)}</span>
         )}
+        {r.analysis && (
+          <span className="expand-indicator">{isExpanded ? "\u25B2" : "\u25BC"}</span>
+        )}
       </div>
       {r.descriptions.length > 0 && (
         <p className="description">{r.descriptions[0]}</p>
+      )}
+      {isExpanded && r.analysis && (
+        <div className="analysis">{r.analysis}</div>
       )}
       <div className="tags">
         {r.kinds.map((k) => (
@@ -241,6 +251,7 @@ function App() {
       )}
     </div>
   );
+  };
 
   return (
     <div className="app">

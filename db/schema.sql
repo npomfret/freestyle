@@ -103,6 +103,16 @@ CREATE TABLE IF NOT EXISTS idea_resources (
 );
 
 -- ============================================================
+-- Resource analyses (longer-form writeups from agents)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS resource_analyses (
+    resource_id INT PRIMARY KEY REFERENCES resources(id) ON DELETE CASCADE,
+    analysis    TEXT NOT NULL,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
 -- Discovery queue (for the agent crawler)
 -- ============================================================
 

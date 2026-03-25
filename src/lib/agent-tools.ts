@@ -35,6 +35,7 @@ export async function addResource(
     kinds: Kind[];
     topics: Topic[];
     description: string;
+    analysis?: string;
   },
 ): Promise<{ id: ResourceId; status: "added" | "duplicate" }> {
   // Check for duplicate
@@ -70,6 +71,12 @@ export async function addResource(
     await db.query(
       "INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)",
       [id, args.description],
+    );
+  }
+  if (args.analysis) {
+    await db.query(
+      "INSERT INTO resource_analyses (resource_id, analysis) VALUES ($1, $2)",
+      [id, args.analysis],
     );
   }
   await db.query(

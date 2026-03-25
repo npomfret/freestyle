@@ -70,6 +70,10 @@ const toolDeclarations: FunctionDeclaration[] = [
           type: Type.STRING,
           description: "Brief notes about what you found: any changes, issues, or notable details",
         },
+        analysis: {
+          type: Type.STRING,
+          description: "A 2-4 sentence analysis covering: what data/service this resource provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats (freshness, coverage, free tier limits). Write this if the page loaded successfully.",
+        },
       },
       required: ["description", "is_alive", "notes"],
     },
@@ -248,6 +252,7 @@ async function executeTool(
       const isAlive = args.is_alive as boolean;
       const notes = args.notes as string;
       const topics = args.topics as string[] | undefined;
+      const analysis = args.analysis as string | undefined;
 
       // Update name if provided
       if (newName && newName !== r.name) {
@@ -272,6 +277,17 @@ async function executeTool(
             [r.id, t],
           );
         }
+      }
+
+      // Update analysis if provided
+      if (analysis) {
+        await db.query(
+          `INSERT INTO resource_analyses (resource_id, analysis, updated_at)
+           VALUES ($1, $2, now())
+           ON CONFLICT (resource_id) DO UPDATE
+           SET analysis = $2, updated_at = now()`,
+          [r.id, analysis],
+        );
       }
 
       // Determine status: alive resets, broken escalates suspect → dead

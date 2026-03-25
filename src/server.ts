@@ -194,7 +194,7 @@ async function enrichResources(
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
 
-  const [kinds, topics, sources, descs] = await Promise.all([
+  const [kinds, topics, sources, descs, analyses] = await Promise.all([
     db.query("SELECT resource_id, kind FROM resource_kinds WHERE resource_id = ANY($1)", [ids]),
     db.query("SELECT resource_id, topic FROM resource_topics WHERE resource_id = ANY($1)", [ids]),
     db.query(
@@ -205,11 +205,18 @@ async function enrichResources(
       [ids],
     ),
     db.query("SELECT resource_id, description FROM resource_descriptions WHERE resource_id = ANY($1)", [ids]),
+    db.query("SELECT resource_id, analysis FROM resource_analyses WHERE resource_id = ANY($1)", [ids]),
   ]);
 
   const kindMap = groupBy(kinds.rows, "resource_id", "kind");
   const topicMap = groupBy(topics.rows, "resource_id", "topic");
   const descMap = groupBy(descs.rows, "resource_id", "description");
+
+  // Build analysis map (one per resource)
+  const analysisMap: Record<number, string> = {};
+  for (const row of analyses.rows) {
+    analysisMap[row.resource_id as number] = row.analysis as string;
+  }
 
   // Build source map as objects with name + optional url
   const sourceObjMap: Record<number, { name: string; url: string | null }[]> = {};
@@ -228,6 +235,7 @@ async function enrichResources(
     topics: [...new Set(topicMap[r.id] ?? [])],
     sources: sourceObjMap[r.id] ?? [],
     descriptions: [...new Set(descMap[r.id] ?? [])],
+    analysis: analysisMap[r.id] ?? null,
   }));
 }
 

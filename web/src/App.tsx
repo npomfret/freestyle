@@ -18,6 +18,7 @@ interface Resource {
     similarity?: number;
     kinds: string[];
     topics: string[];
+    regions: string[];
     sources: Source[];
     descriptions: string[];
     analysis?: string | null;
@@ -32,6 +33,11 @@ interface PagedResponse {
 
 interface TopicCount {
     topic: string;
+    count: number;
+}
+
+interface RegionCount {
+    region: string;
     count: number;
 }
 
@@ -82,14 +88,16 @@ function useRecent() {
 
 function useTopicsAndStats() {
     const [topics, setTopics] = useState<TopicCount[]>([]);
+    const [regions, setRegions] = useState<RegionCount[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
 
     useEffect(() => {
         fetchJson<Stats>(`${API}/stats`).then(setStats).catch(() => {});
         fetchJson<TopicCount[]>(`${API}/topics`).then(setTopics).catch(() => {});
+        fetchJson<RegionCount[]>(`${API}/regions`).then(setRegions).catch(() => {});
     }, []);
 
-    return { topics, stats };
+    return { topics, regions, stats };
 }
 
 function useResourceSearch() {
@@ -100,18 +108,19 @@ function useResourceSearch() {
     const [searched, setSearched] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const modeRef = useRef<{ type: 'search' | 'browse'; query?: string; topic?: string; kind?: string }>({ type: 'browse' });
+    const modeRef = useRef<{ type: 'search' | 'browse'; query?: string; topic?: string; kind?: string; region?: string }>({ type: 'browse' });
 
-    const search = useCallback(async (query: string, topic?: string, kind?: string) => {
+    const search = useCallback(async (query: string, topic?: string, kind?: string, region?: string) => {
         if (!query.trim()) return;
         setLoading(true);
         setSearched(true);
         setResults([]);
         setError(null);
-        modeRef.current = { type: 'search', query, topic, kind };
+        modeRef.current = { type: 'search', query, topic, kind, region };
         const params = new URLSearchParams({ q: query, limit: String(PAGE_SIZE), offset: '0' });
         if (topic) params.set('topic', topic);
         if (kind) params.set('kind', kind);
+        if (region) params.set('region', region);
         try {
             const data = await fetchJson<PagedResponse>(`${API}/search?${params}`);
             setResults(data.items);
@@ -125,15 +134,16 @@ function useResourceSearch() {
         }
     }, []);
 
-    const browse = useCallback(async (topic?: string, kind?: string) => {
+    const browse = useCallback(async (topic?: string, kind?: string, region?: string) => {
         setLoading(true);
         setSearched(true);
         setResults([]);
         setError(null);
-        modeRef.current = { type: 'browse', topic, kind };
+        modeRef.current = { type: 'browse', topic, kind, region };
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: '0' });
         if (topic) params.set('topic', topic);
         if (kind) params.set('kind', kind);
+        if (region) params.set('region', region);
         try {
             const data = await fetchJson<PagedResponse>(`${API}/resources?${params}`);
             setResults(data.items);
@@ -159,11 +169,13 @@ function useResourceSearch() {
             const params = new URLSearchParams({ q: mode.query, limit: String(PAGE_SIZE), offset: String(offset) });
             if (mode.topic) params.set('topic', mode.topic);
             if (mode.kind) params.set('kind', mode.kind);
+            if (mode.region) params.set('region', mode.region);
             url = `${API}/search?${params}`;
         } else {
             const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
             if (mode.topic) params.set('topic', mode.topic);
             if (mode.kind) params.set('kind', mode.kind);
+            if (mode.region) params.set('region', mode.region);
             url = `${API}/resources?${params}`;
         }
 
@@ -196,10 +208,11 @@ function App() {
     const [query, setQuery] = useState('');
     const [selectedTopic, setSelectedTopic] = useState('');
     const [selectedKind, setSelectedKind] = useState('');
+    const [selectedRegion, setSelectedRegion] = useState('');
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
     const recent = useRecent();
-    const { topics, stats } = useTopicsAndStats();
+    const { topics, regions, stats } = useTopicsAndStats();
     const rs = useResourceSearch();
 
     const sentinelRef = useRef<HTMLDivElement>(null);
@@ -223,30 +236,39 @@ function App() {
     }, [rs.hasMore, rs.loadingMore, rs.loadMore]);
 
     const doSearch = useCallback(() => {
-        if (query.trim()) rs.search(query, selectedTopic || undefined, selectedKind || undefined);
-    }, [query, selectedTopic, selectedKind, rs.search]);
+        if (query.trim()) rs.search(query, selectedTopic || undefined, selectedKind || undefined, selectedRegion || undefined);
+    }, [query, selectedTopic, selectedKind, selectedRegion, rs.search]);
 
     const handleTopicClick = (topic: string) => {
         const next = topic === selectedTopic ? '' : topic;
         setSelectedTopic(next);
         setQuery('');
-        rs.browse(next || undefined, selectedKind || undefined);
+        rs.browse(next || undefined, selectedKind || undefined, selectedRegion || undefined);
     };
 
-    // Fix: pass the new kind directly instead of reading stale state
     const handleKindClick = (kind: string) => {
         const next = kind === selectedKind ? '' : kind;
         setSelectedKind(next);
         if (query) {
-            rs.search(query, selectedTopic || undefined, next || undefined);
+            rs.search(query, selectedTopic || undefined, next || undefined, selectedRegion || undefined);
         } else {
-            rs.browse(selectedTopic || undefined, next || undefined);
+            rs.browse(selectedTopic || undefined, next || undefined, selectedRegion || undefined);
+        }
+    };
+
+    const handleRegionChange = (region: string) => {
+        setSelectedRegion(region);
+        if (query) {
+            rs.search(query, selectedTopic || undefined, selectedKind || undefined, region || undefined);
+        } else {
+            rs.browse(selectedTopic || undefined, selectedKind || undefined, region || undefined);
         }
     };
 
     const clearFilters = () => {
         setSelectedTopic('');
         setSelectedKind('');
+        setSelectedRegion('');
         setQuery('');
         rs.clear();
     };
@@ -282,6 +304,15 @@ function App() {
                             onClick={() => handleTopicClick(t)}
                         >
                             {t}
+                        </span>
+                    ))}
+                    {r.regions.map((reg) => (
+                        <span
+                            key={reg}
+                            className='tag region'
+                            onClick={() => handleRegionChange(reg)}
+                        >
+                            {reg}
                         </span>
                     ))}
                 </div>
@@ -366,7 +397,21 @@ function App() {
                             {k}
                         </button>
                     ))}
-                    {(selectedTopic || selectedKind || rs.searched) && (
+                    {regions.length > 0 && (
+                        <select
+                            className='region-select'
+                            value={selectedRegion}
+                            onChange={(e) => handleRegionChange(e.target.value)}
+                        >
+                            <option value=''>All regions</option>
+                            {regions.map((r) => (
+                                <option key={r.region} value={r.region}>
+                                    {r.region} ({r.count})
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                    {(selectedTopic || selectedKind || selectedRegion || rs.searched) && (
                         <button className='clear-btn' onClick={clearFilters}>
                             Clear filters
                         </button>

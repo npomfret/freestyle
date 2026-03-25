@@ -127,6 +127,26 @@ header h1 {
   font-size: 12px;
 }
 
+.region-select {
+  padding: 4px 8px;
+  font-size: 13px;
+  background: #1a1a2a;
+  border: 1px solid #2a2a3a;
+  border-radius: 16px;
+  color: #aaa;
+  cursor: pointer;
+  outline: none;
+}
+
+.region-select:hover {
+  border-color: #5b6ef7;
+  color: #ddd;
+}
+
+.region-select:focus {
+  border-color: #5b6ef7;
+}
+
 .topic-filters {
   display: flex;
   flex-wrap: wrap;
@@ -266,6 +286,17 @@ header h1 {
 .tag.topic:hover {
   background: #1e1e3a;
   color: #99b;
+}
+
+.tag.region {
+  background: #1a2028;
+  color: #6a8a7a;
+  cursor: pointer;
+}
+
+.tag.region:hover {
+  background: #1e2a30;
+  color: #8ab;
 }
 
 .card-meta {

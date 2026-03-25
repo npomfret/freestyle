@@ -4,7 +4,7 @@ import { join, resolve, extname } from "path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const FREE_STUFF = join(ROOT, "free-stuff");
-const README_PATH = join(ROOT, "README.md");
+const CATALOG_MD_PATH = join(ROOT, "CATALOG.md");
 const CATALOG_JSON_PATH = join(ROOT, "catalog.json");
 
 // ============================================================
@@ -729,9 +729,9 @@ function main(): void {
   const projects = loadProjects();
   const resources = buildResources(projects);
 
-  writeFileSync(README_PATH, render(projects, resources));
+  writeFileSync(CATALOG_MD_PATH, render(projects, resources));
   const listCount = projects.filter((p) => p.listBased).length;
-  console.log(`Wrote ${README_PATH}`);
+  console.log(`Wrote ${CATALOG_MD_PATH}`);
   console.log(`Projects: ${projects.length}`);
   console.log(`List-based: ${listCount}`);
   console.log(`Direct: ${projects.length - listCount}`);

@@ -43,6 +43,7 @@ interface Stats {
     withEmbeddings: number;
     added24h: number;
     checked24h: number;
+    dead24h: number;
 }
 
 function timeAgo(dateStr: string): string {
@@ -328,6 +329,12 @@ function App() {
                                 <span>{stats.added24h} added today</span>
                                 <span className='sep'>·</span>
                                 <span>{stats.checked24h} checked today</span>
+                                {stats.dead24h > 0 && (
+                                    <>
+                                        <span className='sep'>·</span>
+                                        <span>{stats.dead24h} marked dead today</span>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>

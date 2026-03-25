@@ -73,6 +73,7 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
         const withEmbeddings = (await db.query('SELECT COUNT(*) FROM resources WHERE embedding IS NOT NULL')).rows[0].count;
         const added24h = (await db.query('SELECT COUNT(*) FROM resources WHERE created_at >= now() - interval \'24 hours\'')).rows[0].count;
         const checked24h = (await db.query('SELECT COUNT(*) FROM link_checks WHERE checked_at >= now() - interval \'24 hours\'')).rows[0].count;
+        const dead24h = (await db.query('SELECT COUNT(*) FROM link_checks WHERE status = \'dead\' AND checked_at >= now() - interval \'24 hours\'')).rows[0].count;
         res.json({
             resources: Number(resources),
             apis: Number(apis),
@@ -81,6 +82,7 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
             withEmbeddings: Number(withEmbeddings),
             added24h: Number(added24h),
             checked24h: Number(checked24h),
+            dead24h: Number(dead24h),
         });
     } catch (err) {
         log.error('stats failed', { error: String(err) });

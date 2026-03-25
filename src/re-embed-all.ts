@@ -1,14 +1,11 @@
 import "dotenv/config";
-import pg from "pg";
+import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://freestyle:freestyle@localhost:5433/freestyle";
 const BATCH_SIZE = 50;
 
 async function main(): Promise<void> {
-  const db = new pg.Client({ connectionString: DATABASE_URL });
+  const db = createClient();
   await db.connect();
 
   const { rows } = await db.query(`
@@ -29,7 +26,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`Generating embeddings for ${rows.length} resources (local model)...`);
+  console.log(`Re-embedding ${rows.length} resources with local model...\n`);
 
   let total = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -51,23 +48,14 @@ async function main(): Promise<void> {
     process.stdout.write(`\r  ${total}/${rows.length}`);
   }
 
-  console.log("");
+  console.log("\n\nCreating HNSW index...");
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_resources_embedding ON resources
+    USING hnsw (embedding vector_cosine_ops)
+  `);
 
-  // Create HNSW index if missing
-  const { rows: idxRows } = await db.query(
-    "SELECT 1 FROM pg_indexes WHERE indexname = 'idx_resources_embedding'",
-  );
-  if (!idxRows.length) {
-    console.log("Creating vector similarity index...");
-    await db.query(`
-      CREATE INDEX idx_resources_embedding ON resources
-      USING hnsw (embedding vector_cosine_ops)
-    `);
-    console.log("Index created.");
-  }
-
-  await db.end();
   console.log(`Done. Embedded ${total} resources.`);
+  await db.end();
   process.exit(0);
 }
 

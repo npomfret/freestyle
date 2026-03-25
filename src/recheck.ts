@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { createClient } from "./lib/db.js";
+import { embed } from "./lib/embeddings.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -9,7 +10,6 @@ if (!GEMINI_API_KEY) {
 }
 
 const MODEL = "gemini-2.5-flash";
-const EMBEDDING_MODEL = "gemini-embedding-001";
 const MAX_TURNS = 20;
 
 const TOPIC_LABELS = [
@@ -183,20 +183,14 @@ async function executeTool(
         [r.id, isAlive, notes],
       );
 
-      // Re-generate embedding with new description
-      const embText = [r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(" ");
+      // Re-generate embedding with new description using local model
+      const embText = [newName ?? r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(" ");
       try {
-        const resp = await genai.models.embedContent({
-          model: EMBEDDING_MODEL,
-          contents: [embText],
-          config: { outputDimensionality: 768 },
-        });
-        const vec = resp.embeddings?.[0]?.values;
-        if (vec) {
-          await db.query(
-            "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
-            [`[${vec.join(",")}]`, r.id],
-          );
+        const vecs = await embed([embText]);
+        await db.query(
+          "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
+          [`[${vecs[0].join(",")}]`, r.id],
+        );
         }
       } catch {
         // Embedding update is best-effort

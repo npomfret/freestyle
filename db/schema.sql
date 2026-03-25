@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS resources (
     id          SERIAL PRIMARY KEY,
     name        TEXT NOT NULL,
     url         TEXT NOT NULL UNIQUE,
-    embedding   vector(768),
+    embedding   vector(384),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

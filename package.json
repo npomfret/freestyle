@@ -6,6 +6,7 @@
     "generate": "tsx src/generate-catalog.ts",
     "seed": "tsx src/seed-database.ts",
     "embed": "tsx src/generate-embeddings.ts",
+    "re-embed": "tsx src/re-embed-all.ts",
     "search": "tsx src/search.ts",
     "discover": "tsx src/discover.ts",
     "recheck": "tsx src/recheck.ts",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
+    "@huggingface/transformers": "^3.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

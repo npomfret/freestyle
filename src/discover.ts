@@ -306,7 +306,7 @@ async function executeTool(
     case "check_existing":
       return checkExisting(db, args as { url: string });
     case "add_resource":
-      return addResource(db, genai, args as {
+      return addResource(db, args as {
         name: string; url: string; kinds: string[];
         topics: string[]; description: string;
       });

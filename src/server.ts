@@ -2,19 +2,16 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { resolve } from "path";
-import { GoogleGenAI } from "@google/genai";
 import { createClient } from "./lib/db.js";
+import { embed } from "./lib/embeddings.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const EMBEDDING_MODEL = "gemini-embedding-001";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const db = createClient();
-const genai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 // ============================================================
 // API Routes
@@ -56,48 +53,40 @@ app.get("/api/search", async (req, res) => {
     return;
   }
 
-  // If we have Gemini, do semantic search; otherwise fall back to FTS + trigram
-  if (genai) {
-    try {
-      const r = await genai.models.embedContent({
-        model: EMBEDDING_MODEL,
-        contents: [q],
-        config: { outputDimensionality: 768 },
-      });
-      const vec = "[" + r.embeddings![0].values!.join(",") + "]";
+  // Semantic search using local embedding model
+  try {
+    const vecs = await embed([q]);
+    const vec = "[" + vecs[0].join(",") + "]";
 
-      let sql = `
-        SELECT r.id, r.name, r.url,
-               1 - (r.embedding <=> $1::vector) AS similarity
-        FROM resources r
-        WHERE r.embedding IS NOT NULL
-      `;
-      const params: unknown[] = [vec];
-      let paramIdx = 2;
+    let sql = `
+      SELECT r.id, r.name, r.url,
+             1 - (r.embedding <=> $1::vector) AS similarity
+      FROM resources r
+      WHERE r.embedding IS NOT NULL
+    `;
+    const params: unknown[] = [vec];
+    let paramIdx = 2;
 
-      if (topic) {
-        sql += ` AND EXISTS (SELECT 1 FROM resource_topics rt WHERE rt.resource_id = r.id AND rt.topic = $${paramIdx})`;
-        params.push(topic);
-        paramIdx++;
-      }
-      if (kind) {
-        sql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${paramIdx})`;
-        params.push(kind);
-        paramIdx++;
-      }
-
-      sql += ` ORDER BY r.embedding <=> $1::vector LIMIT $${paramIdx}`;
-      params.push(limit);
-
-      const { rows } = await db.query(sql, params);
-
-      // Enrich with topics, kinds, descriptions
-      const enriched = await enrichResources(rows);
-      res.json(enriched);
-      return;
-    } catch {
-      // Fall through to text search
+    if (topic) {
+      sql += ` AND EXISTS (SELECT 1 FROM resource_topics rt WHERE rt.resource_id = r.id AND rt.topic = $${paramIdx})`;
+      params.push(topic);
+      paramIdx++;
     }
+    if (kind) {
+      sql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${paramIdx})`;
+      params.push(kind);
+      paramIdx++;
+    }
+
+    sql += ` ORDER BY r.embedding <=> $1::vector LIMIT $${paramIdx}`;
+    params.push(limit);
+
+    const { rows } = await db.query(sql, params);
+    const enriched = await enrichResources(rows);
+    res.json(enriched);
+    return;
+  } catch {
+    // Fall through to text search
   }
 
   // Fallback: trigram + FTS

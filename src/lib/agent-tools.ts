@@ -1,7 +1,5 @@
 import pg from "pg";
-import { GoogleGenAI } from "@google/genai";
-
-const EMBEDDING_MODEL = "gemini-embedding-001";
+import { embed } from "./embeddings.js";
 
 // ============================================================
 // Tool: check_existing
@@ -28,7 +26,6 @@ export async function checkExisting(
 
 export async function addResource(
   db: pg.Client,
-  genai: GoogleGenAI,
   args: {
     name: string;
     url: string;
@@ -77,23 +74,16 @@ export async function addResource(
     [id, "discovery-agent"],
   );
 
-  // Generate embedding immediately
+  // Generate embedding immediately using local model
   const text = [args.name, args.description, ...args.topics]
     .filter(Boolean)
     .join(" ");
   try {
-    const r = await genai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: [text],
-      config: { outputDimensionality: 768 },
-    });
-    const vec = r.embeddings?.[0]?.values;
-    if (vec) {
-      await db.query(
-        "UPDATE resources SET embedding = $1::vector WHERE id = $2",
-        [`[${vec.join(",")}]`, id],
-      );
-    }
+    const vecs = await embed([text]);
+    await db.query(
+      "UPDATE resources SET embedding = $1::vector WHERE id = $2",
+      [`[${vecs[0].join(",")}]`, id],
+    );
   } catch (err) {
     console.error(`  Warning: embedding failed for ${args.url}:`, err);
   }

@@ -4,6 +4,7 @@ import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './l
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { requireEnv } from './lib/env.js';
+import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import { Kind, SourceName, Topic, Url } from './lib/types.js';
 
@@ -238,14 +239,14 @@ const toolDeclarations: FunctionDeclaration[] = [
 
 async function webSearch(query: string): Promise<string> {
     try {
-        const response = await genai.models.generateContent({
+        const response = await withRetry(() => genai.models.generateContent({
             model: MODEL,
             contents:
                 `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
             config: {
                 tools: [{ googleSearch: {} }],
             },
-        });
+        }), 'web_search');
         // Extract grounding metadata for actual URLs if available
         const groundingMeta = response.candidates?.[0]?.groundingMetadata;
         let text = response.text ?? 'No results found.';
@@ -273,14 +274,14 @@ async function webSearch(query: string): Promise<string> {
 
 async function checkSocial(name: string): Promise<string> {
     try {
-        const response = await genai.models.generateContent({
+        const response = await withRetry(() => genai.models.generateContent({
             model: MODEL,
             contents:
                 `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
             config: {
                 tools: [{ googleSearch: {} }],
             },
-        });
+        }), 'check_social');
         return response.text ?? 'No social data found.';
     } catch (err) {
         return `Social check failed: ${err}`;
@@ -289,14 +290,14 @@ async function checkSocial(name: string): Promise<string> {
 
 async function checkReferences(url: string): Promise<string> {
     try {
-        const response = await genai.models.generateContent({
+        const response = await withRetry(() => genai.models.generateContent({
             model: MODEL,
             contents:
                 `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
             config: {
                 tools: [{ googleSearch: {} }],
             },
-        });
+        }), 'check_references');
         return response.text ?? 'No reference data found.';
     } catch (err) {
         return `Reference check failed: ${err}`;
@@ -416,13 +417,13 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
     alog.info('agent started', { query });
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const response = await genai.models.generateContent({
+        const response = await withRetry(() => genai.models.generateContent({
             model: MODEL,
             contents,
             config: {
                 tools: [{ functionDeclarations: toolDeclarations }],
             },
-        });
+        }), 'discover');
 
         const candidate = response.candidates?.[0];
         if (!candidate?.content?.parts) {

@@ -3,6 +3,7 @@ import type { Content, FunctionDeclaration, Part } from '@google/genai';
 import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
 import { requireEnv } from './lib/env.js';
+import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, ResourceId, Topic, Url } from './lib/types.js';
 import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
@@ -283,11 +284,11 @@ async function executeTool(
 
         case 'web_search': {
             try {
-                const response = await genai.models.generateContent({
+                const response = await withRetry(() => genai.models.generateContent({
                     model: MODEL,
                     contents: `Search for: ${args.query}`,
                     config: { tools: [{ googleSearch: {} }] },
-                });
+                }), 'web_search');
                 return { results: response.text ?? 'No results.' };
             } catch (err) {
                 return { results: `Search failed: ${err}` };
@@ -509,13 +510,13 @@ Be concise.`;
     const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const response = await genai.models.generateContent({
+        const response = await withRetry(() => genai.models.generateContent({
             model: MODEL,
             contents,
             config: {
                 tools: [{ functionDeclarations: toolDeclarations }],
             },
-        });
+        }), 'recheck');
 
         const candidate = response.candidates?.[0];
         if (!candidate?.content?.parts) break;

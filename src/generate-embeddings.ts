@@ -1,6 +1,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { embed } from "./lib/embeddings.js";
+import { log } from "./lib/logger.js";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
@@ -24,12 +25,12 @@ async function main(): Promise<void> {
   `);
 
   if (!rows.length) {
-    console.log("All resources already have embeddings.");
+    log.info("nothing to embed", { reason: "all resources already have embeddings" });
     await db.end();
     return;
   }
 
-  console.log(`Generating embeddings for ${rows.length} resources (local model)...`);
+  log.info("embedding started", { total: rows.length, model: "local" });
 
   let total = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -48,26 +49,26 @@ async function main(): Promise<void> {
     }
 
     total += batch.length;
-    process.stdout.write(`\r  ${total}/${rows.length}`);
+    if (total % 500 === 0 || total === rows.length) {
+      log.info("embedding progress", { done: total, total: rows.length });
+    }
   }
-
-  console.log("");
 
   // Create HNSW index if missing
   const { rows: idxRows } = await db.query(
     "SELECT 1 FROM pg_indexes WHERE indexname = 'idx_resources_embedding'",
   );
   if (!idxRows.length) {
-    console.log("Creating vector similarity index...");
+    log.info("creating vector similarity index");
     await db.query(`
       CREATE INDEX idx_resources_embedding ON resources
       USING hnsw (embedding vector_cosine_ops)
     `);
-    console.log("Index created.");
+    log.info("index created");
   }
 
   await db.end();
-  console.log(`Done. Embedded ${total} resources.`);
+  log.info("embedding complete", { embedded: total });
   process.exit(0);
 }
 

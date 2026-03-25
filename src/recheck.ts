@@ -2,10 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
+import { log } from "./lib/logger.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
-  console.error("Error: GEMINI_API_KEY not set.");
+  log.error("missing api key", { key: "GEMINI_API_KEY" });
   process.exit(1);
 }
 
@@ -272,6 +273,8 @@ Be concise. One fetch, one update. Done.`;
     { role: "user", parts: [{ text: systemPrompt }] },
   ];
 
+  const rlog = log.child({ agent: "recheck", resourceId: resource.id, url: resource.url });
+
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await genai.models.generateContent({
       model: MODEL,
@@ -288,7 +291,7 @@ Be concise. One fetch, one update. Done.`;
 
     const textParts = candidate.content.parts.filter((p: Part) => p.text);
     for (const part of textParts) {
-      console.log(`    ${part.text}`);
+      rlog.debug("agent text", { text: part.text });
     }
 
     const functionCalls = candidate.content.parts.filter((p: Part) => p.functionCall);
@@ -300,11 +303,10 @@ Be concise. One fetch, one update. Done.`;
       const toolName = fc.name!;
       const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
 
-      console.log(`    Tool: ${toolName}(${JSON.stringify(toolArgs).slice(0, 100)})`);
+      rlog.info("tool call", { tool: toolName, args: toolArgs });
 
       const result = await executeTool(toolName, toolArgs);
-      const resultStr = JSON.stringify(result);
-      console.log(`    Result: ${resultStr.slice(0, 150)}`);
+      rlog.debug("tool result", { tool: toolName, result });
 
       responseParts.push({
         functionResponse: {
@@ -326,27 +328,44 @@ Be concise. One fetch, one update. Done.`;
 // Main loop
 // ============================================================
 
+async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
+  const { rows } = await db.query("SELECT id, name, url FROM resources WHERE url = $1", [url]);
+  if (!rows.length) return null;
+
+  const r = rows[0];
+  const [kinds, topics, descs] = await Promise.all([
+    db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]),
+    db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]),
+    db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]),
+  ]);
+
+  return {
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    kinds: kinds.rows.map((k: { kind: string }) => k.kind),
+    topics: topics.rows.map((t: { topic: string }) => t.topic),
+    descriptions: descs.rows.map((d: { description: string }) => d.description),
+  };
+}
+
 async function main(): Promise<void> {
-  const count = Number(process.argv[2]) || 10;
+  const arg = process.argv[2];
+  const isSingleUrl = arg?.startsWith("http");
   await db.connect();
 
-  console.log(`\nRecheck agent: processing ${count} resources\n`);
-
-  for (let i = 0; i < count; i++) {
-    const resource = await getNextResource();
+  if (isSingleUrl) {
+    const resource = await getResourceByUrl(arg);
     if (!resource) {
-      console.log("No more resources to check.");
-      break;
+      log.error("resource not found", { url: arg });
+      await db.end();
+      process.exit(1);
     }
-
-    console.log(`[${i + 1}/${count}] ${resource.name}`);
-    console.log(`  URL: ${resource.url}`);
-
+    log.info("rechecking single resource", { id: resource.id, name: resource.name, url: resource.url });
     try {
       await recheckOne(resource);
     } catch (err) {
-      console.error(`  Error: ${err}`);
-      // Record the failure
+      log.error("recheck failed", { id: resource.id, url: resource.url, error: String(err) });
       await db.query(
         `INSERT INTO link_checks (resource_id, checked_at, is_alive, notes)
          VALUES ($1, now(), false, $2)
@@ -355,8 +374,32 @@ async function main(): Promise<void> {
         [resource.id, `Agent error: ${err}`],
       );
     }
+  } else {
+    const count = Number(arg) || 10;
+    log.info("recheck started", { count });
 
-    console.log("");
+    for (let i = 0; i < count; i++) {
+      const resource = await getNextResource();
+      if (!resource) {
+        log.info("no more resources to check");
+        break;
+      }
+
+      log.info("checking resource", { index: i + 1, total: count, id: resource.id, name: resource.name, url: resource.url });
+
+      try {
+        await recheckOne(resource);
+      } catch (err) {
+        log.error("recheck failed", { id: resource.id, url: resource.url, error: String(err) });
+        await db.query(
+          `INSERT INTO link_checks (resource_id, checked_at, is_alive, notes)
+           VALUES ($1, now(), false, $2)
+           ON CONFLICT (resource_id) DO UPDATE
+           SET checked_at = now(), is_alive = false, notes = $2`,
+          [resource.id, `Agent error: ${err}`],
+        );
+      }
+    }
   }
 
   // Print summary
@@ -367,7 +410,7 @@ async function main(): Promise<void> {
       COUNT(*) AS total
     FROM link_checks
   `);
-  console.log(`Overall: ${rows[0].alive} alive, ${rows[0].dead} dead (${rows[0].total} checked total)`);
+  log.info("recheck complete", { alive: Number(rows[0].alive), dead: Number(rows[0].dead), total: Number(rows[0].total) });
 
   await db.end();
 }

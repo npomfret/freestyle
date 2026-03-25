@@ -1,6 +1,7 @@
 import "dotenv/config";
 import pg from "pg";
 import { embed } from "./lib/embeddings.js";
+import { log } from "./lib/logger.js";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
@@ -23,11 +24,13 @@ async function search(query: string): Promise<void> {
     [vec],
   );
 
-  console.log(`\nSemantic search: "${query}"\n`);
+  log.info("search complete", { query, results: rows.length });
   for (const row of rows) {
-    const sim = (row.similarity as number).toFixed(3);
-    console.log(`  ${sim}  ${row.name}`);
-    console.log(`         ${row.url}`);
+    log.info("result", {
+      similarity: Number((row.similarity as number).toFixed(3)),
+      name: row.name,
+      url: row.url,
+    });
   }
 
   await db.end();

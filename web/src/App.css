@@ -297,8 +297,46 @@ header h1 {
   flex-shrink: 0;
 }
 
+.card-age {
+  font-size: 11px;
+  color: #7a7;
+  background: #0a1a10;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
 .card-sources {
   font-size: 11px;
   color: #444;
   margin-top: 2px;
+}
+
+.card-sources a {
+  color: #668;
+  text-decoration: none;
+}
+
+.card-sources a:hover {
+  color: #99b;
+  text-decoration: underline;
+}
+
+/* What's New section */
+.recent-section {
+  margin-bottom: 24px;
+}
+
+.recent-section h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ccc;
+  margin-bottom: 12px;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
 }

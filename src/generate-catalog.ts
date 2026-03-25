@@ -1,6 +1,7 @@
 import { execSync } from "child_process";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { join, resolve, extname } from "path";
+import { log } from "./lib/logger.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const FREE_STUFF = join(ROOT, "free-stuff");
@@ -731,13 +732,16 @@ function main(): void {
 
   writeFileSync(CATALOG_MD_PATH, render(projects, resources));
   const listCount = projects.filter((p) => p.listBased).length;
-  console.log(`Wrote ${CATALOG_MD_PATH}`);
-  console.log(`Projects: ${projects.length}`);
-  console.log(`List-based: ${listCount}`);
-  console.log(`Direct: ${projects.length - listCount}`);
+  log.info("catalog generated", {
+    markdownPath: CATALOG_MD_PATH,
+    jsonPath: CATALOG_JSON_PATH,
+    projects: projects.length,
+    listBased: listCount,
+    direct: projects.length - listCount,
+    resources: resources.length,
+  });
 
   writeFileSync(CATALOG_JSON_PATH, JSON.stringify({ projects, resources }, null, 2));
-  console.log(`Wrote ${CATALOG_JSON_PATH}`);
 }
 
 main();

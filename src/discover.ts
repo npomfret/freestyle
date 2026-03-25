@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { createClient } from "./lib/db.js";
+import { log } from "./lib/logger.js";
 import {
   checkExisting,
   addResource,
@@ -12,7 +13,7 @@ import { generateDiscoveryQuery } from "./lib/discovery-topics.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
-  console.error("Error: GEMINI_API_KEY not set.");
+  log.error("missing api key", { key: "GEMINI_API_KEY" });
   process.exit(1);
 }
 
@@ -384,7 +385,8 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
     { role: "user", parts: [{ text: systemPrompt }] },
   ];
 
-  console.log(`\nDiscovery agent starting: "${query}"\n`);
+  const alog = log.child({ agent: "discover" });
+  alog.info("agent started", { query });
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await genai.models.generateContent({
@@ -397,7 +399,7 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 
     const candidate = response.candidates?.[0];
     if (!candidate?.content?.parts) {
-      console.log("  No response from model, stopping.");
+      alog.warn("no response from model", { turn });
       break;
     }
 
@@ -405,7 +407,7 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 
     const textParts = candidate.content.parts.filter((p: Part) => p.text);
     for (const part of textParts) {
-      console.log(`  Agent: ${part.text}`);
+      alog.debug("agent text", { text: part.text });
     }
 
     const fullText = textParts.map((p: Part) => p.text ?? "").join("");
@@ -430,12 +432,10 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
       const toolName = fc.name!;
       const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
 
-      const argStr = JSON.stringify(toolArgs);
-      console.log(`  Tool: ${toolName}(${argStr.length > 120 ? argStr.slice(0, 120) + "..." : argStr})`);
+      alog.info("tool call", { tool: toolName, args: toolArgs });
 
       const result = await executeTool(toolName, toolArgs);
-      const resultStr = JSON.stringify(result);
-      console.log(`  Result: ${resultStr.length > 200 ? resultStr.slice(0, 200) + "..." : resultStr}`);
+      alog.debug("tool result", { tool: toolName, result });
 
       responseParts.push({
         functionResponse: {
@@ -450,7 +450,7 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
   }
 
   await db.end();
-  console.log("\nAgent finished.");
+  alog.info("agent finished");
 }
 
 // ============================================================
@@ -467,6 +467,6 @@ if (userQuery === "--process-queue") {
   discover(userQuery);
 } else {
   const { group, query } = generateDiscoveryQuery();
-  console.log(`Auto-selected topic group: ${group}\n`);
+  log.info("auto-selected topic group", { group });
   discover(query);
 }

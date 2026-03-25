@@ -1,5 +1,6 @@
 import pg from "pg";
 import { embed } from "./embeddings.js";
+import { log } from "./logger.js";
 
 // ============================================================
 // Tool: check_existing
@@ -85,7 +86,7 @@ export async function addResource(
       [`[${vecs[0].join(",")}]`, id],
     );
   } catch (err) {
-    console.error(`  Warning: embedding failed for ${args.url}:`, err);
+    log.warn("embedding failed", { url: args.url, error: String(err) });
   }
 
   // Mark as done in queue if it was queued

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
+import { log } from "./lib/logger.js";
 
 const BATCH_SIZE = 50;
 
@@ -21,12 +22,12 @@ async function main(): Promise<void> {
   `);
 
   if (!rows.length) {
-    console.log("All resources already have embeddings.");
+    log.info("nothing to embed", { reason: "all resources already have embeddings" });
     await db.end();
     return;
   }
 
-  console.log(`Re-embedding ${rows.length} resources with local model...\n`);
+  log.info("re-embedding started", { total: rows.length, model: "local" });
 
   let total = 0;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -45,16 +46,18 @@ async function main(): Promise<void> {
     }
 
     total += batch.length;
-    process.stdout.write(`\r  ${total}/${rows.length}`);
+    if (total % 500 === 0 || total === rows.length) {
+      log.info("embedding progress", { done: total, total: rows.length });
+    }
   }
 
-  console.log("\n\nCreating HNSW index...");
+  log.info("creating hnsw index");
   await db.query(`
     CREATE INDEX IF NOT EXISTS idx_resources_embedding ON resources
     USING hnsw (embedding vector_cosine_ops)
   `);
 
-  console.log(`Done. Embedded ${total} resources.`);
+  log.info("re-embedding complete", { embedded: total });
   await db.end();
   process.exit(0);
 }

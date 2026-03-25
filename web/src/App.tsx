@@ -3,15 +3,21 @@ import "./App.css";
 
 const API = "http://localhost:3001/api";
 
+interface Source {
+  name: string;
+  url: string | null;
+}
+
 interface Resource {
   id: number;
   name: string;
   url: string;
+  created_at?: string;
   updated_at?: string;
   similarity?: number;
   kinds: string[];
   topics: string[];
-  sources: string[];
+  sources: Source[];
   descriptions: string[];
 }
 
@@ -45,6 +51,7 @@ function timeAgo(dateStr: string): string {
 function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Resource[]>([]);
+  const [recent, setRecent] = useState<Resource[]>([]);
   const [topics, setTopics] = useState<TopicCount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -55,6 +62,7 @@ function App() {
   useEffect(() => {
     fetch(`${API}/stats`).then((r) => r.json()).then(setStats);
     fetch(`${API}/topics`).then((r) => r.json()).then(setTopics);
+    fetch(`${API}/recent?limit=12`).then((r) => r.json()).then(setRecent);
   }, []);
 
   const search = useCallback(async () => {
@@ -96,6 +104,75 @@ function App() {
     if (query) search();
     else browse(selectedTopic || undefined, next || undefined);
   };
+
+  const clearFilters = () => {
+    setSelectedTopic("");
+    setSelectedKind("");
+    setResults([]);
+    setSearched(false);
+    setQuery("");
+  };
+
+  const renderCard = (r: Resource, showAge?: boolean) => (
+    <div key={r.id} className="card">
+      <div className="card-header">
+        <a href={r.url} target="_blank" rel="noopener noreferrer">
+          {r.name}
+        </a>
+        {r.similarity != null && (
+          <span className="similarity">
+            {(r.similarity * 100).toFixed(0)}% match
+          </span>
+        )}
+        {showAge && r.created_at && (
+          <span className="card-age">{timeAgo(r.created_at)}</span>
+        )}
+      </div>
+      {r.descriptions.length > 0 && (
+        <p className="description">{r.descriptions[0]}</p>
+      )}
+      <div className="tags">
+        {r.kinds.map((k) => (
+          <span key={k} className={`tag kind-${k}`}>
+            {k}
+          </span>
+        ))}
+        {r.topics.map((t) => (
+          <span
+            key={t}
+            className="tag topic"
+            onClick={() => handleTopicClick(t)}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+      <div className="card-meta">
+        <a href={r.url} className="card-url" target="_blank" rel="noopener noreferrer">{r.url}</a>
+        {r.updated_at && (
+          <span className="card-updated" title={new Date(r.updated_at).toLocaleString()}>
+            updated {timeAgo(r.updated_at)}
+          </span>
+        )}
+      </div>
+      {r.sources.length > 0 && (
+        <div className="card-sources">
+          via{" "}
+          {r.sources.slice(0, 3).map((s, i) => (
+            <span key={s.name}>
+              {i > 0 && ", "}
+              {s.url ? (
+                <a href={s.url} target="_blank" rel="noopener noreferrer">{s.name}</a>
+              ) : (
+                s.name
+              )}
+            </span>
+          ))}
+          {r.sources.length > 3 && ` +${r.sources.length - 3}`}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="app">
@@ -139,16 +216,8 @@ function App() {
               {k}
             </button>
           ))}
-          {(selectedTopic || selectedKind) && (
-            <button
-              className="clear-btn"
-              onClick={() => {
-                setSelectedTopic("");
-                setSelectedKind("");
-                setResults([]);
-                setSearched(false);
-              }}
-            >
+          {(selectedTopic || selectedKind || searched) && (
+            <button className="clear-btn" onClick={clearFilters}>
               Clear filters
             </button>
           )}
@@ -167,59 +236,24 @@ function App() {
         </div>
       </div>
 
-      <div className="results">
-        {loading && <div className="status">Searching...</div>}
-        {!loading && searched && results.length === 0 && (
-          <div className="status">No results found.</div>
-        )}
-        {results.map((r) => (
-          <div key={r.id} className="card">
-            <div className="card-header">
-              <a href={r.url} target="_blank" rel="noopener noreferrer">
-                {r.name}
-              </a>
-              {r.similarity != null && (
-                <span className="similarity">
-                  {(r.similarity * 100).toFixed(0)}% match
-                </span>
-              )}
-            </div>
-            {r.descriptions.length > 0 && (
-              <p className="description">{r.descriptions[0]}</p>
-            )}
-            <div className="tags">
-              {r.kinds.map((k) => (
-                <span key={k} className={`tag kind-${k}`}>
-                  {k}
-                </span>
-              ))}
-              {r.topics.map((t) => (
-                <span
-                  key={t}
-                  className="tag topic"
-                  onClick={() => handleTopicClick(t)}
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-            <div className="card-meta">
-              <a href={r.url} className="card-url" target="_blank" rel="noopener noreferrer">{r.url}</a>
-              {r.updated_at && (
-                <span className="card-updated" title={new Date(r.updated_at).toLocaleString()}>
-                  updated {timeAgo(r.updated_at)}
-                </span>
-              )}
-            </div>
-            {r.sources.length > 0 && (
-              <div className="card-sources">
-                via {r.sources.slice(0, 3).join(", ")}
-                {r.sources.length > 3 && ` +${r.sources.length - 3}`}
-              </div>
-            )}
+      {!searched && recent.length > 0 && (
+        <section className="recent-section">
+          <h2>What's New</h2>
+          <div className="recent-grid">
+            {recent.map((r) => renderCard(r, true))}
           </div>
-        ))}
-      </div>
+        </section>
+      )}
+
+      {searched && (
+        <div className="results">
+          {loading && <div className="status">Searching...</div>}
+          {!loading && results.length === 0 && (
+            <div className="status">No results found.</div>
+          )}
+          {results.map((r) => renderCard(r))}
+        </div>
+      )}
     </div>
   );
 }

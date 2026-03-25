@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import pg from "pg";
+import { log } from "./lib/logger.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const CATALOG_JSON = resolve(ROOT, "catalog.json");
@@ -117,7 +118,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
   const resourceCount = (await client.query("SELECT COUNT(*) FROM resources")).rows[0].count;
   const projectCount = (await client.query("SELECT COUNT(*) FROM projects")).rows[0].count;
   const topicCount = (await client.query("SELECT COUNT(DISTINCT topic) FROM resource_topics")).rows[0].count;
-  console.log(`Seeded: ${Number(resourceCount).toLocaleString()} resources, ${projectCount} projects, ${topicCount} topics`);
+  log.info("seed complete", { resources: Number(resourceCount), projects: Number(projectCount), topics: Number(topicCount) });
 }
 
 async function main(): Promise<void> {
@@ -125,7 +126,7 @@ async function main(): Promise<void> {
   try {
     raw = readFileSync(CATALOG_JSON, "utf-8");
   } catch {
-    console.error(`Error: ${CATALOG_JSON} not found. Run npm run generate first.`);
+    log.error("catalog not found", { path: CATALOG_JSON, hint: "run npm run generate first" });
     process.exit(1);
   }
 

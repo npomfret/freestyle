@@ -4,6 +4,7 @@ import cors from "cors";
 import { resolve } from "path";
 import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
+import { log } from "./lib/logger.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -39,6 +40,21 @@ app.get("/api/topics", async (_req, res) => {
     "SELECT topic, COUNT(*) AS count FROM resource_topics GROUP BY topic ORDER BY count DESC",
   );
   res.json(rows.map((r) => ({ topic: r.topic, count: Number(r.count) })));
+});
+
+// Recently added resources
+app.get("/api/recent", async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
+  const { rows } = await db.query(
+    `SELECT r.id, r.name, r.url, r.created_at, r.updated_at
+     FROM resources r
+     WHERE NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
+     ORDER BY r.created_at DESC
+     LIMIT $1`,
+    [limit],
+  );
+  const enriched = await enrichResources(rows);
+  res.json(enriched);
 });
 
 // Semantic search
@@ -167,7 +183,7 @@ app.get("/api/resources/:id", async (req, res) => {
 // ============================================================
 
 async function enrichResources(
-  rows: { id: number; name: string; url: string; updated_at?: string; similarity?: number }[],
+  rows: { id: number; name: string; url: string; created_at?: string; updated_at?: string; similarity?: number }[],
 ) {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
@@ -175,20 +191,36 @@ async function enrichResources(
   const [kinds, topics, sources, descs] = await Promise.all([
     db.query("SELECT resource_id, kind FROM resource_kinds WHERE resource_id = ANY($1)", [ids]),
     db.query("SELECT resource_id, topic FROM resource_topics WHERE resource_id = ANY($1)", [ids]),
-    db.query("SELECT resource_id, source FROM resource_sources WHERE resource_id = ANY($1)", [ids]),
+    db.query(
+      `SELECT rs.resource_id, rs.source AS name, p.repo_url AS url
+       FROM resource_sources rs
+       LEFT JOIN projects p ON p.name = rs.source
+       WHERE rs.resource_id = ANY($1)`,
+      [ids],
+    ),
     db.query("SELECT resource_id, description FROM resource_descriptions WHERE resource_id = ANY($1)", [ids]),
   ]);
 
   const kindMap = groupBy(kinds.rows, "resource_id", "kind");
   const topicMap = groupBy(topics.rows, "resource_id", "topic");
-  const sourceMap = groupBy(sources.rows, "resource_id", "source");
   const descMap = groupBy(descs.rows, "resource_id", "description");
+
+  // Build source map as objects with name + optional url
+  const sourceObjMap: Record<number, { name: string; url: string | null }[]> = {};
+  for (const row of sources.rows) {
+    const key = row.resource_id as number;
+    if (!sourceObjMap[key]) sourceObjMap[key] = [];
+    const exists = sourceObjMap[key].some((s) => s.name === row.name);
+    if (!exists) {
+      sourceObjMap[key].push({ name: row.name as string, url: (row.url as string) ?? null });
+    }
+  }
 
   return rows.map((r) => ({
     ...r,
     kinds: [...new Set(kindMap[r.id] ?? [])],
     topics: [...new Set(topicMap[r.id] ?? [])],
-    sources: [...new Set(sourceMap[r.id] ?? [])],
+    sources: sourceObjMap[r.id] ?? [],
     descriptions: [...new Set(descMap[r.id] ?? [])],
   }));
 }
@@ -224,7 +256,7 @@ app.get("/{*path}", (_req, res) => {
 async function start() {
   await db.connect();
   app.listen(PORT, () => {
-    console.log(`API server running at http://localhost:${PORT}`);
+    log.info("server started", { port: PORT });
   });
 }
 

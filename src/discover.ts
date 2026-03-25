@@ -6,7 +6,7 @@ import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { requireEnv } from './lib/env.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
-import { Kind, SourceName, Topic, Url } from './lib/types.js';
+import { Kind, Region, SourceName, Topic, Url } from './lib/types.js';
 
 const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
 
@@ -164,6 +164,11 @@ const toolDeclarations: FunctionDeclaration[] = [
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
                     description: `1-4 topic labels from: ${TOPIC_LABELS.join(', ')}`,
+                },
+                regions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: 'Geographic regions this resource covers (e.g. "Global", "Europe", "North America/United States"). Leave empty if not geographically specific.',
                 },
                 description: {
                     type: Type.STRING,
@@ -335,6 +340,7 @@ async function executeTool(
                 url: Url(args.url as string),
                 kinds: (args.kinds as string[]).map(Kind),
                 topics: (args.topics as string[]).map(Topic),
+                regions: args.regions ? (args.regions as string[]).map(Region) : undefined,
                 description: args.description as string,
                 analysis: args.analysis as string | undefined,
             });
@@ -398,6 +404,7 @@ For each candidate resource:
 ## Classification
 - kinds: "api" (has HTTP endpoints), "dataset" (downloadable data), "service" (hosted tool), "code" (repo/library)
 - topics: assign 1-4 from: ${TOPIC_LABELS.join(', ')}
+- regions: geographic areas the resource covers — use continent (e.g. "Europe"), continent/country (e.g. "North America/United States"), sub-region (e.g. "EU", "Middle East"), or "Global". Leave empty if not geographically specific.
 - description: one clear sentence about what it provides and why it's useful
 - analysis: 2-4 sentences covering what data/service it provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats
 

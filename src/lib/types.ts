@@ -12,6 +12,7 @@ export type QueueItemId = Brand<number, 'QueueItemId'>;
 export type Url = Brand<string, 'Url'>;
 export type Topic = Brand<string, 'Topic'>;
 export type Kind = Brand<string, 'Kind'>;
+export type Region = Brand<string, 'Region'>;
 export type SourceName = Brand<string, 'SourceName'>;
 
 // === Known kind values ===
@@ -25,4 +26,5 @@ export const QueueItemId = (n: number) => n as QueueItemId;
 export const Url = (s: string) => s as Url;
 export const Topic = (s: string) => s as Topic;
 export const Kind = (s: string) => s as Kind;
+export const Region = (s: string) => s as Region;
 export const SourceName = (s: string) => s as SourceName;

@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { embed } from './embeddings.js';
 import { log } from './logger.js';
-import type { Kind, QueueItemId, ResourceId, SourceName, Topic, Url } from './types.js';
+import type { Kind, QueueItemId, Region, ResourceId, SourceName, Topic, Url } from './types.js';
 import { QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './types.js';
 
 // Re-export shared fetchPage
@@ -37,6 +37,7 @@ export async function addResource(
         url: Url;
         kinds: Kind[];
         topics: Topic[];
+        regions?: Region[];
         description: string;
         analysis?: string;
     },
@@ -78,6 +79,14 @@ export async function addResource(
                 'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
                 [id, topic],
             );
+        }
+        if (args.regions) {
+            for (const region of args.regions) {
+                await client.query(
+                    'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
+                    [id, region],
+                );
+            }
         }
         if (args.description) {
             await client.query(

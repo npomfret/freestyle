@@ -88,6 +88,19 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
     }
 });
 
+// Region list with counts
+app.get('/api/regions', async (_req: Request, res: Response) => {
+    try {
+        const { rows } = await db.query(
+            'SELECT region, COUNT(*) AS count FROM resource_regions GROUP BY region ORDER BY count DESC',
+        );
+        res.json(rows.map((r) => ({ region: r.region, count: Number(r.count) })));
+    } catch (err) {
+        log.error('regions failed', { error: String(err) });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Topic list with counts
 app.get('/api/topics', async (_req: Request, res: Response) => {
     try {
@@ -127,8 +140,11 @@ app.get('/api/search', async (req: Request, res: Response) => {
         const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
         const topic = typeof req.query.topic === 'string' ? req.query.topic : undefined;
         const kind = typeof req.query.kind === 'string' ? req.query.kind : undefined;
+        const region = typeof req.query.region === 'string' ? req.query.region : undefined;
         const limit = clampInt(req.query.limit, 1, 200, 30);
         const offset = clampInt(req.query.offset, 0, 100_000, 0);
+
+        log.info('search', { q, topic, kind, region, limit, offset });
 
         if (!q) {
             res.status(400).json({ error: 'q parameter required' });
@@ -141,7 +157,8 @@ app.get('/api/search', async (req: Request, res: Response) => {
 
         // Semantic search using local embedding model
         try {
-            const vecs = await embed([q]);
+            const embText = region ? `${q} ${region}` : q;
+            const vecs = await embed([embText]);
             const vec = '[' + vecs[0].join(',') + ']';
 
             let sql = `
@@ -162,6 +179,11 @@ app.get('/api/search', async (req: Request, res: Response) => {
             if (kind) {
                 sql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${paramIdx})`;
                 params.push(kind);
+                paramIdx++;
+            }
+            if (region) {
+                sql += ` AND EXISTS (SELECT 1 FROM resource_regions rr WHERE rr.resource_id = r.id AND rr.region = $${paramIdx})`;
+                params.push(region);
                 paramIdx++;
             }
 
@@ -203,8 +225,11 @@ app.get('/api/resources', async (req: Request, res: Response) => {
         const topic = typeof req.query.topic === 'string' ? req.query.topic : undefined;
         const kind = typeof req.query.kind === 'string' ? req.query.kind : undefined;
         const source = typeof req.query.source === 'string' ? req.query.source : undefined;
+        const region = typeof req.query.region === 'string' ? req.query.region : undefined;
         const offset = clampInt(req.query.offset, 0, 100_000, 0);
         const limit = clampInt(req.query.limit, 1, 200, 30);
+
+        log.info('browse', { topic, kind, source, region, limit, offset });
 
         if (kind && !VALID_KINDS.has(kind)) {
             res.status(400).json({ error: `Invalid kind: ${kind}` });
@@ -233,6 +258,12 @@ app.get('/api/resources', async (req: Request, res: Response) => {
             joins.push(`JOIN resource_sources rs ON rs.resource_id = r.id`);
             wheres.push(`rs.source = $${paramIdx}`);
             params.push(source);
+            paramIdx++;
+        }
+        if (region) {
+            joins.push(`JOIN resource_regions rr ON rr.resource_id = r.id`);
+            wheres.push(`rr.region = $${paramIdx}`);
+            params.push(region);
             paramIdx++;
         }
 
@@ -285,9 +316,10 @@ async function enrichResources(
     if (!rows.length) return [];
     const ids = rows.map((r) => r.id);
 
-    const [kinds, topics, sources, descs, analyses] = await Promise.all([
+    const [kinds, topics, regions, sources, descs, analyses] = await Promise.all([
         db.query('SELECT resource_id, kind FROM resource_kinds WHERE resource_id = ANY($1)', [ids]),
         db.query('SELECT resource_id, topic FROM resource_topics WHERE resource_id = ANY($1)', [ids]),
+        db.query('SELECT resource_id, region FROM resource_regions WHERE resource_id = ANY($1)', [ids]),
         db.query(
             `SELECT rs.resource_id, rs.source AS name, p.repo_url AS url
        FROM resource_sources rs
@@ -301,6 +333,7 @@ async function enrichResources(
 
     const kindMap = groupBy(kinds.rows, 'resource_id', 'kind');
     const topicMap = groupBy(topics.rows, 'resource_id', 'topic');
+    const regionMap = groupBy(regions.rows, 'resource_id', 'region');
     const descMap = groupBy(descs.rows, 'resource_id', 'description');
 
     const analysisMap: Record<number, string> = {};
@@ -322,6 +355,7 @@ async function enrichResources(
         ...r,
         kinds: [...new Set(kindMap[r.id] ?? [])],
         topics: [...new Set(topicMap[r.id] ?? [])],
+        regions: [...new Set(regionMap[r.id] ?? [])],
         sources: sourceObjMap[r.id] ?? [],
         descriptions: [...new Set(descMap[r.id] ?? [])],
         analysis: analysisMap[r.id] ?? null,

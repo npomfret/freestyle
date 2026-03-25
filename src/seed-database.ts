@@ -87,6 +87,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
     // Clear junction tables for surviving resources
     await client.query('DELETE FROM resource_kinds');
     await client.query('DELETE FROM resource_topics');
+    await client.query('DELETE FROM resource_regions');
     await client.query('DELETE FROM resource_sources');
     await client.query('DELETE FROM resource_descriptions');
 

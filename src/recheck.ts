@@ -6,7 +6,7 @@ import { requireEnv } from './lib/env.js';
 import { fetchPage } from './lib/fetch-page.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
-import type { Kind, ResourceId, Topic, Url } from './lib/types.js';
+import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
 import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
 
 const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
@@ -90,6 +90,11 @@ const toolDeclarations: FunctionDeclaration[] = [
                     items: { type: Type.STRING },
                     description: `Updated topic labels (1-4) from: ${TOPIC_LABELS.join(', ')}. Keep existing ones if still accurate, adjust if needed.`,
                 },
+                regions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: 'Updated geographic regions (e.g. "Global", "Europe", "North America/United States"). Keep existing ones if still accurate, adjust if needed.',
+                },
                 is_alive: {
                     type: Type.BOOLEAN,
                     description:
@@ -143,6 +148,7 @@ interface ResourceRow {
     url: Url;
     kinds: Kind[];
     topics: Topic[];
+    regions: Region[];
     descriptions: string[];
 }
 
@@ -178,6 +184,7 @@ async function executeTool(
             const isAlive = args.is_alive as boolean;
             const notes = args.notes as string;
             const topics = args.topics as string[] | undefined;
+            const regions = args.regions as string[] | undefined;
             const analysis = args.analysis as string | undefined;
 
             // Update name if provided
@@ -201,6 +208,17 @@ async function executeTool(
                     await db.query(
                         'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
                         [r.id, t],
+                    );
+                }
+            }
+
+            // Update regions if provided
+            if (regions && regions.length > 0) {
+                await db.query('DELETE FROM resource_regions WHERE resource_id = $1', [r.id]);
+                for (const reg of regions) {
+                    await db.query(
+                        'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
+                        [r.id, reg],
                     );
                 }
             }
@@ -307,9 +325,10 @@ async function getNextResource(): Promise<ResourceRow | null> {
 
     const r = rows[0];
 
-    // Fetch kinds, topics, descriptions (sequential — pg.Client doesn't support concurrent queries)
+    // Fetch kinds, topics, regions, descriptions (sequential — pg.Client doesn't support concurrent queries)
     const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
     const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
+    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
     const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
 
     return {
@@ -318,6 +337,7 @@ async function getNextResource(): Promise<ResourceRow | null> {
         url: mkUrl(r.url),
         kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
         topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
+        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
         descriptions: descs.rows.map((d: { description: string; }) => d.description),
     };
 }
@@ -336,6 +356,7 @@ Resource to check:
 - URL: ${resource.url}
 - Current kinds: ${resource.kinds.join(', ') || 'none'}
 - Current topics: ${resource.topics.join(', ') || 'none'}
+- Current regions: ${resource.regions.join(', ') || 'none'}
 - Current description: ${resource.descriptions[0] || 'none'}
 
 ## CRITICAL: What "alive" means
@@ -468,6 +489,7 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
     const r = rows[0];
     const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
     const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
+    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
     const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
 
     return {
@@ -476,6 +498,7 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
         url: mkUrl(r.url),
         kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
         topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
+        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
         descriptions: descs.rows.map((d: { description: string; }) => d.description),
     };
 }

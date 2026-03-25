@@ -141,6 +141,145 @@ export async function addResource(
 }
 
 // ============================================================
+// Tool: update_resource (atomic via transaction)
+// ============================================================
+
+export interface ResourceRow {
+    id: ResourceId;
+    name: string;
+    url: Url;
+    kinds: Kind[];
+    topics: Topic[];
+    regions: Region[];
+    descriptions: string[];
+}
+
+export interface UpdateResourceArgs {
+    name?: string;
+    description: string;
+    topics?: string[];
+    regions?: string[];
+    analysis?: string;
+    is_alive: boolean;
+    notes: string;
+}
+
+export async function updateResource(
+    db: pg.Pool,
+    resource: ResourceRow,
+    args: UpdateResourceArgs,
+    opts?: { skipLinkChecks?: boolean },
+): Promise<{ status: string; id: ResourceId; fail_count: number }> {
+    const client = await db.connect();
+    let newStatus = 'alive';
+    let failCount = 0;
+
+    try {
+        await client.query('BEGIN');
+
+        // Update name if provided
+        if (args.name && args.name !== resource.name) {
+            await client.query('UPDATE resources SET name = $1 WHERE id = $2', [args.name, resource.id]);
+        }
+
+        // Update description: clear old, insert new
+        await client.query('DELETE FROM resource_descriptions WHERE resource_id = $1', [resource.id]);
+        if (args.description) {
+            await client.query(
+                'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
+                [resource.id, args.description],
+            );
+        }
+
+        // Update topics if provided (filter to valid labels)
+        if (args.topics && args.topics.length > 0) {
+            const validTopics = args.topics.filter(t => (TOPICS as readonly string[]).includes(t));
+            if (validTopics.length > 0) {
+                await client.query('DELETE FROM resource_topics WHERE resource_id = $1', [resource.id]);
+                for (const t of validTopics) {
+                    await client.query(
+                        'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
+                        [resource.id, t],
+                    );
+                }
+            }
+        }
+
+        // Update regions if provided
+        if (args.regions && args.regions.length > 0) {
+            await client.query('DELETE FROM resource_regions WHERE resource_id = $1', [resource.id]);
+            for (const reg of args.regions) {
+                await client.query(
+                    'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
+                    [resource.id, reg],
+                );
+            }
+        }
+
+        // Update analysis if provided
+        if (args.analysis) {
+            await client.query(
+                `INSERT INTO resource_analyses (resource_id, analysis, updated_at)
+                 VALUES ($1, $2, now())
+                 ON CONFLICT (resource_id) DO UPDATE
+                 SET analysis = $2, updated_at = now()`,
+                [resource.id, args.analysis],
+            );
+        }
+
+        // Update link_checks (unless caller opts out, e.g. repair job)
+        if (!opts?.skipLinkChecks) {
+            if (args.is_alive) {
+                newStatus = 'alive';
+                failCount = 0;
+            } else {
+                const { rows: lcRows } = await client.query(
+                    'SELECT fail_count FROM link_checks WHERE resource_id = $1',
+                    [resource.id],
+                );
+                const currentFails = lcRows.length > 0 ? (lcRows[0].fail_count as number) : 0;
+                failCount = currentFails + 1;
+                newStatus = failCount >= 2 ? 'dead' : 'suspect';
+            }
+
+            await client.query(
+                `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
+                 VALUES ($1, now(), NULL, $2, $3, $4)
+                 ON CONFLICT (resource_id) DO UPDATE
+                 SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
+                [resource.id, newStatus, failCount, args.notes],
+            );
+        }
+
+        // Always bump updated_at on the resource
+        await client.query('UPDATE resources SET updated_at = now() WHERE id = $1', [resource.id]);
+
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+
+    // Re-generate embedding outside transaction (best-effort)
+    if (args.is_alive) {
+        const embText = [args.name ?? resource.name, args.description, ...(args.topics ?? resource.topics)].filter(Boolean).join(' ');
+        try {
+            const vecs = await embed([embText]);
+            await db.query(
+                'UPDATE resources SET embedding = $1::vector WHERE id = $2',
+                [`[${vecs[0].join(',')}]`, resource.id],
+            );
+        } catch {
+            // Embedding update is best-effort
+        }
+    }
+
+    return { status: newStatus, id: resource.id, fail_count: failCount };
+}
+
+// ============================================================
 // Tool: queue_items (accurate metrics)
 // ============================================================
 

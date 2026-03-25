@@ -60,7 +60,8 @@ Optional env vars (see `.env.example`):
 - `npm run build:web` builds the frontend for production
 - `npm run search -- "your query"` runs a CLI semantic search against the DB; example: `npm run search -- "satellite imagery for agriculture"`
 - `npm run discover` runs the AI-assisted discovery flow and adds verified resources; examples: `npm run discover -- "free biodiversity datasets"`, `npm run discover -- --process-queue`, or `npm run discover -- --loop` to run continuously with auto-selected topics
-- `npm run recheck` revalidates resource URLs and refreshes metadata for broken resources; example: `npm run recheck -- 25`
+- `npm run validity-check` checks resource URLs are still alive and attempts to repair broken ones; example: `npm run validity-check -- 25`
+- `npm run repair` re-indexes metadata for alive resources (name, description, topics, regions, analysis) using the LLM; example: `npm run repair -- 25` or `npm run repair -- 42` for a specific resource ID
 
 Notes:
 

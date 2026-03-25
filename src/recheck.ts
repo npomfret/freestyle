@@ -1,13 +1,13 @@
 import { GoogleGenAI } from '@google/genai';
+import { fetchPage, updateResource } from './lib/agent-tools.js';
+import type { ResourceRow } from './lib/agent-tools.js';
 import { createPool } from './lib/db.js';
-import { embed } from './lib/embeddings.js';
-import { fetchPage } from './lib/fetch-page.js';
 import { getLLMProvider } from './lib/llm.js';
 import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
-import { KINDS, TOPICS, ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
+import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
 
 const MAX_TURNS = 20;
 
@@ -148,16 +148,6 @@ const toolDeclarations: ToolDeclaration[] = [
 // Tool execution
 // ============================================================
 
-interface ResourceRow {
-    id: ResourceId;
-    name: string;
-    url: Url;
-    kinds: Kind[];
-    topics: Topic[];
-    regions: Region[];
-    descriptions: string[];
-}
-
 let currentResource: ResourceRow | null = null;
 
 async function executeTool(
@@ -185,118 +175,15 @@ async function executeTool(
 
         case 'update_resource': {
             if (!currentResource) return { error: 'No current resource' };
-            const r = currentResource;
-            const newName = args.name as string | undefined;
-            const description = args.description as string;
-            const isAlive = args.is_alive as boolean;
-            const notes = args.notes as string;
-            const topics = args.topics as string[] | undefined;
-            const regions = args.regions as string[] | undefined;
-            const analysis = args.analysis as string | undefined;
-
-            const client = await db.connect();
-            let newStatus: string;
-            let failCount: number;
-
-            try {
-                await client.query('BEGIN');
-
-                // Update name if provided
-                if (newName && newName !== r.name) {
-                    await client.query('UPDATE resources SET name = $1 WHERE id = $2', [newName, r.id]);
-                }
-
-                // Update description: clear old, insert new
-                await client.query('DELETE FROM resource_descriptions WHERE resource_id = $1', [r.id]);
-                if (description) {
-                    await client.query(
-                        'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
-                        [r.id, description],
-                    );
-                }
-
-                // Update topics if provided (filter to valid labels)
-                if (topics && topics.length > 0) {
-                    const validTopics = topics.filter(t => (TOPICS as readonly string[]).includes(t));
-                    if (validTopics.length > 0) {
-                        await client.query('DELETE FROM resource_topics WHERE resource_id = $1', [r.id]);
-                        for (const t of validTopics) {
-                            await client.query(
-                                'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
-                                [r.id, t],
-                            );
-                        }
-                    }
-                }
-
-                // Update regions if provided
-                if (regions && regions.length > 0) {
-                    await client.query('DELETE FROM resource_regions WHERE resource_id = $1', [r.id]);
-                    for (const reg of regions) {
-                        await client.query(
-                            'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
-                            [r.id, reg],
-                        );
-                    }
-                }
-
-                // Update analysis if provided
-                if (analysis) {
-                    await client.query(
-                        `INSERT INTO resource_analyses (resource_id, analysis, updated_at)
-             VALUES ($1, $2, now())
-             ON CONFLICT (resource_id) DO UPDATE
-             SET analysis = $2, updated_at = now()`,
-                        [r.id, analysis],
-                    );
-                }
-
-                // Determine status: alive resets, broken escalates suspect → dead
-                if (isAlive) {
-                    newStatus = 'alive';
-                    failCount = 0;
-                } else {
-                    const { rows: lcRows } = await client.query(
-                        'SELECT fail_count FROM link_checks WHERE resource_id = $1',
-                        [r.id],
-                    );
-                    const currentFails = lcRows.length > 0 ? (lcRows[0].fail_count as number) : 0;
-                    failCount = currentFails + 1;
-                    newStatus = failCount >= 2 ? 'dead' : 'suspect';
-                }
-
-                // Update link_checks
-                await client.query(
-                    `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
-           VALUES ($1, now(), NULL, $2, $3, $4)
-           ON CONFLICT (resource_id) DO UPDATE
-           SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
-                    [r.id, newStatus, failCount, notes],
-                );
-
-                await client.query('COMMIT');
-            } catch (err) {
-                await client.query('ROLLBACK');
-                throw err;
-            } finally {
-                client.release();
-            }
-
-            // Re-generate embedding outside transaction (best-effort)
-            if (isAlive) {
-                const embText = [newName ?? r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(' ');
-                try {
-                    const vecs = await embed([embText]);
-                    await db.query(
-                        'UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2',
-                        [`[${vecs[0].join(',')}]`, r.id],
-                    );
-                } catch {
-                    // Embedding update is best-effort
-                }
-            }
-
-            return { status: newStatus, id: r.id, fail_count: failCount };
+            return updateResource(db, currentResource, {
+                name: args.name as string | undefined,
+                description: args.description as string,
+                topics: args.topics as string[] | undefined,
+                regions: args.regions as string[] | undefined,
+                analysis: args.analysis as string | undefined,
+                is_alive: args.is_alive as boolean,
+                notes: args.notes as string,
+            });
         }
 
         case 'repair_url': {

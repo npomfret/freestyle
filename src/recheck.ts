@@ -85,6 +85,18 @@ const toolDeclarations: FunctionDeclaration[] = [
       required: ["query"],
     },
   },
+  {
+    name: "repair_url",
+    description: "If the original URL is broken but you found the resource at a new URL, call this to update the URL. Call fetch_page on the new URL first to verify it works before calling this.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        new_url: { type: Type.STRING, description: "The new, working URL for this resource" },
+        reason: { type: Type.STRING, description: "Why the URL changed (e.g. 'domain moved', 'repo transferred', 'new docs site')" },
+      },
+      required: ["new_url", "reason"],
+    },
+  },
 ];
 
 // ============================================================
@@ -305,6 +317,28 @@ async function executeTool(
       return { status: newStatus, id: r.id, fail_count: failCount };
     }
 
+    case "repair_url": {
+      if (!currentResource) return { error: "No current resource" };
+      const r = currentResource;
+      const newUrl = args.new_url as string;
+      const reason = args.reason as string;
+
+      // Check the new URL isn't already in our database
+      const { rows: dupeRows } = await db.query(
+        "SELECT id FROM resources WHERE url = $1",
+        [newUrl],
+      );
+      if (dupeRows.length > 0) {
+        return { error: `URL already exists as resource ${dupeRows[0].id}`, url: newUrl };
+      }
+
+      const oldUrl = r.url;
+      await db.query("UPDATE resources SET url = $1, updated_at = now() WHERE id = $2", [newUrl, r.id]);
+      log.info("url repaired", { id: r.id, oldUrl, newUrl, reason });
+
+      return { status: "url_updated", id: r.id, oldUrl, newUrl, reason };
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }
@@ -374,27 +408,33 @@ You are checking THIS EXACT URL: ${resource.url}
   - The page has almost no content (stub/error page)
   - The fetch_page result includes "likely_broken: true" or "problems"
 
-If the fetch result has "likely_broken: true", mark is_alive = false. Do NOT override this by searching for the project elsewhere. The project may exist at a different URL, but THIS URL is broken.
+If the fetch result has "likely_broken: true", mark is_alive = false. Do NOT override this by searching for the project elsewhere.
 
-## When to use web_search
-Only use web_search to:
-- Find the correct name/description if the page loads but is unclear
-- Confirm the project is truly dead (not just moved) for your notes
-Do NOT use web_search to "save" a broken URL by finding the project elsewhere.
+## When the URL is broken: try to repair it
+If fetch_page returns likely_broken, follow this sequence:
+1. Use web_search to find where the resource moved to (e.g. "AgensGraph official site", "AgensGraph GitHub")
+2. If you find a new, working URL:
+   a. Use fetch_page on the new URL to verify it actually works
+   b. If the new URL works, call repair_url with the new URL, then call update_resource with is_alive = true
+   c. If the new URL also doesn't work, call update_resource with is_alive = false
+3. If you can't find the resource anywhere, call update_resource with is_alive = false
 
 ## Steps
 1. Use fetch_page to visit the URL
 2. Look at the statusCode, problems, and likely_broken fields in the result
-3. If likely_broken is true → is_alive = false, include the problems in your notes
-4. If the page loads fine → is_alive = true, write a description from what you see
+3. If the page loads fine → is_alive = true, write a description from what you see
+4. If likely_broken is true:
+   a. web_search for the resource name to find a new URL
+   b. If found: fetch_page the new URL → repair_url if it works → update_resource with is_alive = true
+   c. If not found or new URL also broken: update_resource with is_alive = false
 5. Call update_resource with:
    - name: the correct human-readable name (fix if garbled/emoji/symbol)
    - description: one sentence about what this resource provides
    - topics: updated if needed
    - is_alive: true/false (follow the rules above strictly)
-   - notes: what you found
+   - notes: what you found, include old URL if repaired
 
-Be concise. One fetch, one update. Done.`;
+Be concise.`;
 
   const contents: Content[] = [
     { role: "user", parts: [{ text: systemPrompt }] },

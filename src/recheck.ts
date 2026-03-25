@@ -396,6 +396,16 @@ async function getRecheckCache(): Promise<string> {
     recheckCacheName = await createCache(genai, {
         model: MODEL,
         systemInstruction: RECHECK_SYSTEM_INSTRUCTION,
+        contents: [
+            {
+                role: 'user',
+                parts: [{ text: `Reference — available topic labels for classification:\n${TOPIC_LABELS.join(', ')}\n\nKind values: api, dataset, service, code\n\nRegion examples: Global, Europe, North America/United States, Asia/Japan, EU, Middle East, Southeast Asia` }],
+            },
+            {
+                role: 'model',
+                parts: [{ text: 'Understood. I will use these topic labels, kinds, and region formats when updating resources. Ready to check a resource.' }],
+            },
+        ],
         displayName: 'recheck-agent',
         ttlSeconds: 7200,
     });

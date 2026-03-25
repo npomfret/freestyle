@@ -424,6 +424,16 @@ async function getDiscoverCache(): Promise<string> {
     discoverCacheName = await createCache(genai, {
         model: MODEL,
         systemInstruction: DISCOVER_SYSTEM_INSTRUCTION,
+        contents: [
+            {
+                role: 'user',
+                parts: [{ text: `Reference — excluded domains (skip these automatically):\n${EXCLUDED_DOMAINS.join(', ')}\n\nAvailable topic labels:\n${TOPIC_LABELS.join(', ')}` }],
+            },
+            {
+                role: 'model',
+                parts: [{ text: 'Understood. I will skip excluded domains and use the provided topic labels for classification. Ready for a discovery task.' }],
+            },
+        ],
         displayName: 'discover-agent',
         ttlSeconds: 7200,
     });

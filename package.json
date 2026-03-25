@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/generate-catalog.ts",
+    "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seed-database.ts",
     "embed": "tsx src/generate-embeddings.ts",
     "re-embed": "tsx src/re-embed-all.ts",
@@ -13,7 +14,8 @@
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",
     "dev:web": "cd web && npm run dev",
-    "build:web": "cd web && npm run build"
+    "build:web": "cd web && npm run build",
+    "format": "node scripts/format.js"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",

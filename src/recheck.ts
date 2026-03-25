@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { fetchPage, updateResource } from './lib/agent-tools.js';
 import type { ResourceRow } from './lib/agent-tools.js';
+import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { getLLMProvider } from './lib/llm.js';
 import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
@@ -452,59 +453,61 @@ async function main(): Promise<void> {
     const arg = process.argv[2];
     const isSingleUrl = arg?.startsWith('http');
 
-    if (isSingleUrl) {
-        const resource = await getResourceByUrl(arg);
-        if (!resource) {
-            log.error('resource not found', { url: arg });
-            await db.end();
-            process.exit(1);
-        }
-        log.info('rechecking single resource', { id: resource.id, name: resource.name, url: resource.url });
-        try {
-            await recheckOne(resource);
-        } catch (err) {
-            log.error('recheck failed', { id: resource.id, url: resource.url, error: String(err) });
-            await recordFailure(resource.id, `Agent error: ${err}`);
-        }
-    } else {
-        const count = Number(arg) || 10;
-        log.info('recheck started', { count });
-
-        for (let i = 0; i < count; i++) {
-            const resource = await getNextResource();
+    try {
+        if (isSingleUrl) {
+            const resource = await getResourceByUrl(arg);
             if (!resource) {
-                log.info('no more resources to check');
-                break;
+                log.error('resource not found', { url: arg });
+                process.exit(1);
             }
-
-            log.info('checking resource', { index: i + 1, total: count, id: resource.id, name: resource.name, url: resource.url });
-
+            log.info('rechecking single resource', { id: resource.id, name: resource.name, url: resource.url });
             try {
                 await recheckOne(resource);
             } catch (err) {
                 log.error('recheck failed', { id: resource.id, url: resource.url, error: String(err) });
                 await recordFailure(resource.id, `Agent error: ${err}`);
             }
+        } else {
+            const count = Number(arg) || 10;
+            log.info('recheck started', { count });
+
+            for (let i = 0; i < count; i++) {
+                const resource = await getNextResource();
+                if (!resource) {
+                    log.info('no more resources to check');
+                    break;
+                }
+
+                log.info('checking resource', { index: i + 1, total: count, id: resource.id, name: resource.name, url: resource.url });
+
+                try {
+                    await recheckOne(resource);
+                } catch (err) {
+                    log.error('recheck failed', { id: resource.id, url: resource.url, error: String(err) });
+                    await recordFailure(resource.id, `Agent error: ${err}`);
+                }
+            }
         }
+
+        // Print summary
+        const { rows } = await db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'alive') AS alive,
+          COUNT(*) FILTER (WHERE status = 'suspect') AS suspect,
+          COUNT(*) FILTER (WHERE status = 'dead') AS dead,
+          COUNT(*) AS total
+        FROM link_checks
+      `);
+        log.info('recheck complete', {
+            alive: Number(rows[0].alive),
+            suspect: Number(rows[0].suspect),
+            dead: Number(rows[0].dead),
+            total: Number(rows[0].total),
+        });
+    } finally {
+        await closeBrowser();
+        await db.end();
     }
-
-    // Print summary
-    const { rows } = await db.query(`
-    SELECT
-      COUNT(*) FILTER (WHERE status = 'alive') AS alive,
-      COUNT(*) FILTER (WHERE status = 'suspect') AS suspect,
-      COUNT(*) FILTER (WHERE status = 'dead') AS dead,
-      COUNT(*) AS total
-    FROM link_checks
-  `);
-    log.info('recheck complete', {
-        alive: Number(rows[0].alive),
-        suspect: Number(rows[0].suspect),
-        dead: Number(rows[0].dead),
-        total: Number(rows[0].total),
-    });
-
-    await db.end();
 }
 
 main();

@@ -28,6 +28,41 @@ const TOPIC_LABELS = [
 ];
 
 // ============================================================
+// Exclusion list — skip these domains/URLs automatically
+// These are either too generic, aggregators that aren't primary
+// sources, or well-known resources everyone already knows about.
+// ============================================================
+
+const EXCLUDED_DOMAINS = [
+  "kaggle.com",             // aggregator, not a primary source
+  "wikipedia.org",          // reference, not an API/dataset
+  "medium.com",             // blog posts
+  "towardsdatascience.com", // blog posts
+  "stackoverflow.com",      // Q&A
+  "reddit.com",             // forum
+  "youtube.com",            // video
+  "twitter.com",            // social
+  "x.com",                  // social
+  "linkedin.com",           // social
+  "freecodecamp.org",       // tutorials
+  "udemy.com",              // courses
+  "coursera.org",           // courses
+  "rapidapi.com",           // proxy/aggregator, not primary source
+  "programmableweb.com",    // dead/dying directory
+  "any-api.com",            // low-quality aggregator
+  "freepublicapis.com",     // low-quality aggregator
+  "findapis.com",           // low-quality aggregator
+  "apilist.fun",            // low-quality aggregator
+  "public-apis.io",         // aggregator of aggregators
+  "vertexaisearch.cloud.google.com", // Gemini search redirect URLs, not real
+];
+
+function isExcludedUrl(url: string): boolean {
+  const lower = url.toLowerCase();
+  return EXCLUDED_DOMAINS.some((d) => lower.includes(d));
+}
+
+// ============================================================
 // Tool declarations for Gemini
 // ============================================================
 
@@ -35,7 +70,7 @@ const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "web_search",
     description:
-      "Search the web for free APIs, datasets, and services. Returns search results with URLs and snippets. Use this to discover new resources.",
+      "Search the web for free APIs, datasets, and services. Returns search results with URLs and snippets.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -48,9 +83,39 @@ const toolDeclarations: FunctionDeclaration[] = [
     },
   },
   {
+    name: "check_social",
+    description:
+      "Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying. Use this to catch red flags like reliability complaints or surprise pricing.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: {
+          type: Type.STRING,
+          description: "Name of the resource to check (e.g. 'OpenWeatherMap API')",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "check_references",
+    description:
+      "Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible. Returns a summary of who links to it.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: {
+          type: Type.STRING,
+          description: "The URL to check references for",
+        },
+      },
+      required: ["url"],
+    },
+  },
+  {
     name: "check_existing",
     description:
-      "Check if a URL already exists in our resources database or discovery queue. Always call this before adding a resource to avoid duplicates.",
+      "Check if a URL already exists in our resources database or discovery queue. Always call this before adding a resource.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -62,7 +127,7 @@ const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "add_resource",
     description:
-      "Add a new free API, dataset, or service to our database. Only add resources that are genuinely free or cost less than $2000/year.",
+      "Add a verified free resource to our database. Only call this AFTER you have verified it is genuinely free or has a very generous free tier (< $1000/year).",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -93,7 +158,7 @@ const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "fetch_page",
     description:
-      "Fetch and read the content of a web page. Use this to evaluate a resource's quality, check if it's actually free, read documentation, or extract links from list pages.",
+      "Fetch and read a web page. Use this to verify a resource exists, check pricing/free tier, read documentation, or extract links from list pages.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -105,7 +170,7 @@ const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "queue_items",
     description:
-      "Queue multiple URLs for later processing. Use this when you find a list/directory of resources — queue them all, then process them one by one with get_queue.",
+      "Queue multiple URLs for later processing. Use when you find a list/directory of resources.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -152,20 +217,66 @@ const toolDeclarations: FunctionDeclaration[] = [
 // Web search via Gemini with Google Search grounding
 // ============================================================
 
-async function webSearch(
-  query: string,
-): Promise<string> {
+async function webSearch(query: string): Promise<string> {
   try {
     const response = await genai.models.generateContent({
       model: MODEL,
-      contents: `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. Focus on free APIs, datasets, and services. Format each result as:\n- [Name](URL) - description`,
+      contents: `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
       config: {
         tools: [{ googleSearch: {} }],
       },
     });
-    return response.text ?? "No results found.";
+    // Extract grounding metadata for actual URLs if available
+    const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+    let text = response.text ?? "No results found.";
+    if (groundingMeta?.groundingChunks) {
+      const urls = groundingMeta.groundingChunks
+        .filter((c: Record<string, unknown>) => (c as { web?: { uri?: string } }).web?.uri)
+        .map((c: Record<string, unknown>) => {
+          const web = (c as { web: { uri: string; title?: string } }).web;
+          return `- [${web.title ?? web.uri}](${web.uri})`;
+        });
+      if (urls.length > 0) {
+        text += "\n\nDirect URLs from search:\n" + urls.join("\n");
+      }
+    }
+    return text;
   } catch (err) {
     return `Search failed: ${err}`;
+  }
+}
+
+// ============================================================
+// Reference/backlink check via Gemini with Google Search
+// ============================================================
+
+async function checkSocial(name: string): Promise<string> {
+  try {
+    const response = await genai.models.generateContent({
+      model: MODEL,
+      contents: `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+    return response.text ?? "No social data found.";
+  } catch (err) {
+    return `Social check failed: ${err}`;
+  }
+}
+
+async function checkReferences(url: string): Promise<string> {
+  try {
+    const response = await genai.models.generateContent({
+      model: MODEL,
+      contents: `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+    return response.text ?? "No reference data found.";
+  } catch (err) {
+    return `Reference check failed: ${err}`;
   }
 }
 
@@ -177,9 +288,21 @@ async function executeTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  // Auto-exclude bad URLs before they hit the DB
+  if (name === "add_resource" || name === "check_existing") {
+    const url = args.url as string;
+    if (url && isExcludedUrl(url)) {
+      return { error: `URL excluded: domain is in the blocklist (aggregator, blog, or non-primary source)` };
+    }
+  }
+
   switch (name) {
     case "web_search":
       return { results: await webSearch(args.query as string) };
+    case "check_social":
+      return { social: await checkSocial(args.name as string) };
+    case "check_references":
+      return { references: await checkReferences(args.url as string) };
     case "check_existing":
       return checkExisting(db, args as { url: string });
     case "add_resource":
@@ -189,10 +312,14 @@ async function executeTool(
       });
     case "fetch_page":
       return fetchPage(args as { url: string });
-    case "queue_items":
-      return queueItems(db, args as {
-        items: { url: string; label: string; source: string }[];
-      });
+    case "queue_items": {
+      // Filter excluded URLs from queue
+      const items = (args as { items: { url: string; label: string; source: string }[] }).items;
+      const filtered = items.filter((i) => !isExcludedUrl(i.url));
+      const excluded = items.length - filtered.length;
+      const result = await queueItems(db, { items: filtered });
+      return { ...result, excludedByBlocklist: excluded };
+    }
     case "get_queue":
       return getQueue(db, args as { limit: number });
     default:
@@ -214,18 +341,43 @@ async function discover(query: string): Promise<void> {
 
 Your task: "${query}"
 
-Rules:
-- Use web_search to find free (or < $2000/year) APIs, datasets, and services
-- Use fetch_page to read pages, verify resources exist, and check they're actually free
-- Always call check_existing before add_resource to avoid duplicates
-- Classify each resource with kinds: "api", "dataset", "service", or "code"
-- Assign 1-4 topic labels from: ${TOPIC_LABELS.join(", ")}
-- Write a clear one-sentence description for each resource
-- If you find a curated list or directory of resources (like an awesome-list), use fetch_page to read it, then queue_items to queue the individual resources, then use get_queue to process them
-- Skip: dead links, paywalled services, deprecated APIs, empty repos
-- Be thorough: search multiple angles, follow promising links
+## What we're looking for
+Resources that are FREE or have a very generous free tier (< $1000/year). This includes:
+- Open APIs with no or generous rate limits
+- Public datasets available for download
+- Government and academic data portals
+- Open-source tools and services with free hosted tiers
+- GitHub repos that ARE the dataset or API (not just code that uses one)
 
-When you're done searching and have processed everything you found, say "DISCOVERY COMPLETE" and summarize what you added.`;
+## What to SKIP — be ruthless
+- Anything that requires paid access to get real value (trials don't count)
+- "Free tier" that's just a demo with 10 requests/month — useless
+- Aggregator sites and directories (Kaggle, RapidAPI, ProgrammableWeb, etc.) — we want PRIMARY sources
+- Blog posts, tutorials, courses, Wikipedia articles
+- Vaporware, abandoned repos (no commits in 2+ years), broken links
+- Generic/obvious resources everyone already knows (Google Maps, Twitter API, etc.)
+- Marketing pages that say "API" but are really selling SaaS
+
+## Quality evaluation process
+For each candidate resource:
+1. Use fetch_page to visit the actual page — verify it loads, is real, and is free
+2. Use check_references to see who links to it — a resource referenced by government sites, universities, or major projects is much more credible than one nobody links to
+3. Use check_social to see what Reddit, HackerNews, and Twitter say — look for red flags like reliability complaints, surprise pricing, or shutdowns. Growing interest is a positive signal.
+4. Look for: actual documentation, data samples, clear terms of use, active maintenance
+5. Only call add_resource after you're confident it's genuinely useful and free
+
+## Classification
+- kinds: "api" (has HTTP endpoints), "dataset" (downloadable data), "service" (hosted tool), "code" (repo/library)
+- topics: assign 1-4 from: ${TOPIC_LABELS.join(", ")}
+- description: one clear sentence about what it provides and why it's useful
+
+## Workflow
+1. web_search to find candidates
+2. For each: check_existing → fetch_page → check_references → add_resource (if it passes)
+3. If you find a list/directory: fetch_page it, queue_items the individual resources, get_queue to process them
+4. Search from multiple angles — try different search terms, follow links from good resources
+
+When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
   const contents: Content[] = [
     { role: "user", parts: [{ text: systemPrompt }] },
@@ -248,22 +400,18 @@ When you're done searching and have processed everything you found, say "DISCOVE
       break;
     }
 
-    // Add model response to conversation
     contents.push(candidate.content);
 
-    // Check for text output
     const textParts = candidate.content.parts.filter((p: Part) => p.text);
     for (const part of textParts) {
       console.log(`  Agent: ${part.text}`);
     }
 
-    // Check if done
     const fullText = textParts.map((p: Part) => p.text ?? "").join("");
     if (fullText.includes("DISCOVERY COMPLETE")) {
       break;
     }
 
-    // Handle function calls
     const functionCalls = candidate.content.parts.filter(
       (p: Part) => p.functionCall,
     );
@@ -275,7 +423,6 @@ When you're done searching and have processed everything you found, say "DISCOVE
       continue;
     }
 
-    // Execute each function call and build response parts
     const responseParts: Part[] = [];
     for (const part of functionCalls) {
       const fc = part.functionCall!;

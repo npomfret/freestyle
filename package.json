@@ -7,13 +7,20 @@
     "seed": "tsx src/seed-database.ts",
     "embed": "tsx src/generate-embeddings.ts",
     "search": "tsx src/search.ts",
-    "discover": "tsx src/discover.ts"
+    "discover": "tsx src/discover.ts",
+    "server": "tsx src/server.ts",
+    "dev:web": "cd web && npm run dev",
+    "build:web": "cd web && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "pg": "^8.13.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "tsx": "^4.0.0",

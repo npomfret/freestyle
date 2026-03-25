@@ -1,0 +1,283 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+/* Header */
+header {
+  margin-bottom: 24px;
+}
+
+header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.stats {
+  font-size: 13px;
+  color: #888;
+}
+
+.stats .sep {
+  margin: 0 6px;
+  color: #444;
+}
+
+/* Search bar */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 15px;
+  background: #161620;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  color: #e0e0e0;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-bar input:focus {
+  border-color: #5b6ef7;
+}
+
+.search-bar input::placeholder {
+  color: #555;
+}
+
+.search-bar button {
+  padding: 10px 20px;
+  font-size: 14px;
+  background: #5b6ef7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-bar button:hover {
+  background: #4a5de6;
+}
+
+.search-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Filters */
+.filters {
+  margin-bottom: 20px;
+}
+
+.kind-filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.kind-btn,
+.clear-btn {
+  padding: 4px 12px;
+  font-size: 13px;
+  background: #1a1a2a;
+  border: 1px solid #2a2a3a;
+  border-radius: 16px;
+  color: #aaa;
+  cursor: pointer;
+}
+
+.kind-btn:hover,
+.clear-btn:hover {
+  border-color: #5b6ef7;
+  color: #ddd;
+}
+
+.kind-btn.active {
+  background: #5b6ef7;
+  border-color: #5b6ef7;
+  color: #fff;
+}
+
+.clear-btn {
+  margin-left: 8px;
+  color: #666;
+  font-size: 12px;
+}
+
+.topic-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.topic-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  background: #12121e;
+  border: 1px solid #222233;
+  border-radius: 12px;
+  color: #777;
+  cursor: pointer;
+}
+
+.topic-btn:hover {
+  border-color: #5b6ef7;
+  color: #bbb;
+}
+
+.topic-btn.active {
+  background: #1e1e3a;
+  border-color: #5b6ef7;
+  color: #aac4ff;
+}
+
+.topic-btn .count {
+  margin-left: 4px;
+  font-size: 11px;
+  color: #555;
+}
+
+.topic-btn.active .count {
+  color: #7799cc;
+}
+
+/* Results */
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status {
+  padding: 32px;
+  text-align: center;
+  color: #666;
+}
+
+.card {
+  padding: 14px 16px;
+  background: #12121e;
+  border: 1px solid #1e1e2e;
+  border-radius: 10px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: #2a2a4a;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.card-header a {
+  font-size: 15px;
+  font-weight: 500;
+  color: #7b8fff;
+  text-decoration: none;
+}
+
+.card-header a:hover {
+  text-decoration: underline;
+}
+
+.similarity {
+  font-size: 12px;
+  color: #4a6;
+  background: #0a1a10;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.description {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.tag {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.kind-api {
+  background: #1a2a1a;
+  color: #6a6;
+}
+
+.kind-dataset {
+  background: #1a1a2a;
+  color: #77a;
+}
+
+.kind-service {
+  background: #2a2a1a;
+  color: #aa7;
+}
+
+.kind-code {
+  background: #2a1a1a;
+  color: #a77;
+}
+
+.tag.topic {
+  background: #161628;
+  color: #668;
+  cursor: pointer;
+}
+
+.tag.topic:hover {
+  background: #1e1e3a;
+  color: #99b;
+}
+
+.card-url {
+  font-size: 11px;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-sources {
+  font-size: 11px;
+  color: #444;
+  margin-top: 2px;
+}

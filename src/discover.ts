@@ -484,7 +484,6 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
         contents.push({ role: 'user', parts: responseParts });
     }
 
-    await db.end();
     alog.info('agent finished');
 }
 
@@ -492,16 +491,39 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 // CLI
 // ============================================================
 
-const userQuery = process.argv.slice(2).join(' ');
+const args = process.argv.slice(2);
+const loopMode = args.includes('--loop');
+const filteredArgs = args.filter((a) => a !== '--loop');
+const userQuery = filteredArgs.join(' ');
 
-if (userQuery === '--process-queue') {
-    discover(
-        'Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.',
-    );
-} else if (userQuery) {
-    discover(userQuery);
-} else {
-    const { group, query } = generateDiscoveryQuery();
-    log.info('auto-selected topic group', { group });
-    discover(query);
+async function run(): Promise<void> {
+    if (userQuery === '--process-queue') {
+        await discover(
+            'Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.',
+        );
+    } else if (userQuery) {
+        await discover(userQuery);
+    } else {
+        const { group, query } = generateDiscoveryQuery();
+        log.info('auto-selected topic group', { group });
+        await discover(query);
+    }
 }
+
+async function main(): Promise<void> {
+    if (loopMode) {
+        log.info('running in loop mode');
+        while (true) {
+            try {
+                await run();
+            } catch (err) {
+                log.error('discovery loop iteration failed', { error: String(err) });
+            }
+        }
+    } else {
+        await run();
+        await db.end();
+    }
+}
+
+main();

@@ -52,7 +52,7 @@ Optional env vars:
 - `npm run dev:web` starts the Vite frontend in `web/`; extra Vite args can be forwarded, for example `npm run dev:web -- --host 0.0.0.0 --port 4173`
 - `npm run build:web` builds the frontend for production
 - `npm run search -- "your query"` runs a CLI semantic search against the DB; example: `npm run search -- "satellite imagery for agriculture"`
-- `npm run discover` runs the Gemini-assisted discovery flow and adds verified resources; examples: `GEMINI_API_KEY=... npm run discover -- "free biodiversity datasets"` or `GEMINI_API_KEY=... npm run discover -- --process-queue`
+- `npm run discover` runs the Gemini-assisted discovery flow and adds verified resources; examples: `GEMINI_API_KEY=... npm run discover -- "free biodiversity datasets"`, `GEMINI_API_KEY=... npm run discover -- --process-queue`, or `GEMINI_API_KEY=... npm run discover -- --loop` to run continuously with auto-selected topics
 - `npm run recheck` revalidates existing resources and refreshes metadata/health; example: `GEMINI_API_KEY=... npm run recheck -- 25`
 
 Notes:

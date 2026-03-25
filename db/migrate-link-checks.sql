@@ -1,15 +1,18 @@
 -- Migration: link_checks from boolean is_alive to text status with fail_count
--- Run with: psql $DATABASE_URL -f db/migrate-link-checks.sql
+-- Idempotent — safe to run multiple times.
 
 ALTER TABLE link_checks ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'alive';
 ALTER TABLE link_checks ADD COLUMN IF NOT EXISTS fail_count INT NOT NULL DEFAULT 0;
 
--- Migrate existing data
-UPDATE link_checks SET status = 'alive', fail_count = 0 WHERE is_alive = true;
-UPDATE link_checks SET status = 'dead', fail_count = 2 WHERE is_alive = false;
-
--- Drop old column
-ALTER TABLE link_checks DROP COLUMN IF EXISTS is_alive;
+-- Migrate existing data (only if old column still exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'link_checks' AND column_name = 'is_alive') THEN
+    UPDATE link_checks SET status = 'alive', fail_count = 0 WHERE is_alive = true;
+    UPDATE link_checks SET status = 'dead', fail_count = 2 WHERE is_alive = false;
+    ALTER TABLE link_checks DROP COLUMN is_alive;
+  END IF;
+END $$;
 
 -- Add check constraint
 ALTER TABLE link_checks DROP CONSTRAINT IF EXISTS link_checks_status_check;

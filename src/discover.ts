@@ -393,10 +393,14 @@ const DISCOVER_SYSTEM_INSTRUCTION = `You are a research agent that finds free AP
 ## What we're looking for
 Resources that are FREE or have a very generous free tier (< $1000/year). This includes:
 - Open APIs with no or generous rate limits
+- APIs that are free but require an API key for access — these are valid (e.g. NASA APIs, OpenWeatherMap)
 - Public datasets available for download
 - Government and academic data portals
 - Open-source tools and services with free hosted tiers
 - GitHub repos that ARE the dataset or API (not just code that uses one)
+
+## URL guidelines
+The URL we store should be the resource's main website, documentation page, or pricing page — NOT a raw API endpoint. We want the page a developer would visit to learn about and sign up for the resource.
 
 ## What to SKIP — be ruthless
 - Anything that requires paid access to get real value (trials don't count)

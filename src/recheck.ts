@@ -384,10 +384,13 @@ const RECHECK_SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is t
 
 If the fetch result has "likely_broken: true", mark is_alive = false. Do NOT override this by searching for the project elsewhere.
 
+## Important: APIs that require keys are valid
+Some APIs and datasets are free but require an API key or registration to access. These are valid resources. The URL we store should be the resource's website, documentation page, or pricing page — NOT a raw API endpoint. If a page loads and shows docs/pricing for a free API, it is alive even if the API itself requires a key.
+
 ## When the URL is broken: try to repair it
 If fetch_page returns likely_broken, follow this sequence:
 1. Use web_search to find where the resource moved to (e.g. "AgensGraph official site", "AgensGraph GitHub")
-2. If you find a new, working URL:
+2. If you find a new, working URL (website, docs, or pricing page — not a raw API endpoint):
    a. Use fetch_page on the new URL to verify it actually works
    b. If the new URL works, call repair_url with the new URL, then call update_resource with is_alive = true
    c. If the new URL also doesn't work, call update_resource with is_alive = false

@@ -419,6 +419,30 @@ async function getRecheckCache(): Promise<string> {
 
 async function recheckOne(resource: ResourceRow): Promise<void> {
     currentResource = resource;
+    const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
+
+    // Step 1: Pre-fetch the page ourselves (native only — no Gemini fallback)
+    const fetchResult = await fetchPage(resource.url, { tiers: ['native'] });
+    rlog.info('pre-fetch result', {
+        statusCode: fetchResult.statusCode,
+        likely_broken: fetchResult.likely_broken,
+        problems: fetchResult.problems,
+    });
+
+    // Step 2: If healthy, update DB directly — no Gemini needed
+    if (!fetchResult.likely_broken && fetchResult.statusCode >= 200 && fetchResult.statusCode < 400) {
+        await db.query(
+            `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
+             VALUES ($1, now(), $2, 'alive', 0, 'pre-fetch OK')
+             ON CONFLICT (resource_id) DO UPDATE
+             SET checked_at = now(), status_code = $2, status = 'alive', fail_count = 0, notes = 'pre-fetch OK'`,
+            [resource.id, fetchResult.statusCode],
+        );
+        rlog.info('resource alive (no LLM needed)');
+        return;
+    }
+
+    // Step 3: Page is broken — use Gemini to diagnose and attempt repair
     const cacheName = await getRecheckCache();
 
     const resourceContext = `Resource to check:
@@ -429,15 +453,16 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
 - Current regions: ${resource.regions.join(', ') || 'none'}
 - Current description: ${resource.descriptions[0] || 'none'}
 
-You are checking THIS EXACT URL: ${resource.url}
+I already fetched the page. Here are the results:
+- Status code: ${fetchResult.statusCode}
+- Problems: ${fetchResult.problems?.join(', ') || 'none'}
+- Content preview: ${fetchResult.content.slice(0, 500)}
 
-Begin by using fetch_page to visit the URL.`;
+The page appears broken. Try to find where this resource moved to using web_search, then repair_url if you find it. Call update_resource when done.`;
 
     const contents: Content[] = [
         { role: 'user', parts: [{ text: resourceContext }] },
     ];
-
-    const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
         const response = await withRetry(() => genai.models.generateContent({

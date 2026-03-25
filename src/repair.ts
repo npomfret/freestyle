@@ -1,5 +1,6 @@
 import { fetchPage, updateResource } from './lib/agent-tools.js';
 import type { ResourceRow } from './lib/agent-tools.js';
+import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { getLLMProvider } from './lib/llm.js';
 import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
@@ -276,49 +277,48 @@ async function main(): Promise<void> {
     const arg = process.argv[2];
     const count = Number(arg) || 10;
 
-    // If a specific resource ID is given
-    if (arg && Number.isInteger(Number(arg)) && Number(arg) > 0) {
-        const resource = await getResourceById(Number(arg));
-        if (!resource) {
-            log.error('resource not found', { id: arg });
-            await db.end();
-            process.exit(1);
-        }
-        log.info('repairing single resource', { id: resource.id, name: resource.name, url: resource.url });
-        try {
-            await repairOne(resource);
-        } catch (err) {
-            log.error('repair failed', { id: resource.id, error: String(err) });
-        }
-    } else {
-        const batchSize = Number(arg) || 10;
-        log.info('repair started', { count: batchSize });
-
-        for (let i = 0; i < batchSize; i++) {
-            const resource = await getNextResource();
+    try {
+        // If a specific resource ID is given
+        if (arg && Number.isInteger(Number(arg)) && Number(arg) > 0) {
+            const resource = await getResourceById(Number(arg));
             if (!resource) {
-                log.info('no more resources to repair');
-                break;
+                log.error('resource not found', { id: arg });
+                process.exit(1);
             }
+            log.info('repairing single resource', { id: resource.id, name: resource.name, url: resource.url });
+            await repairOne(resource);
+        } else {
+            const batchSize = Number(arg) || 10;
+            log.info('repair started', { count: batchSize });
 
-            log.info('repairing resource', {
-                index: i + 1,
-                total: batchSize,
-                id: resource.id,
-                name: resource.name,
-                url: resource.url,
-            });
+            for (let i = 0; i < batchSize; i++) {
+                const resource = await getNextResource();
+                if (!resource) {
+                    log.info('no more resources to repair');
+                    break;
+                }
 
-            try {
-                await repairOne(resource);
-            } catch (err) {
-                log.error('repair failed', { id: resource.id, error: String(err) });
+                log.info('repairing resource', {
+                    index: i + 1,
+                    total: batchSize,
+                    id: resource.id,
+                    name: resource.name,
+                    url: resource.url,
+                });
+
+                try {
+                    await repairOne(resource);
+                } catch (err) {
+                    log.error('repair failed', { id: resource.id, error: String(err) });
+                }
             }
         }
-    }
 
-    log.info('repair complete');
-    await db.end();
+        log.info('repair complete');
+    } finally {
+        await closeBrowser();
+        await db.end();
+    }
 }
 
 main();

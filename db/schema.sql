@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS link_checks (
     resource_id INT PRIMARY KEY REFERENCES resources(id) ON DELETE CASCADE,
     checked_at  TIMESTAMPTZ NOT NULL,
     status_code INT,
-    is_alive    BOOLEAN NOT NULL
+    is_alive    BOOLEAN NOT NULL,
+    notes       TEXT
 );
 
 -- ============================================================

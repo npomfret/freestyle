@@ -1,0 +1,369 @@
+import { GoogleGenAI, Type } from "@google/genai";
+import type { Content, FunctionDeclaration, Part } from "@google/genai";
+import { createClient } from "./lib/db.js";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+  console.error("Error: GEMINI_API_KEY not set.");
+  process.exit(1);
+}
+
+const MODEL = "gemini-2.5-flash";
+const EMBEDDING_MODEL = "gemini-embedding-001";
+const MAX_TURNS = 20;
+
+const TOPIC_LABELS = [
+  "ai-ml", "agriculture", "audio", "bioinformatics", "blockchain",
+  "chemistry", "climate", "cybersecurity", "data-science", "developer",
+  "drug-discovery", "finance", "food", "games", "geospatial", "geoscience",
+  "government", "health", "humanities", "journalism", "law", "maritime",
+  "materials", "neuroscience", "nlp", "open-science", "remote-sensing",
+  "robotics", "semantic-web", "social-science", "space", "sports", "transport",
+];
+
+const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const db = createClient();
+
+// ============================================================
+// Tool declarations
+// ============================================================
+
+const toolDeclarations: FunctionDeclaration[] = [
+  {
+    name: "fetch_page",
+    description: "Fetch and read a web page to check if the resource is still live, what it offers, and whether anything has changed.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "URL to fetch" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "update_resource",
+    description: "Update a resource's metadata after rechecking it.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        description: {
+          type: Type.STRING,
+          description: "New one-sentence description of what this resource provides. Write this even if one already exists — make it accurate and current.",
+        },
+        topics: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: `Updated topic labels (1-4) from: ${TOPIC_LABELS.join(", ")}. Keep existing ones if still accurate, adjust if needed.`,
+        },
+        is_alive: {
+          type: Type.BOOLEAN,
+          description: "true if the resource is still accessible and working, false if dead/broken/gone",
+        },
+        notes: {
+          type: Type.STRING,
+          description: "Brief notes about what you found: any changes, issues, or notable details",
+        },
+      },
+      required: ["description", "is_alive", "notes"],
+    },
+  },
+  {
+    name: "web_search",
+    description: "Search the web for more information about this resource if the page itself doesn't load or is unclear.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
+// ============================================================
+// Tool execution
+// ============================================================
+
+interface ResourceRow {
+  id: number;
+  name: string;
+  url: string;
+  kinds: string[];
+  topics: string[];
+  descriptions: string[];
+}
+
+let currentResource: ResourceRow | null = null;
+
+async function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  switch (name) {
+    case "fetch_page": {
+      const url = args.url as string;
+      try {
+        const resp = await fetch(url, {
+          headers: { "User-Agent": "freestyle-recheck-agent/1.0" },
+          signal: AbortSignal.timeout(10000),
+          redirect: "follow",
+        });
+        let text = await resp.text();
+        text = text
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&[#\w]+;/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (text.length > 8000) text = text.slice(0, 8000) + "\n...[truncated]";
+        return { content: text, statusCode: resp.status };
+      } catch (err) {
+        return { content: `Error: ${err}`, statusCode: 0 };
+      }
+    }
+
+    case "web_search": {
+      try {
+        const response = await genai.models.generateContent({
+          model: MODEL,
+          contents: `Search for: ${args.query}`,
+          config: { tools: [{ googleSearch: {} }] },
+        });
+        return { results: response.text ?? "No results." };
+      } catch (err) {
+        return { results: `Search failed: ${err}` };
+      }
+    }
+
+    case "update_resource": {
+      if (!currentResource) return { error: "No current resource" };
+      const r = currentResource;
+      const description = args.description as string;
+      const isAlive = args.is_alive as boolean;
+      const notes = args.notes as string;
+      const topics = args.topics as string[] | undefined;
+
+      // Update description: clear old, insert new
+      await db.query("DELETE FROM resource_descriptions WHERE resource_id = $1", [r.id]);
+      if (description) {
+        await db.query(
+          "INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)",
+          [r.id, description],
+        );
+      }
+
+      // Update topics if provided
+      if (topics && topics.length > 0) {
+        await db.query("DELETE FROM resource_topics WHERE resource_id = $1", [r.id]);
+        for (const t of topics) {
+          await db.query(
+            "INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)",
+            [r.id, t],
+          );
+        }
+      }
+
+      // Update link_checks
+      await db.query(
+        `INSERT INTO link_checks (resource_id, checked_at, status_code, is_alive, notes)
+         VALUES ($1, now(), NULL, $2, $3)
+         ON CONFLICT (resource_id) DO UPDATE
+         SET checked_at = now(), is_alive = $2, notes = $3`,
+        [r.id, isAlive, notes],
+      );
+
+      // Re-generate embedding with new description
+      const embText = [r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(" ");
+      try {
+        const resp = await genai.models.embedContent({
+          model: EMBEDDING_MODEL,
+          contents: [embText],
+          config: { outputDimensionality: 768 },
+        });
+        const vec = resp.embeddings?.[0]?.values;
+        if (vec) {
+          await db.query(
+            "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
+            [`[${vec.join(",")}]`, r.id],
+          );
+        }
+      } catch {
+        // Embedding update is best-effort
+      }
+
+      return { status: "updated", id: r.id, is_alive: isAlive };
+    }
+
+    default:
+      return { error: `Unknown tool: ${name}` };
+  }
+}
+
+// ============================================================
+// Get next resource to check
+// ============================================================
+
+async function getNextResource(): Promise<ResourceRow | null> {
+  // Resources never checked first (ordered by id), then oldest checked
+  const { rows } = await db.query(`
+    SELECT r.id, r.name, r.url
+    FROM resources r
+    LEFT JOIN link_checks lc ON lc.resource_id = r.id
+    ORDER BY lc.checked_at ASC NULLS FIRST, r.id
+    LIMIT 1
+  `);
+
+  if (!rows.length) return null;
+
+  const r = rows[0];
+
+  // Fetch kinds, topics, descriptions
+  const [kinds, topics, descs] = await Promise.all([
+    db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]),
+    db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]),
+    db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]),
+  ]);
+
+  return {
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    kinds: kinds.rows.map((k: { kind: string }) => k.kind),
+    topics: topics.rows.map((t: { topic: string }) => t.topic),
+    descriptions: descs.rows.map((d: { description: string }) => d.description),
+  };
+}
+
+// ============================================================
+// Recheck one resource
+// ============================================================
+
+async function recheckOne(resource: ResourceRow): Promise<void> {
+  currentResource = resource;
+
+  const systemPrompt = `You are a quality-check agent. Your job is to recheck a single resource in our catalog to verify it's still alive, update its description, and note any changes.
+
+Resource to check:
+- Name: ${resource.name}
+- URL: ${resource.url}
+- Current kinds: ${resource.kinds.join(", ") || "none"}
+- Current topics: ${resource.topics.join(", ") || "none"}
+- Current description: ${resource.descriptions[0] || "none"}
+
+Steps:
+1. Use fetch_page to visit the URL and read what's there
+2. If the page doesn't load, use web_search to find out if it moved, was renamed, or shut down
+3. Call update_resource with:
+   - A clear, accurate one-sentence description (write a new one even if one exists)
+   - Updated topic labels if needed
+   - is_alive: true/false
+   - notes: what you found (e.g. "still active", "moved to new URL", "returns 404", "now requires paid plan", etc.)
+
+Be concise. One fetch, one update. Done.`;
+
+  const contents: Content[] = [
+    { role: "user", parts: [{ text: systemPrompt }] },
+  ];
+
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const response = await genai.models.generateContent({
+      model: MODEL,
+      contents,
+      config: {
+        tools: [{ functionDeclarations: toolDeclarations }],
+      },
+    });
+
+    const candidate = response.candidates?.[0];
+    if (!candidate?.content?.parts) break;
+
+    contents.push(candidate.content);
+
+    const textParts = candidate.content.parts.filter((p: Part) => p.text);
+    for (const part of textParts) {
+      console.log(`    ${part.text}`);
+    }
+
+    const functionCalls = candidate.content.parts.filter((p: Part) => p.functionCall);
+    if (functionCalls.length === 0) break;
+
+    const responseParts: Part[] = [];
+    for (const part of functionCalls) {
+      const fc = part.functionCall!;
+      const toolName = fc.name!;
+      const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
+
+      console.log(`    Tool: ${toolName}(${JSON.stringify(toolArgs).slice(0, 100)})`);
+
+      const result = await executeTool(toolName, toolArgs);
+      const resultStr = JSON.stringify(result);
+      console.log(`    Result: ${resultStr.slice(0, 150)}`);
+
+      responseParts.push({
+        functionResponse: {
+          name: toolName,
+          response: { result },
+          id: fc.id,
+        },
+      });
+
+      // If we just updated, we're done with this resource
+      if (toolName === "update_resource") return;
+    }
+
+    contents.push({ role: "user", parts: responseParts });
+  }
+}
+
+// ============================================================
+// Main loop
+// ============================================================
+
+async function main(): Promise<void> {
+  const count = Number(process.argv[2]) || 10;
+  await db.connect();
+
+  console.log(`\nRecheck agent: processing ${count} resources\n`);
+
+  for (let i = 0; i < count; i++) {
+    const resource = await getNextResource();
+    if (!resource) {
+      console.log("No more resources to check.");
+      break;
+    }
+
+    console.log(`[${i + 1}/${count}] ${resource.name}`);
+    console.log(`  URL: ${resource.url}`);
+
+    try {
+      await recheckOne(resource);
+    } catch (err) {
+      console.error(`  Error: ${err}`);
+      // Record the failure
+      await db.query(
+        `INSERT INTO link_checks (resource_id, checked_at, is_alive, notes)
+         VALUES ($1, now(), false, $2)
+         ON CONFLICT (resource_id) DO UPDATE
+         SET checked_at = now(), is_alive = false, notes = $2`,
+        [resource.id, `Agent error: ${err}`],
+      );
+    }
+
+    console.log("");
+  }
+
+  // Print summary
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE is_alive = true) AS alive,
+      COUNT(*) FILTER (WHERE is_alive = false) AS dead,
+      COUNT(*) AS total
+    FROM link_checks
+  `);
+  console.log(`Overall: ${rows[0].alive} alive, ${rows[0].dead} dead (${rows[0].total} checked total)`);
+
+  await db.end();
+}
+
+main();

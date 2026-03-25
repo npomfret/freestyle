@@ -8,6 +8,7 @@
     "embed": "tsx src/generate-embeddings.ts",
     "search": "tsx src/search.ts",
     "discover": "tsx src/discover.ts",
+    "recheck": "tsx src/recheck.ts",
     "server": "tsx src/server.ts",
     "dev:web": "cd web && npm run dev",
     "build:web": "cd web && npm run build"

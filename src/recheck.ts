@@ -4,6 +4,7 @@ import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
 import { requireEnv } from './lib/env.js';
 import { fetchPage } from './lib/fetch-page.js';
+import { createCache, deleteCache } from './lib/gemini-cache.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
@@ -343,26 +344,14 @@ async function getNextResource(): Promise<ResourceRow | null> {
 }
 
 // ============================================================
-// Recheck one resource
+// Static system instruction (cached across resource checks)
 // ============================================================
 
-async function recheckOne(resource: ResourceRow): Promise<void> {
-    currentResource = resource;
-
-    const systemPrompt = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
-
-Resource to check:
-- Name: ${resource.name}
-- URL: ${resource.url}
-- Current kinds: ${resource.kinds.join(', ') || 'none'}
-- Current topics: ${resource.topics.join(', ') || 'none'}
-- Current regions: ${resource.regions.join(', ') || 'none'}
-- Current description: ${resource.descriptions[0] || 'none'}
+const RECHECK_SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
 
 ## CRITICAL: What "alive" means
 
-You are checking THIS EXACT URL: ${resource.url}
-- is_alive = true ONLY if this URL loads and serves the expected content (API docs, dataset, service page, repo, etc.)
+- is_alive = true ONLY if the URL loads and serves the expected content (API docs, dataset, service page, repo, etc.)
 - is_alive = false if ANY of these are true:
   - The URL returns a 4xx or 5xx status code
   - The URL redirects to a generic homepage (not the specific resource)
@@ -400,8 +389,41 @@ If fetch_page returns likely_broken, follow this sequence:
 
 Be concise.`;
 
+let recheckCacheName: string | null = null;
+
+async function getRecheckCache(): Promise<string> {
+    if (recheckCacheName) return recheckCacheName;
+    recheckCacheName = await createCache(genai, {
+        model: MODEL,
+        systemInstruction: RECHECK_SYSTEM_INSTRUCTION,
+        displayName: 'recheck-agent',
+        ttlSeconds: 7200,
+    });
+    return recheckCacheName;
+}
+
+// ============================================================
+// Recheck one resource
+// ============================================================
+
+async function recheckOne(resource: ResourceRow): Promise<void> {
+    currentResource = resource;
+    const cacheName = await getRecheckCache();
+
+    const resourceContext = `Resource to check:
+- Name: ${resource.name}
+- URL: ${resource.url}
+- Current kinds: ${resource.kinds.join(', ') || 'none'}
+- Current topics: ${resource.topics.join(', ') || 'none'}
+- Current regions: ${resource.regions.join(', ') || 'none'}
+- Current description: ${resource.descriptions[0] || 'none'}
+
+You are checking THIS EXACT URL: ${resource.url}
+
+Begin by using fetch_page to visit the URL.`;
+
     const contents: Content[] = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'user', parts: [{ text: resourceContext }] },
     ];
 
     const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
@@ -411,6 +433,7 @@ Be concise.`;
             model: MODEL,
             contents,
             config: {
+                cachedContent: cacheName,
                 tools: [{ functionDeclarations: toolDeclarations }],
             },
         }), 'recheck');
@@ -559,6 +582,7 @@ async function main(): Promise<void> {
         total: Number(rows[0].total),
     });
 
+    if (recheckCacheName) await deleteCache(genai, recheckCacheName);
     await db.end();
 }
 

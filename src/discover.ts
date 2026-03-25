@@ -4,6 +4,7 @@ import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './l
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { requireEnv } from './lib/env.js';
+import { createCache, deleteCache } from './lib/gemini-cache.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import { Kind, Region, SourceName, Topic, Url } from './lib/types.js';
@@ -370,11 +371,11 @@ async function executeTool(
 const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const db = createPool();
 
-async function discover(query: string): Promise<void> {
+// ============================================================
+// Static system instruction (cached across turns and iterations)
+// ============================================================
 
-    const systemPrompt = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
-
-Your task: "${query}"
+const DISCOVER_SYSTEM_INSTRUCTION = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
 
 ## What we're looking for
 Resources that are FREE or have a very generous free tier (< $1000/year). This includes:
@@ -416,8 +417,24 @@ For each candidate resource:
 
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
+let discoverCacheName: string | null = null;
+
+async function getDiscoverCache(): Promise<string> {
+    if (discoverCacheName) return discoverCacheName;
+    discoverCacheName = await createCache(genai, {
+        model: MODEL,
+        systemInstruction: DISCOVER_SYSTEM_INSTRUCTION,
+        displayName: 'discover-agent',
+        ttlSeconds: 7200,
+    });
+    return discoverCacheName;
+}
+
+async function discover(query: string): Promise<void> {
+    const cacheName = await getDiscoverCache();
+
     const contents: Content[] = [
-        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'user', parts: [{ text: `Your task: "${query}"\n\nBegin by searching for relevant resources.` }] },
     ];
 
     const alog = log.child({ agent: 'discover' });
@@ -428,6 +445,7 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
             model: MODEL,
             contents,
             config: {
+                cachedContent: cacheName,
                 tools: [{ functionDeclarations: toolDeclarations }],
             },
         }), 'discover');
@@ -521,8 +539,12 @@ async function main(): Promise<void> {
             }
         }
     } else {
-        await run();
-        await db.end();
+        try {
+            await run();
+        } finally {
+            if (discoverCacheName) await deleteCache(genai, discoverCacheName);
+            await db.end();
+        }
     }
 }
 

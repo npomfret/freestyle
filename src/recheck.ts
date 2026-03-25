@@ -298,6 +298,7 @@ async function getNextResource(): Promise<ResourceRow | null> {
     FROM resources r
     LEFT JOIN link_checks lc ON lc.resource_id = r.id
     WHERE lc.status IS DISTINCT FROM 'dead'
+      AND (lc.checked_at IS NULL OR lc.checked_at < now() - interval '14 days')
     ORDER BY lc.checked_at ASC NULLS FIRST, r.id
     LIMIT 1
   `);

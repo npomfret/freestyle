@@ -13,6 +13,7 @@
     "recheck": "tsx src/recheck.ts",
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",
+    "dev": "tsx src/dev.ts",
     "dev:web": "cd web && npm run dev",
     "build:web": "cd web && npm run build",
     "format": "node scripts/format.js"

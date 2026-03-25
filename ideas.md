@@ -1,130 +1,206 @@
-# Project Ideas From The Free API And Dataset Catalog
+# Research-Backed Project Ideas From The Free API And Dataset Catalog
 
-This is a curated version of the idea bank. I removed roughly the bottom 50% by estimated commercial potential and kept the concepts with the clearest buyer, budget, repeat use case, and pricing power.
+I filtered for ideas that can plausibly launch for less than `$5,000/year` in data and infrastructure costs by leaning on public/open datasets, light ETL, a Postgres/PostGIS stack, and narrow initial market focus.
 
-Commercial tiers:
-- `Tier 1` = strongest startup opportunities
-- `Tier 2` = strong but narrower or harder to sell
-- `Tier 3` = commercially plausible, but meaningfully weaker than the rest
+The strongest ideas are below. Each one references datasets that appear in `README.md`, checks whether those sources are actually usable, compares the market against existing products, and explains where the commercial wedge is.
 
 ---
 
-## A. Commodity & Energy Trading Intelligence
+## 1. TransitCatchment Pro
 
-1. **Tank Farm Watch** (`Tier 1`) — Measure crude inventory at major global tank farms using satellite imagery, AIS vessel traffic, and market data. Best fit for oil trading desks, physical commodity shops, and market intelligence firms.
+**What it is**
 
-2. **Crop Futures Oracle** (`Tier 1`) — Fuse satellite crop stress signals, weather models, USDA-style reports, and futures curves to detect agricultural supply shocks before official releases. Best fit for commodity traders, agricultural lenders, and crop insurers.
+A B2B location-intelligence product for real-estate teams, employers, healthcare operators, and local consultants. Give it an address or shortlist of sites and it scores real access to workers, patients, students, and customers by transit, walking, and driving time. The useful version is not a generic map. It is a reportable decision product: "how many people can reach this site in 30/45/60 minutes, how reliable is service, and how does this compare with nearby alternatives?"
 
-3. **Grid Arbitrage** (`Tier 1`) — Combine power grid, weather, satellite, and fuel price data to detect capacity changes, renewable build-out, and regional grid stress ahead of official updates. Best fit for energy traders and renewable developers.
+**Datasets from the catalog**
 
-4. **Power Plant Pulse** (`Tier 2`) — Track whether major power plants are actually operating using facility registries, satellite signals, air quality proxies, and energy market data. Best fit for energy trading firms and utility equity analysts.
+- [GTFS](https://openmobilitydata.org/p/capital-metro/24/latest)
+- [GTFS-RT](https://openmobilitydata.org/p/capital-metro/495)
+- [National Transit Database](https://www.transit.dot.gov/ntd)
+- [Census.gov developer datasets](https://www.census.gov/data/developers/data-sets.html)
+- [US Census Commuting Flow](https://www.census.gov/topics/employment/commuting/guidance/flows.html)
+- [TIGER/Line](https://www.census.gov/geo/maps-data/data/tiger-line.html)
+- [OpenStreetMap](http://wiki.openstreetmap.org/wiki/API)
+- [OSRM](https://github.com/Project-OSRM/osrm-backend/wiki/Server-api)
 
-5. **Commodity Disruption Monitor** (`Tier 1`) — Use vessel tracking, weather, port throughput proxies, and market feeds to detect supply chain disruptions before they show up in prices. Best fit for procurement teams, commodity desks, and research shops.
+**Why these sources are good enough**
 
-6. **Freight Rate Shadow Index** (`Tier 2`) — Build a synthetic freight stress index from vessel traffic, congestion, route movement, and weather disruption. Best fit for analysts, traders, freight brokers, and procurement organizations.
+- `GTFS` and `GTFS-Realtime` are the de facto standard formats for static schedules and live trip updates. That is exactly the format commercial routing and accessibility tools rely on.
+- `National Transit Database` is official U.S. transit reporting, with annual and monthly data on ridership, service, assets, safety, and stations. It is good for agency quality benchmarking, not just routing.
+- `Census` and `commuting flow` datasets are strong enough to estimate reachable worker and resident pools by tract/block group.
+- `OpenStreetMap` plus `OSRM` keeps routing costs low and auditable.
+- Main caveat: feed quality varies by city. The correct launch plan is not "all cities." Start with 20-50 U.S. metros where GTFS feeds are actively maintained.
 
-7. **Inflation Microscope** (`Tier 2`) — Track category-level inflation pressure using shipping, food, energy, agriculture, and weather proxies. Best fit for finance teams, economists, media, and macro research products.
+**Existing products**
 
----
+- [Walk Score Professional](https://www.walkscore.com/professional/contact.php)
+- [TravelTime](https://docs.traveltime.com/docs/arcgis/quick-tools/quick-time-map)
+- [Targomo](https://www.targomo.com/)
+- [Esri Business Analyst](https://www.esri.com/en-us/arcgis/products/arcgis-business-analyst/overview)
 
-## B. Maritime & Supply Chain Intelligence
+**Why this can still win**
 
-8. **Sanctions Cartography** (`Tier 1`) — Map vessel movements against sanctions entity graphs and trade flow anomalies to surface compliance risk before cargo arrives. Best fit for banks, commodity traders, shipping firms, and compliance teams.
+- Existing tools are either generic travel-time tooling or enterprise GIS products.
+- A cheaper vertical product can win by packaging the answer buyers actually need: labor access, patient access, student access, or planning-board evidence.
+- A strong wedge is self-serve site comparison reports for buyers priced out of enterprise GIS: independent developers, franchise groups, clinic rollups, universities, and local consultancies.
 
-9. **PortPulse** (`Tier 1`) — Monitor port congestion, slowdowns, reroutes, and abnormal vessel behavior with AIS, weather, and port datasets. Best fit for freight forwarders, insurers, and trading firms.
+**Commercial viability**
 
-10. **Trade Chokepoint Monitor** (`Tier 2`) — Focus specifically on canals, straits, and strategic maritime bottlenecks to detect route stress and disruption early. Best fit for traders, logistics operators, and insurers.
+- Likely pricing: `$99-$299/report` or `$149-$499/month` for saved portfolios, watchlists, exports, and branded PDFs.
+- Buyers already spend money on site selection and accessibility scoring. This is a real budget line, just usually overserved by heavier software.
 
-11. **Vessel Pharmacology** (`Tier 2`) — Track active pharmaceutical ingredient shipping flows from key manufacturing ports to infer drug shortage risk and pharma exposure. Best fit for pharma supply chain teams, healthcare buyers, and specialty investors.
+**Cost check**
 
-12. **Cold Chain Exposure Radar** (`Tier 2`) — Model fragility across temperature-sensitive routes and facilities using weather, transit, traffic, port, and infrastructure datasets. Best fit for pharma logistics, food distribution, and insurers.
-
----
-
-## C. Insurance, Risk & Climate Finance
-
-13. **Underwriter's Eye** (`Tier 1`) — Build a continuously updated parcel-level property risk score from satellite imagery, flood, wildfire, air quality, regulatory, and building datasets. Best fit for insurers, lenders, and portfolio real-estate operators.
-
-14. **Flood Clock** (`Tier 1`) — Estimate first-flood and permanent inundation timelines for specific properties using flood maps, tidal data, sea-level projections, and historical imagery. Best fit for insurers, lenders, coastal investors, and municipal credit analysts.
-
-15. **Insurance Exposure Map** (`Tier 1`) — Summarize climate, flood, fire, and environmental exposure for buildings and portfolios. Best fit for brokers, underwriters, and property managers.
-
-16. **Carbon Adjacent Screener** (`Tier 2`) — Identify companies and regions likely to be repriced by emissions exposure and climate pressure using facility maps, climate data, and public company information. Best fit for funds, ESG teams, and research desks.
-
----
-
-## D. Financial Markets & Alternative Data
-
-17. **Clinical Trial Arbitrage** (`Tier 2`) — Combine trial registries, drug-target data, and bioactivity profiles to score biotech readout risk before the market reacts. Best fit for biotech hedge funds and pharma business development teams.
-
-18. **Macro Local** (`Tier 2`) — Link market prices to weather, shipping, air quality, crop, and energy signals to surface non-consensus macro relationships. Best fit for investors, macro researchers, and paid research products.
-
-19. **Small-Cap Event Radar** (`Tier 2`) — Join listed company data with public procurement, transport, environmental, and trade signals to catch second-order events before coverage improves. Best fit for small-cap investors and niche research desks.
-
-20. **Earnings Geography** (`Tier 1`) — Map where revenue exposure really lives using filings, geospatial data, and public market data. Best fit for institutional investors and risk teams.
-
-21. **Listed Infrastructure Watch** (`Tier 2`) — Track listed airlines, ports, logistics firms, utilities, and infrastructure operators with real-world operational context layered onto markets. Best fit for public-market infrastructure investors.
-
-22. **Procurement To Market Signal Engine** (`Tier 2`) — Detect shifts in government procurement and connect them to listed companies, sectors, and regional demand signals. Best fit for investors, consultants, and public sector intelligence teams.
-
-23. **FX Stress Dashboard** (`Tier 2`) — Turn FX moves into corridor-level business risk by combining exchange rates with country, trade, and political data. Best fit for treasury teams and international operators.
-
-24. **Treasury Route Planner** (`Tier 2`) — Combine FX, supplier geography, transport, and country-risk data to show where cross-border cash flow and payment timing are most fragile. Best fit for CFO and treasury organizations.
-
-25. **Cross-Border Corridor Scorecard** (`Tier 2`) — Rank business corridors by market attractiveness, currency risk, logistics friction, and trade conditions. Best fit for operators expanding internationally and strategy teams.
-
-26. **Regional Expansion Screener** (`Tier 2`) — Compare expansion markets using labor, regulation, FX, business registry, and infrastructure data. Best fit for strategy, operations, and market entry teams.
+- Postgres/PostGIS, scheduled feed ingestion, object storage, one or two app workers, and a small routing box should fit roughly `$1,500-$3,000/year`.
+- The business works without paid proprietary map data.
 
 ---
 
-## E. Real Estate, Site Selection & Property Intelligence
+## 2. TrialScout
 
-27. **Talent Terrain** (`Tier 1`) — Automate labor-market and talent-pipeline analysis for office, factory, and R&D site selection using commuting, jobs, permits, and education data. Best fit for large employers, VCs, and site-selection teams.
+**What it is**
 
-28. **Store Siting Engine** (`Tier 1`) — Rank retail, clinic, warehouse, and EV charging locations using demographics, transport, address, and business registry datasets. Best fit for multi-site operators and real-estate teams.
+A biotech and life-science intelligence tool that tracks competitive clinical activity by indication, mechanism, investigator, and site. The useful version is not "search ClinicalTrials." It is "tell me which programs are accelerating, which investigators keep appearing across competing studies, which sponsors are publishing first, and where safety/regulatory signals are emerging."
 
-29. **Industrial Footprint Scanner** (`Tier 2`) — Evaluate environmental exposure and neighboring land-use risk around industrial properties and facilities. Best fit for investors, consultancies, and industrial real-estate operators.
+**Datasets from the catalog**
 
-30. **Construction Friction Map** (`Tier 2`) — Show where projects are likely to hit safety, transit, environmental, or local operating friction before diligence starts. Best fit for developers and infrastructure planning teams.
+- [ClinicalTrials.gov](https://clinicaltrials.gov/)
+- [PubMed](https://pubmed.ncbi.nlm.nih.gov/)
+- [PubMed Central Open Access Subset](https://www.ncbi.nlm.nih.gov/pmc/tools/openftlist/)
+- [OpenAlex](https://openalex.org/)
+- [Crossref Metadata Search](https://github.com/CrossRef/rest-api-doc)
+- [openFDA](https://open.fda.gov)
+- [MeSH download files](https://www.nlm.nih.gov/mesh/filelist.html)
 
-31. **Sales Territory Optimizer** (`Tier 1`) — Redraw sales territories from address, admin-boundary, and public economic data. Best fit for field-sales and regional operations teams.
+**Why these sources are good enough**
+
+- `ClinicalTrials.gov` is still the canonical public registry. Its modern data structure and API make it usable for structured monitoring.
+- `PubMed` gives the literature spine; `PMC` adds free full text for many papers; `MeSH` helps normalize therapy-area language.
+- `OpenAlex` adds large-scale entity linking across works, authors, institutions, concepts, and citations. Its own documentation describes hundreds of millions of works with tens of thousands added daily.
+- `Crossref` is large and current enough to support DOI matching and citation backfilling. Crossref stated in November 2025 that its public REST API serves metadata across roughly `180 million` records and handles about `1 billion` monthly hits.
+- `openFDA` is not a complete regulatory intelligence replacement, but it is useful for product labels, enforcement reports, and adverse-event-adjacent monitoring. FDA states some endpoints update weekly and expose machine-readable harmonized fields.
+- Main caveat: trial records are sponsor-submitted and uneven in completeness. That is manageable if the product explicitly cross-checks registry data against publications, citations, and FDA signals.
+
+**Existing products**
+
+- [Citeline Trialtrove](https://www.citeline.com/en/products-services/clinical/trialtrove)
+- [Clarivate Cortellis Clinical Trials Intelligence](https://clarivate.com/products/biopharma-intelligence/cortellis/cortellis-clinical-trials-intelligence/)
+- [GlobalData Clinical Trials](https://www.globaldata.com/store/report/clinical-trials-market-analysis/)
+
+**Why this can still win**
+
+- The incumbents are strong, but they are enterprise-heavy and expensive.
+- A cheaper product can target smaller biotech teams, CRO business-development teams, specialist consultants, recruiters, and healthcare-focused micro-funds.
+- The best wedge is not full enterprise trial intelligence. It is fast competitive monitoring in one therapy area with investigator maps, publication lag tracking, and sponsor watchlists.
+
+**Commercial viability**
+
+- Likely pricing: `$299-$999/month` depending on saved dashboards, API access, alert volume, and number of indications.
+- Even a small number of customers can support the business because the buyer value per decision is high.
+
+**Cost check**
+
+- Nightly ETL, text indexing, graph/entity resolution, and a modest app stack should stay around `$2,000-$4,000/year`.
+- Optional LLM summarization can be tightly rate-limited and added later without breaking the budget.
 
 ---
 
-## F. Environment, Agriculture & Earth Observation
+## 3. PatentPulse
 
-32. **Forest Stress Early Warning** (`Tier 2`) — Detect abnormal canopy change, heat stress, and disturbance patterns with Earth observation and climate datasets. Best fit for insurers, commodity buyers, conservation groups, and climate analysts.
+**What it is**
 
-33. **Crop Stress Mosaic** (`Tier 2`) — Surface early signs of agricultural stress by region using land-cover, rainfall, climate, and remote sensing inputs. Best fit for agritech, lenders, commodity research, and food supply chains.
+A lightweight patent and filing radar for startup founders, product teams, micro-VCs, specialist agencies, and small IP firms. It watches a technology theme or named competitor set and summarizes new patents, assignments, PTAB activity, SEC disclosures, and related company events into plain-English alerts.
 
-34. **Hydrology Watch** (`Tier 2`) — Monitor runoff, flood potential, and watershed stress with rainfall, river, land-cover, and hydrology datasets. Best fit for environmental consultancies, local authorities, and agriculture.
+**Datasets from the catalog**
 
-35. **Airshed Simulator** (`Tier 2`) — Explain where bad air came from and where it is likely to move next using emissions, traffic, weather, and terrain data. Best fit for industrial compliance teams, agencies, and environmental consultants.
+- [USPTO Open Data and Mobility](https://www.uspto.gov/learning-and-resources/open-data-and-mobility)
+- [U.S. Patent and Trademark Office Bulk Data Products](https://www.uspto.gov/learning-and-resources/bulk-data-products)
+- [SEC EDGAR Data](https://www.sec.gov/edgar/sec-api-documentation)
+- [UK Companies House](https://developer.company-information.service.gov.uk/)
 
-36. **Atmospheric Operations Console** (`Tier 2`) — Monitor atmospheric conditions that affect safety, compliance, or operations across sites and regions. Best fit for industrial operators, municipalities, and research teams.
+**Why these sources are good enough**
+
+- `USPTO` data is authoritative, broad, and commercially useful. The USPTO developer portal now routes users to the newer Open Data Portal, which is a sign the platform is active even though some older endpoints are being retired.
+- `SEC` disclosure APIs are already useful for production. The SEC announced that its disclosure API provides real-time entity information, submission details, XBRL financial data in JSON, and a nightly bulk zip.
+- `Companies House` is a good low-cost complement for UK entity changes, directors, charges, and filing events.
+- Main caveat: the hard problem is not raw access. It is entity resolution across assignees, subsidiaries, and filing names. That is where product value lives.
+
+**Existing products**
+
+- [PatSnap](https://www.patsnap.com/)
+- [Questel Orbit Intellixir](https://www.questel.com/patent/ip-intelligence-software/orbit-intellixir/)
+- [The Lens](https://www.lens.org/)
+- [Google Patents](https://patents.google.com/)
+
+**Why this can still win**
+
+- Patent search itself is commoditized. Monitoring, explanation, and workflow are not.
+- A smaller product can win by focusing on practical alerts for non-enterprise users: "your top three competitors filed here," "this family expanded internationally," "a board filing suggests a product pivot," or "this patent cluster is getting crowded."
+- This is especially plausible for agencies, consultants, search funds, and B2B founders who want signals, not a full enterprise IP suite.
+
+**Commercial viability**
+
+- Likely pricing: `$99-$399/month` or premium diligence reports for funds and agencies.
+- The market already pays for patent intelligence, but many smaller buyers are underserved by enterprise-first vendors.
+
+**Cost check**
+
+- Bulk ingest, search indexing, and nightly entity matching should stay around `$1,500-$3,500/year`.
+- The data itself is public; the main cost is compute and storage.
 
 ---
 
-## G. Urban Systems, Transit & Civic Intelligence
+## 4. Airshed Watch
 
-37. **Transit Viability Lab** (`Tier 2`) — Score how well districts are actually served by transit using GTFS, real-time feeds, and commuting data. Best fit for developers, employers, planners, and public agencies.
+**What it is**
 
-38. **Mobility Access Underwriter** (`Tier 2`) — Score how reachable jobs, schools, and services are from a location using transit, bike-share, and neighborhood data. Best fit for lenders, developers, employers, and agencies.
+An air-quality and weather risk console for schools, camps, outdoor employers, sports venues, and multi-site property operators. It turns open sensor and weather feeds into operational decisions: should we move practice indoors, warn outdoor crews, alter ventilation plans, or reschedule site work?
 
-39. **Last-Mile Reality Checker** (`Tier 2`) — Test whether a site is truly accessible in practice by combining parcel, address, transit, bike-share, traffic, and road datasets. Best fit for logistics, healthcare, and retail operators.
+**Datasets from the catalog**
+
+- [OpenAQ](https://docs.openaq.org/)
+- [AQICN](https://aqicn.org/api/)
+- [NOAA Climate Data](https://www.ncdc.noaa.gov/cdo-web/webservices/v2)
+- [OpenWeatherMap](https://openweathermap.org/api)
+- [OpenStreetMap](http://wiki.openstreetmap.org/wiki/API)
+
+**Why these sources are good enough**
+
+- `OpenAQ` is one of the best open air-quality aggregation layers available and is built specifically for harmonized, machine-readable air-quality access.
+- `AQICN` is a useful supplemental source for broader monitoring and public AQI distribution.
+- `NOAA` gives reliable historical and contextual weather data; `OpenWeatherMap` can help with forecast UX if needed.
+- `OpenStreetMap` provides site geometry, nearby schools/facilities, and operational context.
+- Main caveat: station density is uneven. The right launch plan is to start where public monitor coverage is dense and be transparent about confidence.
+
+**Existing products**
+
+- [Tomorrow.io Weather API](https://www.tomorrow.io/weather-api/weather-forecast-api//)
+- [BreezoMeter Air Quality API](https://docs.breezometer.com/api-documentation/air-quality-api/v1/)
+- [IQAir](https://www.iqair.com/)
+
+**Why this can still win**
+
+- The incumbents tend to be either broad weather platforms or consumer-facing air-quality brands.
+- A cheaper vertical tool can package air quality into policies and workflows for schools, camp operators, sports clubs, and outdoor labor teams.
+- The wedge is operational simplicity: location watchlists, threshold-based alerts, printable policy logs, and historical exposure summaries for risk/compliance.
+
+**Commercial viability**
+
+- Likely pricing: `$25-$99/location/month` or seasonal plans for schools, camps, and sports organizations.
+- The buyer problem is concrete and recurring, especially in wildfire-prone or pollution-heavy regions.
+
+**Cost check**
+
+- Cached ingest, notifications, and a small dashboard should stay around `$1,000-$2,500/year`.
+- No expensive proprietary forecast model is required to get an initial paid product live.
 
 ---
 
-## H. Infrastructure & Resilience
+## Best Starting Point
 
-40. **Utility Outage Opportunity Finder** (`Tier 2`) — Identify regions with chronic resilience gaps using weather, land use, grid-adjacent, climate, and demographic data. Best fit for energy startups, backup power vendors, and resilience programs.
+If I had to pick the best first build, I would start with **TransitCatchment Pro** or **PatentPulse**.
 
-41. **Rural Service Desert Mapper** (`Tier 3`) — Identify underserved regions for food, clinics, finance, or public services using health, transport, commuting, and administrative data. Best fit for NGOs, governments, and operators entering underserved markets.
-
----
-
-## I. Space, Orbital & Aviation
-
-42. **Orbital Congestion Terminal** (`Tier 2`) — Monitor conjunction risk, orbital crowding, and pass windows using satellite and launch datasets. Best fit for satellite operators and aerospace analytics teams.
-
-43. **Space Weather Operations Desk** (`Tier 2`) — Monitor solar events and their operational impact on power, aviation, communications, and satellites. Best fit for satellite companies, aviation-adjacent operators, and defense-adjacent teams.
+- `TransitCatchment Pro` has the clearest low-cost data stack and a very understandable output buyers can act on immediately.
+- `PatentPulse` has the strongest "do this manually today, but it is annoying" pain point and can be sold with very little UI if the alerts are good.
+- `TrialScout` may have the highest customer value per account, but it also needs the most careful entity resolution and domain-specific UX.
+- `Airshed Watch` is the easiest operational product to build, but the market may need tighter targeting by region and buyer type.

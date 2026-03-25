@@ -1,0 +1,21 @@
+{
+  "name": "freestyle",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/generate-catalog.ts",
+    "seed": "tsx src/seed-database.ts",
+    "embed": "tsx src/generate-embeddings.ts",
+    "search": "tsx src/search.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.46.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

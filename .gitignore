@@ -2,3 +2,7 @@ free-stuff
 .claude
 .idea
 .gemini/.env
+.env
+catalog.json
+node_modules
+dist

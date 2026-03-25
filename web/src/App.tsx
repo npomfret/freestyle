@@ -41,6 +41,8 @@ interface Stats {
     datasets: number;
     topics: number;
     withEmbeddings: number;
+    added24h: number;
+    checked24h: number;
 }
 
 function timeAgo(dateStr: string): string {
@@ -320,6 +322,14 @@ function App() {
                         <span>{stats.datasets.toLocaleString()} datasets</span>
                         <span className='sep'>·</span>
                         <span>{stats.topics} topics</span>
+                        {(stats.added24h > 0 || stats.checked24h > 0) && (
+                            <>
+                                <span className='sep'>·</span>
+                                <span>{stats.added24h} added today</span>
+                                <span className='sep'>·</span>
+                                <span>{stats.checked24h} checked today</span>
+                            </>
+                        )}
                     </div>
                 )}
             </header>

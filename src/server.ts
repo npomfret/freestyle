@@ -71,12 +71,16 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
         const datasets = (await db.query('SELECT COUNT(*) FROM resource_kinds WHERE kind = \'dataset\'')).rows[0].count;
         const topics = (await db.query('SELECT COUNT(DISTINCT topic) FROM resource_topics')).rows[0].count;
         const withEmbeddings = (await db.query('SELECT COUNT(*) FROM resources WHERE embedding IS NOT NULL')).rows[0].count;
+        const added24h = (await db.query('SELECT COUNT(*) FROM resources WHERE created_at >= now() - interval \'24 hours\'')).rows[0].count;
+        const checked24h = (await db.query('SELECT COUNT(*) FROM link_checks WHERE checked_at >= now() - interval \'24 hours\'')).rows[0].count;
         res.json({
             resources: Number(resources),
             apis: Number(apis),
             datasets: Number(datasets),
             topics: Number(topics),
             withEmbeddings: Number(withEmbeddings),
+            added24h: Number(added24h),
+            checked24h: Number(checked24h),
         });
     } catch (err) {
         log.error('stats failed', { error: String(err) });

@@ -201,17 +201,35 @@ app.get('/api/search', async (req: Request, res: Response) => {
             // Fall through to text search
         }
 
-        // Fallback: trigram + FTS
-        const { rows } = await db.query(
-            `SELECT r.id, r.name, r.url, r.updated_at,
+        // Fallback: trigram + FTS (with same filters as semantic branch)
+        let fallbackSql = `SELECT r.id, r.name, r.url, r.updated_at,
             GREATEST(similarity(r.name, $1), ts_rank(r.fts, plainto_tsquery('english', $1))) AS similarity
      FROM resources r
      WHERE (r.name % $1 OR r.fts @@ plainto_tsquery('english', $1))
-       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
-     ORDER BY similarity DESC
-     LIMIT $2 OFFSET $3`,
-            [q, limit + 1, offset],
-        );
+       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))`;
+        const fallbackParams: unknown[] = [q];
+        let fbIdx = 2;
+
+        if (topic) {
+            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_topics rt WHERE rt.resource_id = r.id AND rt.topic = $${fbIdx})`;
+            fallbackParams.push(topic);
+            fbIdx++;
+        }
+        if (kind) {
+            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${fbIdx})`;
+            fallbackParams.push(kind);
+            fbIdx++;
+        }
+        if (region) {
+            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_regions rr WHERE rr.resource_id = r.id AND rr.region = $${fbIdx})`;
+            fallbackParams.push(region);
+            fbIdx++;
+        }
+
+        fallbackSql += ` ORDER BY similarity DESC LIMIT $${fbIdx} OFFSET $${fbIdx + 1}`;
+        fallbackParams.push(limit + 1, offset);
+
+        const { rows } = await db.query(fallbackSql, fallbackParams);
         const hasMore = rows.length > limit;
         const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
         res.json({ items: enriched, hasMore, offset, limit });

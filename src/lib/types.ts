@@ -19,6 +19,17 @@ export type SourceName = Brand<string, 'SourceName'>;
 export const KINDS = ['api', 'dataset', 'service', 'code'] as const;
 export type KindValue = (typeof KINDS)[number];
 
+// === Known topic labels ===
+export const TOPICS = [
+    'ai-ml', 'agriculture', 'audio', 'bioinformatics', 'blockchain',
+    'chemistry', 'climate', 'cybersecurity', 'data-science', 'developer',
+    'drug-discovery', 'finance', 'food', 'games', 'geospatial', 'geoscience',
+    'government', 'health', 'humanities', 'journalism', 'law', 'maritime',
+    'materials', 'neuroscience', 'nlp', 'open-science', 'remote-sensing',
+    'robotics', 'semantic-web', 'social-science', 'space', 'sports', 'transport',
+] as const;
+export type TopicValue = (typeof TOPICS)[number];
+
 // === Constructors (use at system boundaries: DB reads, CLI args, API input) ===
 export const ResourceId = (n: number) => n as ResourceId;
 export const ProjectId = (n: number) => n as ProjectId;

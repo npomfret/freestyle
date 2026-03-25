@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS resource_topics (
     PRIMARY KEY (resource_id, topic)
 );
 
+CREATE TABLE IF NOT EXISTS resource_regions (
+    resource_id INT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+    region      TEXT NOT NULL,
+    PRIMARY KEY (resource_id, region)
+);
+
 CREATE TABLE IF NOT EXISTS resource_sources (
     resource_id INT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
     source      TEXT NOT NULL,
@@ -136,6 +142,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_discovery_queue_url ON discovery_queue(url
 
 CREATE INDEX IF NOT EXISTS idx_resource_kinds_kind ON resource_kinds(kind);
 CREATE INDEX IF NOT EXISTS idx_resource_topics_topic ON resource_topics(topic);
+CREATE INDEX IF NOT EXISTS idx_resource_regions_region ON resource_regions(region);
 CREATE INDEX IF NOT EXISTS idx_resource_sources_source ON resource_sources(source);
 CREATE INDEX IF NOT EXISTS idx_resources_name_trgm ON resources USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_resources_created_at ON resources(created_at DESC);

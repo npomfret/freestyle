@@ -60,7 +60,7 @@ let cachedProvider: LLMProvider | null = null;
 export async function getLLMProvider(): Promise<LLMProvider> {
     if (cachedProvider) return cachedProvider;
 
-    const providerName = process.env.LLM_PROVIDER ?? 'gemini';
+    const providerName = process.env.LLM_PROVIDER ?? 'ollama';
 
     switch (providerName) {
         case 'ollama': {

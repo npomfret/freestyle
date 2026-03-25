@@ -7,7 +7,7 @@ import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
-import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
+import { KINDS, TOPICS, ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
 
 const MAX_TURNS = 20;
 
@@ -194,80 +194,95 @@ async function executeTool(
             const regions = args.regions as string[] | undefined;
             const analysis = args.analysis as string | undefined;
 
-            // Update name if provided
-            if (newName && newName !== r.name) {
-                await db.query('UPDATE resources SET name = $1 WHERE id = $2', [newName, r.id]);
-            }
-
-            // Update description: clear old, insert new
-            await db.query('DELETE FROM resource_descriptions WHERE resource_id = $1', [r.id]);
-            if (description) {
-                await db.query(
-                    'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
-                    [r.id, description],
-                );
-            }
-
-            // Update topics if provided
-            if (topics && topics.length > 0) {
-                await db.query('DELETE FROM resource_topics WHERE resource_id = $1', [r.id]);
-                for (const t of topics) {
-                    await db.query(
-                        'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
-                        [r.id, t],
-                    );
-                }
-            }
-
-            // Update regions if provided
-            if (regions && regions.length > 0) {
-                await db.query('DELETE FROM resource_regions WHERE resource_id = $1', [r.id]);
-                for (const reg of regions) {
-                    await db.query(
-                        'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
-                        [r.id, reg],
-                    );
-                }
-            }
-
-            // Update analysis if provided
-            if (analysis) {
-                await db.query(
-                    `INSERT INTO resource_analyses (resource_id, analysis, updated_at)
-           VALUES ($1, $2, now())
-           ON CONFLICT (resource_id) DO UPDATE
-           SET analysis = $2, updated_at = now()`,
-                    [r.id, analysis],
-                );
-            }
-
-            // Determine status: alive resets, broken escalates suspect → dead
+            const client = await db.connect();
             let newStatus: string;
             let failCount: number;
-            if (isAlive) {
-                newStatus = 'alive';
-                failCount = 0;
-            } else {
-                // Check current fail_count to decide suspect vs dead
-                const { rows: lcRows } = await db.query(
-                    'SELECT fail_count FROM link_checks WHERE resource_id = $1',
-                    [r.id],
+
+            try {
+                await client.query('BEGIN');
+
+                // Update name if provided
+                if (newName && newName !== r.name) {
+                    await client.query('UPDATE resources SET name = $1 WHERE id = $2', [newName, r.id]);
+                }
+
+                // Update description: clear old, insert new
+                await client.query('DELETE FROM resource_descriptions WHERE resource_id = $1', [r.id]);
+                if (description) {
+                    await client.query(
+                        'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
+                        [r.id, description],
+                    );
+                }
+
+                // Update topics if provided (filter to valid labels)
+                if (topics && topics.length > 0) {
+                    const validTopics = topics.filter(t => (TOPICS as readonly string[]).includes(t));
+                    if (validTopics.length > 0) {
+                        await client.query('DELETE FROM resource_topics WHERE resource_id = $1', [r.id]);
+                        for (const t of validTopics) {
+                            await client.query(
+                                'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
+                                [r.id, t],
+                            );
+                        }
+                    }
+                }
+
+                // Update regions if provided
+                if (regions && regions.length > 0) {
+                    await client.query('DELETE FROM resource_regions WHERE resource_id = $1', [r.id]);
+                    for (const reg of regions) {
+                        await client.query(
+                            'INSERT INTO resource_regions (resource_id, region) VALUES ($1, $2)',
+                            [r.id, reg],
+                        );
+                    }
+                }
+
+                // Update analysis if provided
+                if (analysis) {
+                    await client.query(
+                        `INSERT INTO resource_analyses (resource_id, analysis, updated_at)
+             VALUES ($1, $2, now())
+             ON CONFLICT (resource_id) DO UPDATE
+             SET analysis = $2, updated_at = now()`,
+                        [r.id, analysis],
+                    );
+                }
+
+                // Determine status: alive resets, broken escalates suspect → dead
+                if (isAlive) {
+                    newStatus = 'alive';
+                    failCount = 0;
+                } else {
+                    const { rows: lcRows } = await client.query(
+                        'SELECT fail_count FROM link_checks WHERE resource_id = $1',
+                        [r.id],
+                    );
+                    const currentFails = lcRows.length > 0 ? (lcRows[0].fail_count as number) : 0;
+                    failCount = currentFails + 1;
+                    newStatus = failCount >= 2 ? 'dead' : 'suspect';
+                }
+
+                // Update link_checks
+                await client.query(
+                    `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
+           VALUES ($1, now(), NULL, $2, $3, $4)
+           ON CONFLICT (resource_id) DO UPDATE
+           SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
+                    [r.id, newStatus, failCount, notes],
                 );
-                const currentFails = lcRows.length > 0 ? (lcRows[0].fail_count as number) : 0;
-                failCount = currentFails + 1;
-                newStatus = failCount >= 2 ? 'dead' : 'suspect';
+
+                await client.query('COMMIT');
+            } catch (err) {
+                await client.query('ROLLBACK');
+                throw err;
+            } finally {
+                client.release();
             }
 
-            // Update link_checks
-            await db.query(
-                `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
-         VALUES ($1, now(), NULL, $2, $3, $4)
-         ON CONFLICT (resource_id) DO UPDATE
-         SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
-                [r.id, newStatus, failCount, notes],
-            );
-
-            // Re-generate embedding with new description using local model (only if alive)
+            // Re-generate embedding outside transaction (best-effort)
             if (isAlive) {
                 const embText = [newName ?? r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(' ');
                 try {
@@ -408,7 +423,7 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
     const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
 
     // Step 1: Pre-fetch the page ourselves (native only — no Gemini fallback)
-    const fetchResult = await fetchPage(resource.url, { tiers: ['native'] });
+    const fetchResult = await fetchPage(resource.url, { tiers: ['native', 'puppeteer'] });
     rlog.info('pre-fetch result', {
         statusCode: fetchResult.statusCode,
         likely_broken: fetchResult.likely_broken,
@@ -461,10 +476,9 @@ The page appears broken. Try to find where this resource moved to using web_sear
         }
 
         if (response.functionCalls.length === 0) {
-            // Model responded with text only — add to history and break
-            if (response.text) {
-                messages.push({ role: 'model', text: response.text });
-            }
+            // Model responded with text only — record so this resource doesn't keep resurfacing
+            rlog.warn('agent returned no action', { text: response.text });
+            await recordFailure(resource.id, `agent returned no action: ${response.text?.slice(0, 200) ?? 'no text'}`);
             break;
         }
 

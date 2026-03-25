@@ -233,11 +233,11 @@ function App() {
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [rs.hasMore, rs.loadingMore, rs.loadMore]);
+    }, [rs]);
 
     const doSearch = useCallback(() => {
         if (query.trim()) rs.search(query, selectedTopic || undefined, selectedKind || undefined, selectedRegion || undefined);
-    }, [query, selectedTopic, selectedKind, selectedRegion, rs.search]);
+    }, [query, selectedTopic, selectedKind, selectedRegion, rs]);
 
     const handleTopicClick = (topic: string) => {
         const next = topic === selectedTopic ? '' : topic;

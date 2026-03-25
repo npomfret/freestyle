@@ -2,7 +2,7 @@ import type pg from 'pg';
 import { embed } from './embeddings.js';
 import { log } from './logger.js';
 import type { Kind, QueueItemId, Region, ResourceId, SourceName, Topic, Url } from './types.js';
-import { QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './types.js';
+import { KINDS, TOPICS, QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './types.js';
 
 // Re-export shared fetchPage
 export { fetchPage } from './fetch-page.js';
@@ -67,14 +67,18 @@ export async function addResource(
 
         const id = mkResourceId(rows[0].id);
 
+        // Validate taxonomy values
+        const validKinds = args.kinds.filter(k => (KINDS as readonly string[]).includes(k));
+        const validTopics = args.topics.filter(t => (TOPICS as readonly string[]).includes(t));
+
         // Junction tables
-        for (const kind of args.kinds) {
+        for (const kind of validKinds as Kind[]) {
             await client.query(
                 'INSERT INTO resource_kinds (resource_id, kind) VALUES ($1, $2)',
                 [id, kind],
             );
         }
-        for (const topic of args.topics) {
+        for (const topic of validTopics as Topic[]) {
             await client.query(
                 'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
                 [id, topic],
@@ -171,6 +175,13 @@ export async function getQueue(
     db: pg.Pool | pg.Client,
     args: { limit: number },
 ): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName }[]> {
+    // Reset items stuck in 'processing' for >10 minutes (crash recovery)
+    await db.query(
+        `UPDATE discovery_queue SET status = 'pending'
+         WHERE status = 'processing'
+         AND created_at < now() - interval '10 minutes'`,
+    );
+
     // Atomic claim: SELECT + UPDATE in a single statement using a CTE
     const { rows } = await db.query(
         `WITH claimed AS (

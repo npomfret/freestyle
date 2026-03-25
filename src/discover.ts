@@ -1,16 +1,13 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Content, FunctionDeclaration, Part } from '@google/genai';
 import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
-import { createClient } from './lib/db.js';
+import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
+import { requireEnv } from './lib/env.js';
 import { log } from './lib/logger.js';
 import { Kind, SourceName, Topic, Url } from './lib/types.js';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-    log.error('missing api key', { key: 'GEMINI_API_KEY' });
-    process.exit(1);
-}
+const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
 
 const MODEL = 'gemini-2.5-flash';
 const MAX_TURNS = 50;
@@ -364,10 +361,9 @@ async function executeTool(
 // ============================================================
 
 const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-const db = createClient();
+const db = createPool();
 
 async function discover(query: string): Promise<void> {
-    await db.connect();
 
     const systemPrompt = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
 

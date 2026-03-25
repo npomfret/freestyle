@@ -1,16 +1,13 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Content, FunctionDeclaration, Part } from '@google/genai';
-import { createClient } from './lib/db.js';
+import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
+import { requireEnv } from './lib/env.js';
 import { log } from './lib/logger.js';
 import type { Kind, ResourceId, Topic, Url } from './lib/types.js';
 import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-    log.error('missing api key', { key: 'GEMINI_API_KEY' });
-    process.exit(1);
-}
+const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
 
 const MODEL = 'gemini-2.5-flash';
 const MAX_TURNS = 20;
@@ -52,7 +49,7 @@ const TOPIC_LABELS = [
 ];
 
 const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-const db = createClient();
+const db = createPool();
 
 // ============================================================
 // Tool declarations
@@ -218,15 +215,24 @@ async function executeTool(
                     }
                 }
 
-                // Redirect to a generic homepage (not the specific resource page)
+                // Only flag redirects that lose the path (homepage redirect) or change domain
                 if (redirected) {
-                    const originalPath = new URL(url).pathname;
-                    const finalPath = new URL(finalUrl).pathname;
+                    const originalUrl = new URL(url);
+                    const finalParsed = new URL(finalUrl);
+                    const originalPath = originalUrl.pathname;
+                    const finalPath = finalParsed.pathname;
+
+                    // Redirect to homepage — likely a soft 404
                     if (originalPath.length > 1 && (finalPath === '/' || finalPath === '')) {
                         problems.push(`redirected to homepage: ${finalUrl}`);
-                    } else {
-                        problems.push(`redirected to: ${finalUrl}`);
                     }
+                    // Cross-domain redirect (excluding www/non-www and http/https normalization)
+                    else if (
+                        originalUrl.hostname.replace(/^www\./, '') !== finalParsed.hostname.replace(/^www\./, '')
+                    ) {
+                        problems.push(`redirected to different domain: ${finalUrl}`);
+                    }
+                    // Normal redirects (trailing slash, https upgrade, www normalization) are fine — not a problem
                 }
 
                 // Very little content (likely an error stub)
@@ -600,7 +606,6 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
 async function main(): Promise<void> {
     const arg = process.argv[2];
     const isSingleUrl = arg?.startsWith('http');
-    await db.connect();
 
     if (isSingleUrl) {
         const resource = await getResourceByUrl(arg);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 const PAGE_SIZE = 30;
 
 interface Source {
@@ -57,63 +57,92 @@ function timeAgo(dateStr: string): string {
     return `${Math.floor(months / 12)}y ago`;
 }
 
-function App() {
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Resource[]>([]);
-    const [hasMore, setHasMore] = useState(false);
+async function fetchJson<T>(url: string): Promise<T> {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+}
+
+// ============================================================
+// Custom hooks
+// ============================================================
+
+function useRecent() {
     const [recent, setRecent] = useState<Resource[]>([]);
+
+    useEffect(() => {
+        fetchJson<Resource[]>(`${API}/recent?limit=12`).then(setRecent).catch(() => {});
+    }, []);
+
+    return recent;
+}
+
+function useTopicsAndStats() {
     const [topics, setTopics] = useState<TopicCount[]>([]);
     const [stats, setStats] = useState<Stats | null>(null);
-    const [selectedTopic, setSelectedTopic] = useState('');
-    const [selectedKind, setSelectedKind] = useState('');
+
+    useEffect(() => {
+        fetchJson<Stats>(`${API}/stats`).then(setStats).catch(() => {});
+        fetchJson<TopicCount[]>(`${API}/topics`).then(setTopics).catch(() => {});
+    }, []);
+
+    return { topics, stats };
+}
+
+function useResourceSearch() {
+    const [results, setResults] = useState<Resource[]>([]);
+    const [hasMore, setHasMore] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [searched, setSearched] = useState(false);
-    const [expandedId, setExpandedId] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // Track current search/browse mode for loadMore
-    const modeRef = useRef<{ type: 'search' | 'browse'; query?: string; topic?: string; kind?: string; }>({ type: 'browse' });
-    const sentinelRef = useRef<HTMLDivElement>(null);
+    const modeRef = useRef<{ type: 'search' | 'browse'; query?: string; topic?: string; kind?: string }>({ type: 'browse' });
 
-    useEffect(() => {
-        fetch(`${API}/stats`).then((r) => r.json()).then(setStats);
-        fetch(`${API}/topics`).then((r) => r.json()).then(setTopics);
-        fetch(`${API}/recent?limit=12`).then((r) => r.json()).then(setRecent);
-    }, []);
-
-    const search = useCallback(async () => {
+    const search = useCallback(async (query: string, topic?: string, kind?: string) => {
         if (!query.trim()) return;
         setLoading(true);
         setSearched(true);
         setResults([]);
-        modeRef.current = { type: 'search', query, topic: selectedTopic, kind: selectedKind };
+        setError(null);
+        modeRef.current = { type: 'search', query, topic, kind };
         const params = new URLSearchParams({ q: query, limit: String(PAGE_SIZE), offset: '0' });
-        if (selectedTopic) params.set('topic', selectedTopic);
-        if (selectedKind) params.set('kind', selectedKind);
-        const res = await fetch(`${API}/search?${params}`);
-        const data: PagedResponse = await res.json();
-        setResults(data.items);
-        setHasMore(data.hasMore);
-        setLoading(false);
-    }, [query, selectedTopic, selectedKind]);
-
-    const browse = useCallback(
-        async (topic?: string, kind?: string) => {
-            setLoading(true);
-            setSearched(true);
-            setResults([]);
-            modeRef.current = { type: 'browse', topic, kind };
-            const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: '0' });
-            if (topic) params.set('topic', topic);
-            if (kind) params.set('kind', kind);
-            const res = await fetch(`${API}/resources?${params}`);
-            const data: PagedResponse = await res.json();
+        if (topic) params.set('topic', topic);
+        if (kind) params.set('kind', kind);
+        try {
+            const data = await fetchJson<PagedResponse>(`${API}/search?${params}`);
             setResults(data.items);
             setHasMore(data.hasMore);
+        } catch (err) {
+            setError(String(err));
+            setResults([]);
+            setHasMore(false);
+        } finally {
             setLoading(false);
-        },
-        [],
-    );
+        }
+    }, []);
+
+    const browse = useCallback(async (topic?: string, kind?: string) => {
+        setLoading(true);
+        setSearched(true);
+        setResults([]);
+        setError(null);
+        modeRef.current = { type: 'browse', topic, kind };
+        const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: '0' });
+        if (topic) params.set('topic', topic);
+        if (kind) params.set('kind', kind);
+        try {
+            const data = await fetchJson<PagedResponse>(`${API}/resources?${params}`);
+            setResults(data.items);
+            setHasMore(data.hasMore);
+        } catch (err) {
+            setError(String(err));
+            setResults([]);
+            setHasMore(false);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     const loadMore = useCallback(async () => {
         if (loadingMore || !hasMore) return;
@@ -135,12 +164,42 @@ function App() {
             url = `${API}/resources?${params}`;
         }
 
-        const res = await fetch(url);
-        const data: PagedResponse = await res.json();
-        setResults((prev) => [...prev, ...data.items]);
-        setHasMore(data.hasMore);
-        setLoadingMore(false);
+        try {
+            const data = await fetchJson<PagedResponse>(url);
+            setResults((prev) => [...prev, ...data.items]);
+            setHasMore(data.hasMore);
+        } catch {
+            setHasMore(false);
+        } finally {
+            setLoadingMore(false);
+        }
     }, [loadingMore, hasMore, results.length]);
+
+    const clear = useCallback(() => {
+        setResults([]);
+        setHasMore(false);
+        setSearched(false);
+        setError(null);
+    }, []);
+
+    return { results, hasMore, loading, loadingMore, searched, error, search, browse, loadMore, clear };
+}
+
+// ============================================================
+// App
+// ============================================================
+
+function App() {
+    const [query, setQuery] = useState('');
+    const [selectedTopic, setSelectedTopic] = useState('');
+    const [selectedKind, setSelectedKind] = useState('');
+    const [expandedId, setExpandedId] = useState<number | null>(null);
+
+    const recent = useRecent();
+    const { topics, stats } = useTopicsAndStats();
+    const rs = useResourceSearch();
+
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
     // IntersectionObserver for infinite scroll
     useEffect(() => {
@@ -149,8 +208,8 @@ function App() {
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hasMore && !loadingMore) {
-                    loadMore();
+                if (entries[0].isIntersecting && rs.hasMore && !rs.loadingMore) {
+                    rs.loadMore();
                 }
             },
             { rootMargin: '200px' },
@@ -158,29 +217,35 @@ function App() {
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [hasMore, loadingMore, loadMore]);
+    }, [rs.hasMore, rs.loadingMore, rs.loadMore]);
+
+    const doSearch = useCallback(() => {
+        if (query.trim()) rs.search(query, selectedTopic || undefined, selectedKind || undefined);
+    }, [query, selectedTopic, selectedKind, rs.search]);
 
     const handleTopicClick = (topic: string) => {
         const next = topic === selectedTopic ? '' : topic;
         setSelectedTopic(next);
         setQuery('');
-        browse(next || undefined, selectedKind || undefined);
+        rs.browse(next || undefined, selectedKind || undefined);
     };
 
+    // Fix: pass the new kind directly instead of reading stale state
     const handleKindClick = (kind: string) => {
         const next = kind === selectedKind ? '' : kind;
         setSelectedKind(next);
-        if (query) search();
-        else browse(selectedTopic || undefined, next || undefined);
+        if (query) {
+            rs.search(query, selectedTopic || undefined, next || undefined);
+        } else {
+            rs.browse(selectedTopic || undefined, next || undefined);
+        }
     };
 
     const clearFilters = () => {
         setSelectedTopic('');
         setSelectedKind('');
-        setResults([]);
-        setHasMore(false);
-        setSearched(false);
         setQuery('');
+        rs.clear();
     };
 
     const renderCard = (r: Resource, showAge?: boolean) => {
@@ -265,11 +330,11 @@ function App() {
                     placeholder="Search by meaning... (e.g. 'satellite imagery of crop health')"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && search()}
+                    onKeyDown={(e) => e.key === 'Enter' && doSearch()}
                     autoFocus
                 />
-                <button onClick={search} disabled={loading || !query.trim()}>
-                    {loading ? 'Searching...' : 'Search'}
+                <button onClick={doSearch} disabled={rs.loading || !query.trim()}>
+                    {rs.loading ? 'Searching...' : 'Search'}
                 </button>
             </div>
 
@@ -284,7 +349,7 @@ function App() {
                             {k}
                         </button>
                     ))}
-                    {(selectedTopic || selectedKind || searched) && (
+                    {(selectedTopic || selectedKind || rs.searched) && (
                         <button className='clear-btn' onClick={clearFilters}>
                             Clear filters
                         </button>
@@ -304,7 +369,7 @@ function App() {
                 </div>
             </div>
 
-            {!searched && recent.length > 0 && (
+            {!rs.searched && recent.length > 0 && (
                 <section className='recent-section'>
                     <h2>What's New</h2>
                     <div className='recent-grid'>
@@ -313,13 +378,14 @@ function App() {
                 </section>
             )}
 
-            {searched && (
+            {rs.searched && (
                 <div className='results'>
-                    {loading && <div className='status'>Searching...</div>}
-                    {!loading && results.length === 0 && <div className='status'>No results found.</div>}
-                    {results.map((r) => renderCard(r))}
+                    {rs.loading && <div className='status'>Searching...</div>}
+                    {rs.error && <div className='status error'>Error: {rs.error}</div>}
+                    {!rs.loading && !rs.error && rs.results.length === 0 && <div className='status'>No results found.</div>}
+                    {rs.results.map((r) => renderCard(r))}
                     <div ref={sentinelRef} className='sentinel'>
-                        {loadingMore && <div className='status'>Loading more...</div>}
+                        {rs.loadingMore && <div className='status'>Loading more...</div>}
                     </div>
                 </div>
             )}

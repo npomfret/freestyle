@@ -32,6 +32,25 @@ interface Catalog {
     projects: CatalogProject[];
 }
 
+/** Build a multi-row INSERT from an array of [resource_id, value] pairs. */
+function batchInsert(
+    table: string,
+    col: string,
+    rows: [ResourceId | ProjectId, string][],
+): { sql: string; params: unknown[] } | null {
+    if (rows.length === 0) return null;
+    const values: string[] = [];
+    const params: unknown[] = [];
+    for (let i = 0; i < rows.length; i++) {
+        values.push(`($${i * 2 + 1}, $${i * 2 + 2})`);
+        params.push(rows[i][0], rows[i][1]);
+    }
+    return {
+        sql: `INSERT INTO ${table} (${table.includes('project') ? 'project_id' : 'resource_id'}, ${col}) VALUES ${values.join(', ')}`,
+        params,
+    };
+}
+
 async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
     // --- Projects (full replace) ---
     await client.query('DELETE FROM project_labels');
@@ -44,11 +63,9 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
             [p.name, p.repoUrl, p.description, p.listBased],
         );
         const pid = mkProjectId(rows[0].id);
-        for (const label of p.labels) {
-            await client.query(
-                'INSERT INTO project_labels (project_id, label) VALUES ($1, $2)',
-                [pid, label],
-            );
+        if (p.labels.length > 0) {
+            const batch = batchInsert('project_labels', 'label', p.labels.map((l) => [pid, l] as [ProjectId, string]));
+            if (batch) await client.query(batch.sql, batch.params);
         }
     }
 
@@ -57,7 +74,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
         'SELECT url, id FROM resources',
     );
     const existing = new Map<Url, ResourceId>(
-        existingRows.map((r: { url: string; id: number; }) => [r.url as Url, mkResourceId(r.id)]),
+        existingRows.map((r: { url: string; id: number }) => [r.url as Url, mkResourceId(r.id)]),
     );
 
     const newUrls = new Set(catalog.resources.map((r) => r.url));
@@ -73,6 +90,13 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
     await client.query('DELETE FROM resource_sources');
     await client.query('DELETE FROM resource_descriptions');
 
+    // Collect all junction rows for batch insert
+    const kindRows: [ResourceId, string][] = [];
+    const topicRows: [ResourceId, string][] = [];
+    const sourceRows: [ResourceId, string][] = [];
+    const descRows: [ResourceId, string][] = [];
+    const staleEmbeddingIds: ResourceId[] = [];
+
     for (const r of catalog.resources) {
         let rid: ResourceId;
         if (existing.has(r.url)) {
@@ -81,6 +105,8 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
                 'UPDATE resources SET name = $1, updated_at = now() WHERE id = $2',
                 [r.name, rid],
             );
+            // Name/topics/descriptions changed — embedding may be stale
+            staleEmbeddingIds.push(rid);
         } else {
             const { rows } = await client.query(
                 'INSERT INTO resources (name, url) VALUES ($1, $2) RETURNING id',
@@ -89,30 +115,33 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
             rid = mkResourceId(rows[0].id);
         }
 
-        for (const kind of r.kinds) {
-            await client.query(
-                'INSERT INTO resource_kinds (resource_id, kind) VALUES ($1, $2)',
-                [rid, kind],
-            );
+        for (const kind of r.kinds) kindRows.push([rid, kind]);
+        for (const topic of r.topics) topicRows.push([rid, topic]);
+        for (const source of r.sources) sourceRows.push([rid, source]);
+        for (const desc of r.directDescriptions) descRows.push([rid, desc]);
+    }
+
+    // Batch insert junction rows (in chunks of 5000 to avoid param limits)
+    const CHUNK = 5000;
+    for (const [table, col, rows] of [
+        ['resource_kinds', 'kind', kindRows],
+        ['resource_topics', 'topic', topicRows],
+        ['resource_sources', 'source', sourceRows],
+        ['resource_descriptions', 'description', descRows],
+    ] as const) {
+        for (let i = 0; i < rows.length; i += CHUNK) {
+            const batch = batchInsert(table, col, rows.slice(i, i + CHUNK) as [ResourceId, string][]);
+            if (batch) await client.query(batch.sql, batch.params);
         }
-        for (const topic of r.topics) {
-            await client.query(
-                'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
-                [rid, topic],
-            );
-        }
-        for (const source of r.sources) {
-            await client.query(
-                'INSERT INTO resource_sources (resource_id, source) VALUES ($1, $2)',
-                [rid, source],
-            );
-        }
-        for (const desc of r.directDescriptions) {
-            await client.query(
-                'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
-                [rid, desc],
-            );
-        }
+    }
+
+    // Clear stale embeddings so re-embed picks them up
+    if (staleEmbeddingIds.length > 0) {
+        await client.query(
+            'UPDATE resources SET embedding = NULL WHERE id = ANY($1) AND embedding IS NOT NULL',
+            [staleEmbeddingIds],
+        );
+        log.info('cleared stale embeddings', { count: staleEmbeddingIds.length });
     }
 
     // Summary

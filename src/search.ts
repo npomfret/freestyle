@@ -1,14 +1,10 @@
 import 'dotenv/config';
-import pg from 'pg';
+import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
 import { log } from './lib/logger.js';
 
-const DATABASE_URL = process.env.DATABASE_URL
-    ?? 'postgresql://freestyle:freestyle@localhost:5433/freestyle';
-
 async function search(query: string): Promise<void> {
-    const db = new pg.Client({ connectionString: DATABASE_URL });
-    await db.connect();
+    const db = createPool();
 
     const vecs = await embed([query]);
     const vec = '[' + vecs[0].join(',') + ']';

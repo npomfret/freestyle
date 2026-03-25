@@ -1,5 +1,7 @@
-import { execSync, spawn } from 'child_process';
+import { type ChildProcess, execSync, spawn } from 'child_process';
 import { log } from './lib/logger.js';
+
+const children: ChildProcess[] = [];
 
 function run(cmd: string): void {
     execSync(cmd, { stdio: 'inherit' });
@@ -8,10 +10,22 @@ function run(cmd: string): void {
 function bg(cmd: string, name: string): void {
     const [bin, ...args] = cmd.split(' ');
     const child = spawn(bin, args, { stdio: 'inherit', shell: true });
+    children.push(child);
     child.on('exit', (code) => {
         log.info('process exited', { name, code });
     });
 }
+
+function cleanup(): void {
+    log.info('shutting down');
+    for (const child of children) {
+        if (!child.killed) child.kill('SIGTERM');
+    }
+    process.exit(0);
+}
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
 
 async function main(): Promise<void> {
     // 1. Start DB if not already running

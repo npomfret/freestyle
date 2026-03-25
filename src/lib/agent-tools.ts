@@ -1,4 +1,4 @@
-import pg from 'pg';
+import type pg from 'pg';
 import { embed } from './embeddings.js';
 import { log } from './logger.js';
 import type { Kind, QueueItemId, ResourceId, SourceName, Topic, Url } from './types.js';
@@ -9,9 +9,9 @@ import { QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './type
 // ============================================================
 
 export async function checkExisting(
-    db: pg.Client,
-    args: { url: Url; },
-): Promise<{ inResources: boolean; inQueue: boolean; }> {
+    db: pg.Pool | pg.Client,
+    args: { url: Url },
+): Promise<{ inResources: boolean; inQueue: boolean }> {
     const { rows: rRows } = await db.query(
         'SELECT 1 FROM resources WHERE url = $1',
         [args.url],
@@ -24,11 +24,11 @@ export async function checkExisting(
 }
 
 // ============================================================
-// Tool: add_resource
+// Tool: add_resource (atomic via transaction)
 // ============================================================
 
 export async function addResource(
-    db: pg.Client,
+    db: pg.Pool | pg.Client,
     args: {
         name: string;
         url: Url;
@@ -37,74 +37,91 @@ export async function addResource(
         description: string;
         analysis?: string;
     },
-): Promise<{ id: ResourceId; status: 'added' | 'duplicate'; }> {
-    // Check for duplicate
-    const { rows: existing } = await db.query(
-        'SELECT id FROM resources WHERE url = $1',
-        [args.url],
-    );
-    if (existing.length > 0) {
-        return { id: mkResourceId(existing[0].id), status: 'duplicate' };
-    }
+): Promise<{ id: ResourceId; status: 'added' | 'duplicate' }> {
+    // Use a dedicated client for the transaction if given a Pool
+    const client = 'totalCount' in db ? await (db as pg.Pool).connect() : db as pg.Client;
+    const isPoolClient = 'totalCount' in db;
 
-    // Insert resource
-    const { rows } = await db.query(
-        'INSERT INTO resources (name, url) VALUES ($1, $2) RETURNING id',
-        [args.name, args.url],
-    );
-    const id = mkResourceId(rows[0].id);
-
-    // Junction tables
-    for (const kind of args.kinds) {
-        await db.query(
-            'INSERT INTO resource_kinds (resource_id, kind) VALUES ($1, $2)',
-            [id, kind],
-        );
-    }
-    for (const topic of args.topics) {
-        await db.query(
-            'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
-            [id, topic],
-        );
-    }
-    if (args.description) {
-        await db.query(
-            'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
-            [id, args.description],
-        );
-    }
-    if (args.analysis) {
-        await db.query(
-            'INSERT INTO resource_analyses (resource_id, analysis) VALUES ($1, $2)',
-            [id, args.analysis],
-        );
-    }
-    await db.query(
-        'INSERT INTO resource_sources (resource_id, source) VALUES ($1, $2)',
-        [id, 'discovery-agent'],
-    );
-
-    // Generate embedding immediately using local model
-    const text = [args.name, args.description, ...args.topics]
-        .filter(Boolean)
-        .join(' ');
     try {
-        const vecs = await embed([text]);
-        await db.query(
-            'UPDATE resources SET embedding = $1::vector WHERE id = $2',
-            [`[${vecs[0].join(',')}]`, id],
+        await client.query('BEGIN');
+
+        // Atomic duplicate check + insert using ON CONFLICT
+        const { rows } = await client.query(
+            `INSERT INTO resources (name, url)
+         VALUES ($1, $2)
+         ON CONFLICT (url) DO NOTHING
+         RETURNING id`,
+            [args.name, args.url],
         );
+
+        if (rows.length === 0) {
+            // Already exists
+            await client.query('ROLLBACK');
+            const { rows: existing } = await client.query('SELECT id FROM resources WHERE url = $1', [args.url]);
+            return { id: mkResourceId(existing[0].id), status: 'duplicate' };
+        }
+
+        const id = mkResourceId(rows[0].id);
+
+        // Junction tables
+        for (const kind of args.kinds) {
+            await client.query(
+                'INSERT INTO resource_kinds (resource_id, kind) VALUES ($1, $2)',
+                [id, kind],
+            );
+        }
+        for (const topic of args.topics) {
+            await client.query(
+                'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
+                [id, topic],
+            );
+        }
+        if (args.description) {
+            await client.query(
+                'INSERT INTO resource_descriptions (resource_id, description) VALUES ($1, $2)',
+                [id, args.description],
+            );
+        }
+        if (args.analysis) {
+            await client.query(
+                'INSERT INTO resource_analyses (resource_id, analysis) VALUES ($1, $2)',
+                [id, args.analysis],
+            );
+        }
+        await client.query(
+            'INSERT INTO resource_sources (resource_id, source) VALUES ($1, $2)',
+            [id, 'discovery-agent'],
+        );
+
+        // Mark as done in queue if it was queued
+        await client.query(
+            'UPDATE discovery_queue SET status = \'done\', processed_at = now() WHERE url = $1',
+            [args.url],
+        );
+
+        await client.query('COMMIT');
+
+        // Generate embedding outside the transaction (best-effort)
+        const text = [args.name, args.description, ...args.topics]
+            .filter(Boolean)
+            .join(' ');
+        try {
+            const vecs = await embed([text]);
+            await db.query(
+                'UPDATE resources SET embedding = $1::vector WHERE id = $2',
+                [`[${vecs[0].join(',')}]`, id],
+            );
+        } catch (err) {
+            log.warn('embedding failed', { url: args.url, error: String(err) });
+        }
+
+        return { id, status: 'added' };
     } catch (err) {
-        log.warn('embedding failed', { url: args.url, error: String(err) });
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        if (isPoolClient) (client as pg.PoolClient).release();
     }
-
-    // Mark as done in queue if it was queued
-    await db.query(
-        'UPDATE discovery_queue SET status = \'done\', processed_at = now() WHERE url = $1',
-        [args.url],
-    );
-
-    return { id, status: 'added' };
 }
 
 // ============================================================
@@ -112,8 +129,8 @@ export async function addResource(
 // ============================================================
 
 export async function fetchPage(
-    args: { url: Url; },
-): Promise<{ content: string; statusCode: number; }> {
+    args: { url: Url },
+): Promise<{ content: string; statusCode: number }> {
     try {
         const resp = await fetch(args.url, {
             headers: { 'User-Agent': 'freestyle-discovery-agent/1.0' },
@@ -141,24 +158,25 @@ export async function fetchPage(
 }
 
 // ============================================================
-// Tool: queue_items
+// Tool: queue_items (accurate metrics)
 // ============================================================
 
 export async function queueItems(
-    db: pg.Client,
-    args: { items: { url: Url; label: string; source: SourceName; }[]; },
-): Promise<{ queued: number; skipped: number; }> {
+    db: pg.Pool | pg.Client,
+    args: { items: { url: Url; label: string; source: SourceName }[] },
+): Promise<{ queued: number; skipped: number }> {
     let queued = 0;
     let skipped = 0;
     for (const item of args.items) {
         try {
-            await db.query(
+            const { rowCount } = await db.query(
                 `INSERT INTO discovery_queue (url, label, source)
          VALUES ($1, $2, $3)
          ON CONFLICT (url) DO NOTHING`,
                 [item.url, item.label || '', item.source || ''],
             );
-            queued++;
+            if (rowCount && rowCount > 0) queued++;
+            else skipped++;
         } catch {
             skipped++;
         }
@@ -167,27 +185,33 @@ export async function queueItems(
 }
 
 // ============================================================
-// Tool: get_queue
+// Tool: get_queue (atomic claim with FOR UPDATE SKIP LOCKED)
 // ============================================================
 
 export async function getQueue(
-    db: pg.Client,
-    args: { limit: number; },
-): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName; }[]> {
+    db: pg.Pool | pg.Client,
+    args: { limit: number },
+): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName }[]> {
+    // Atomic claim: SELECT + UPDATE in a single statement using a CTE
     const { rows } = await db.query(
-        `SELECT id, url, label, source FROM discovery_queue
-     WHERE status = 'pending'
-     ORDER BY created_at
-     LIMIT $1`,
+        `WITH claimed AS (
+      SELECT id FROM discovery_queue
+      WHERE status = 'pending'
+      ORDER BY created_at
+      LIMIT $1
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE discovery_queue dq
+    SET status = 'processing'
+    FROM claimed
+    WHERE dq.id = claimed.id
+    RETURNING dq.id, dq.url, dq.label, dq.source`,
         [args.limit || 10],
     );
-    // Mark as processing
-    if (rows.length > 0) {
-        const ids = rows.map((r: { id: number; }) => mkQueueItemId(r.id));
-        await db.query(
-            'UPDATE discovery_queue SET status = \'processing\' WHERE id = ANY($1)',
-            [ids],
-        );
-    }
-    return rows;
+    return rows.map((r: { id: number; url: string; label: string; source: string }) => ({
+        id: mkQueueItemId(r.id),
+        url: r.url as Url,
+        label: r.label,
+        source: r.source as SourceName,
+    }));
 }

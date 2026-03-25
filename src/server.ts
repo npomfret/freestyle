@@ -50,7 +50,7 @@ app.get("/api/recent", async (req, res) => {
   const { rows } = await db.query(
     `SELECT r.id, r.name, r.url, r.created_at, r.updated_at
      FROM resources r
-     WHERE NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
+     WHERE NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
      ORDER BY r.created_at DESC
      LIMIT $1`,
     [limit],
@@ -81,7 +81,7 @@ app.get("/api/search", async (req, res) => {
              1 - (r.embedding <=> $1::vector) AS similarity
       FROM resources r
       WHERE r.embedding IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
+        AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
     `;
     const params: unknown[] = [vec];
     let paramIdx = 2;
@@ -114,7 +114,7 @@ app.get("/api/search", async (req, res) => {
             GREATEST(similarity(r.name, $1), ts_rank(r.fts, plainto_tsquery('english', $1))) AS similarity
      FROM resources r
      WHERE (r.name % $1 OR r.fts @@ plainto_tsquery('english', $1))
-       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
+       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
      ORDER BY similarity DESC
      LIMIT $2`,
     [q, limit],
@@ -133,7 +133,7 @@ app.get("/api/resources", async (req, res) => {
 
   let sql = "SELECT r.id, r.name, r.url, r.updated_at FROM resources r";
   const joins: string[] = [];
-  const wheres: string[] = ["NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)"];
+  const wheres: string[] = ["NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))"];
   const params: unknown[] = [];
   let paramIdx = 1;
 

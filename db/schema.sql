@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS link_checks (
     resource_id INT PRIMARY KEY REFERENCES resources(id) ON DELETE CASCADE,
     checked_at  TIMESTAMPTZ NOT NULL,
     status_code INT,
-    is_alive    BOOLEAN NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'alive' CHECK (status IN ('alive', 'suspect', 'dead')),
+    fail_count  INT NOT NULL DEFAULT 0,
     notes       TEXT
 );
 
@@ -127,6 +128,9 @@ CREATE INDEX IF NOT EXISTS idx_resource_kinds_kind ON resource_kinds(kind);
 CREATE INDEX IF NOT EXISTS idx_resource_topics_topic ON resource_topics(topic);
 CREATE INDEX IF NOT EXISTS idx_resource_sources_source ON resource_sources(source);
 CREATE INDEX IF NOT EXISTS idx_resources_name_trgm ON resources USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_resources_created_at ON resources(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_link_checks_status ON link_checks(status);
+CREATE INDEX IF NOT EXISTS idx_link_checks_checked_at ON link_checks(checked_at ASC NULLS FIRST);
 CREATE INDEX IF NOT EXISTS idx_user_notes_resource ON user_notes(resource_id);
 CREATE INDEX IF NOT EXISTS idx_idea_resources_resource ON idea_resources(resource_id);
 

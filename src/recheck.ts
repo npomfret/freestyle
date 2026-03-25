@@ -262,28 +262,47 @@ async function executeTool(
         }
       }
 
-      // Update link_checks
-      await db.query(
-        `INSERT INTO link_checks (resource_id, checked_at, status_code, is_alive, notes)
-         VALUES ($1, now(), NULL, $2, $3)
-         ON CONFLICT (resource_id) DO UPDATE
-         SET checked_at = now(), is_alive = $2, notes = $3`,
-        [r.id, isAlive, notes],
-      );
-
-      // Re-generate embedding with new description using local model
-      const embText = [newName ?? r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(" ");
-      try {
-        const vecs = await embed([embText]);
-        await db.query(
-          "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
-          [`[${vecs[0].join(",")}]`, r.id],
+      // Determine status: alive resets, broken escalates suspect → dead
+      let newStatus: string;
+      let failCount: number;
+      if (isAlive) {
+        newStatus = "alive";
+        failCount = 0;
+      } else {
+        // Check current fail_count to decide suspect vs dead
+        const { rows: lcRows } = await db.query(
+          "SELECT fail_count FROM link_checks WHERE resource_id = $1",
+          [r.id],
         );
-      } catch {
-        // Embedding update is best-effort
+        const currentFails = lcRows.length > 0 ? (lcRows[0].fail_count as number) : 0;
+        failCount = currentFails + 1;
+        newStatus = failCount >= 2 ? "dead" : "suspect";
       }
 
-      return { status: "updated", id: r.id, is_alive: isAlive };
+      // Update link_checks
+      await db.query(
+        `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
+         VALUES ($1, now(), NULL, $2, $3, $4)
+         ON CONFLICT (resource_id) DO UPDATE
+         SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
+        [r.id, newStatus, failCount, notes],
+      );
+
+      // Re-generate embedding with new description using local model (only if alive)
+      if (isAlive) {
+        const embText = [newName ?? r.name, description, ...(topics ?? r.topics)].filter(Boolean).join(" ");
+        try {
+          const vecs = await embed([embText]);
+          await db.query(
+            "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
+            [`[${vecs[0].join(",")}]`, r.id],
+          );
+        } catch {
+          // Embedding update is best-effort
+        }
+      }
+
+      return { status: newStatus, id: r.id, fail_count: failCount };
     }
 
     default:
@@ -302,7 +321,7 @@ async function getNextResource(): Promise<ResourceRow | null> {
     SELECT r.id, r.name, r.url
     FROM resources r
     LEFT JOIN link_checks lc ON lc.resource_id = r.id
-    WHERE lc.is_alive IS DISTINCT FROM false
+    WHERE lc.status IS DISTINCT FROM 'dead'
     ORDER BY lc.checked_at ASC NULLS FIRST, r.id
     LIMIT 1
   `);
@@ -433,6 +452,29 @@ Be concise. One fetch, one update. Done.`;
 }
 
 // ============================================================
+// Record a failure with suspect/dead escalation
+// ============================================================
+
+async function recordFailure(resourceId: ResourceId, notes: string): Promise<void> {
+  const { rows } = await db.query(
+    "SELECT fail_count FROM link_checks WHERE resource_id = $1",
+    [resourceId],
+  );
+  const currentFails = rows.length > 0 ? (rows[0].fail_count as number) : 0;
+  const failCount = currentFails + 1;
+  const status = failCount >= 2 ? "dead" : "suspect";
+
+  await db.query(
+    `INSERT INTO link_checks (resource_id, checked_at, status, fail_count, notes)
+     VALUES ($1, now(), $2, $3, $4)
+     ON CONFLICT (resource_id) DO UPDATE
+     SET checked_at = now(), status = $2, fail_count = $3, notes = $4`,
+    [resourceId, status, failCount, notes],
+  );
+  log.info("recorded failure", { resourceId, status, failCount });
+}
+
+// ============================================================
 // Main loop
 // ============================================================
 
@@ -472,13 +514,7 @@ async function main(): Promise<void> {
       await recheckOne(resource);
     } catch (err) {
       log.error("recheck failed", { id: resource.id, url: resource.url, error: String(err) });
-      await db.query(
-        `INSERT INTO link_checks (resource_id, checked_at, is_alive, notes)
-         VALUES ($1, now(), false, $2)
-         ON CONFLICT (resource_id) DO UPDATE
-         SET checked_at = now(), is_alive = false, notes = $2`,
-        [resource.id, `Agent error: ${err}`],
-      );
+      await recordFailure(resource.id, `Agent error: ${err}`);
     }
   } else {
     const count = Number(arg) || 10;
@@ -497,13 +533,7 @@ async function main(): Promise<void> {
         await recheckOne(resource);
       } catch (err) {
         log.error("recheck failed", { id: resource.id, url: resource.url, error: String(err) });
-        await db.query(
-          `INSERT INTO link_checks (resource_id, checked_at, is_alive, notes)
-           VALUES ($1, now(), false, $2)
-           ON CONFLICT (resource_id) DO UPDATE
-           SET checked_at = now(), is_alive = false, notes = $2`,
-          [resource.id, `Agent error: ${err}`],
-        );
+        await recordFailure(resource.id, `Agent error: ${err}`);
       }
     }
   }
@@ -511,12 +541,18 @@ async function main(): Promise<void> {
   // Print summary
   const { rows } = await db.query(`
     SELECT
-      COUNT(*) FILTER (WHERE is_alive = true) AS alive,
-      COUNT(*) FILTER (WHERE is_alive = false) AS dead,
+      COUNT(*) FILTER (WHERE status = 'alive') AS alive,
+      COUNT(*) FILTER (WHERE status = 'suspect') AS suspect,
+      COUNT(*) FILTER (WHERE status = 'dead') AS dead,
       COUNT(*) AS total
     FROM link_checks
   `);
-  log.info("recheck complete", { alive: Number(rows[0].alive), dead: Number(rows[0].dead), total: Number(rows[0].total) });
+  log.info("recheck complete", {
+    alive: Number(rows[0].alive),
+    suspect: Number(rows[0].suspect),
+    dead: Number(rows[0].dead),
+    total: Number(rows[0].total),
+  });
 
   await db.end();
 }

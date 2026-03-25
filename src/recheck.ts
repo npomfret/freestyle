@@ -1,18 +1,14 @@
-import { GoogleGenAI, Type } from '@google/genai';
-import type { Content, FunctionDeclaration, Part } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
-import { requireEnv } from './lib/env.js';
 import { fetchPage } from './lib/fetch-page.js';
-import { createCache, deleteCache } from './lib/gemini-cache.js';
+import { getLLMProvider } from './lib/llm.js';
+import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
 import { ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
 
-const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
-
-const MODEL = 'gemini-2.5-flash-lite';
 const MAX_TURNS = 20;
 
 const TOPIC_LABELS = [
@@ -51,22 +47,31 @@ const TOPIC_LABELS = [
     'transport',
 ];
 
-const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const db = createPool();
 
+// Gemini instance for web search only (cheap single-shot calls)
+let searchGenai: GoogleGenAI | null = null;
+function getSearchGenai(): GoogleGenAI {
+    if (searchGenai) return searchGenai;
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) throw new Error('GEMINI_API_KEY required for web search');
+    searchGenai = new GoogleGenAI({ apiKey: key });
+    return searchGenai;
+}
+
 // ============================================================
-// Tool declarations
+// Tool declarations (provider-agnostic format)
 // ============================================================
 
-const toolDeclarations: FunctionDeclaration[] = [
+const toolDeclarations: ToolDeclaration[] = [
     {
         name: 'fetch_page',
         description:
             'Fetch a URL and check if it loads. Returns statusCode, content, and a \'likely_broken\' flag with \'problems\' array if issues are detected (404, soft 404, redirect to homepage, DNS failure, timeout, domain parking, etc.).',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
-                url: { type: Type.STRING, description: 'URL to fetch' },
+                url: { type: 'string', description: 'URL to fetch' },
             },
             required: ['url'],
         },
@@ -75,38 +80,38 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'update_resource',
         description: 'Update a resource\'s metadata after rechecking it.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 name: {
-                    type: Type.STRING,
+                    type: 'string',
                     description:
                         'The correct, human-readable name for this resource (e.g. \'CLERC\', \'OpenWeatherMap\', \'USGS Earthquake Catalog\'). Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
                 },
                 description: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'New one-sentence description of what this resource provides. Write this even if one already exists — make it accurate and current.',
                 },
                 topics: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
+                    type: 'array',
+                    items: { type: 'string' },
                     description: `Updated topic labels (1-4) from: ${TOPIC_LABELS.join(', ')}. Keep existing ones if still accurate, adjust if needed.`,
                 },
                 regions: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
+                    type: 'array',
+                    items: { type: 'string' },
                     description: 'Updated geographic regions (e.g. "Global", "Europe", "North America/United States"). Keep existing ones if still accurate, adjust if needed.',
                 },
                 is_alive: {
-                    type: Type.BOOLEAN,
+                    type: 'boolean',
                     description:
                         'true ONLY if this specific URL loads and serves the expected content. false if fetch_page returned likely_broken=true, or if the page is a 404, error, redirect to homepage, parked domain, etc. Do NOT set true just because the project exists elsewhere.',
                 },
                 notes: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'Brief notes about what you found: any changes, issues, or notable details',
                 },
                 analysis: {
-                    type: Type.STRING,
+                    type: 'string',
                     description:
                         'A 2-4 sentence analysis covering: what data/service this resource provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats (freshness, coverage, free tier limits). Write this if the page loaded successfully.',
                 },
@@ -118,9 +123,9 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'web_search',
         description: 'Search the web for more information about this resource if the page itself doesn\'t load or is unclear.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
-                query: { type: Type.STRING, description: 'Search query' },
+                query: { type: 'string', description: 'Search query' },
             },
             required: ['query'],
         },
@@ -129,10 +134,10 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'repair_url',
         description: 'If the original URL is broken but you found the resource at a new URL, call this to update the URL. Call fetch_page on the new URL first to verify it works before calling this.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
-                new_url: { type: Type.STRING, description: 'The new, working URL for this resource' },
-                reason: { type: Type.STRING, description: 'Why the URL changed (e.g. \'domain moved\', \'repo transferred\', \'new docs site\')' },
+                new_url: { type: 'string', description: 'The new, working URL for this resource' },
+                reason: { type: 'string', description: 'Why the URL changed (e.g. \'domain moved\', \'repo transferred\', \'new docs site\')' },
             },
             required: ['new_url', 'reason'],
         },
@@ -166,8 +171,9 @@ async function executeTool(
 
         case 'web_search': {
             try {
+                const genai = getSearchGenai();
                 const response = await withRetry(() => genai.models.generateContent({
-                    model: MODEL,
+                    model: 'gemini-2.5-flash-lite',
                     contents: `Search for: ${args.query}`,
                     config: { tools: [{ googleSearch: {} }] },
                 }), 'web_search');
@@ -344,7 +350,7 @@ async function getNextResource(): Promise<ResourceRow | null> {
 }
 
 // ============================================================
-// Static system instruction (cached across resource checks)
+// System instruction for the recheck agent
 // ============================================================
 
 const RECHECK_SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
@@ -373,45 +379,25 @@ If fetch_page returns likely_broken, follow this sequence:
 3. If you can't find the resource anywhere, call update_resource with is_alive = false
 
 ## Steps
-1. Use fetch_page to visit the URL
-2. Look at the statusCode, problems, and likely_broken fields in the result
-3. If the page loads fine → is_alive = true, write a description from what you see
-4. If likely_broken is true:
+1. Look at the pre-fetched results provided in the first message
+2. If the page appears broken:
    a. web_search for the resource name to find a new URL
    b. If found: fetch_page the new URL → repair_url if it works → update_resource with is_alive = true
    c. If not found or new URL also broken: update_resource with is_alive = false
-5. Call update_resource with:
+3. Call update_resource with:
    - name: the correct human-readable name (fix if garbled/emoji/symbol)
    - description: one sentence about what this resource provides
    - topics: updated if needed
    - is_alive: true/false (follow the rules above strictly)
    - notes: what you found, include old URL if repaired
 
+Available topic labels: ${TOPIC_LABELS.join(', ')}
+
+Kind values: api (HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)
+
+Region format: "Global", continent (e.g. "Europe"), continent/country (e.g. "North America/United States"), or sub-region (e.g. "EU", "Middle East")
+
 Be concise.`;
-
-let recheckCacheName: string | null = null;
-
-async function getRecheckCache(): Promise<string> {
-    if (recheckCacheName) return recheckCacheName;
-    recheckCacheName = await createCache(genai, {
-        model: MODEL,
-        systemInstruction: RECHECK_SYSTEM_INSTRUCTION,
-        contents: [
-            {
-                role: 'user',
-                parts: [{ text: `Reference — available topic labels for classification (use exactly these strings):\n${TOPIC_LABELS.join(', ')}\n\nKind values and definitions:\n- api: A resource that exposes HTTP endpoints for programmatic access (REST, GraphQL, gRPC). Must have documented endpoints, authentication info, or an OpenAPI/Swagger spec.\n- dataset: Downloadable or queryable data — CSV, JSON, Parquet, database dumps, data lakes, or data portals. The primary value is the data itself.\n- service: A hosted tool, platform, or SaaS product that users interact with through a UI or CLI. Not primarily an API or raw data.\n- code: A source code repository, library, SDK, framework, or package. Typically hosted on GitHub, GitLab, or a package registry.\n\nRegion format guidelines:\n- Use "Global" for resources not specific to any geography\n- Continents: Africa, Asia, Europe, North America, South America, Oceania, Antarctica\n- Sub-regions: EU, Middle East, Southeast Asia, Central America, Caribbean, Central Asia, East Africa, West Africa, Southern Africa, Nordic, Baltic, Balkans\n- Country-level: Continent/Country format, e.g. Europe/United Kingdom, North America/United States, Asia/Japan, Asia/India, Europe/Germany, South America/Brazil, Oceania/Australia, Africa/Nigeria, Asia/China, Asia/South Korea\n- Leave regions empty if the resource is not geographically specific\n\nRecheck quality standards:\n- Verify the URL is accessible and returns meaningful content (not 404, 500, or domain parked)\n- Check that documentation is still current and endpoints still function\n- Update topics, kinds, and regions if the resource has evolved\n- Mark as dead only if the resource is genuinely unreachable or permanently shut down\n- Repair URLs if the resource has moved (301 redirects, domain changes)\n\nCommon failure patterns to watch for:\n- Domain parked pages (ads, "this domain is for sale") — mark as dead\n- Cloudflare/captcha challenge pages — retry once, then note as potentially alive but blocked\n- GitHub 404 — check if repo was renamed (GitHub sometimes redirects) or truly deleted\n- API docs that load a SPA shell with no content — check if JavaScript rendering is needed\n- Redirect chains — follow to final destination and update URL if the resource is still valid\n- HTTP 403 — may indicate geo-blocking or auth required, not necessarily dead\n- Empty response body with 200 status — likely broken, mark for manual review\n\nWhen updating metadata:\n- Add missing topics if the resource clearly fits a topic label\n- Do not remove existing topics unless they are clearly wrong\n- Prefer specific regions over "Global" when geographic scope is evident\n- A resource can have multiple kinds (e.g. both api and dataset)\n\nTopic label descriptions (for accurate classification):\n- ai-ml: Machine learning models, training data, inference APIs, MLOps tools\n- agriculture: Farming data, crop yields, soil data, agricultural APIs\n- audio: Audio processing, music data, speech recognition, sound APIs\n- bioinformatics: Genomics, proteomics, biological sequence data, molecular biology tools\n- blockchain: Cryptocurrency data, smart contracts, on-chain analytics, DeFi protocols\n- chemistry: Chemical compounds, molecular data, reaction databases, lab tools\n- climate: Weather data, climate models, atmospheric data, emissions tracking\n- cybersecurity: Threat intelligence, vulnerability databases, malware analysis, security tools\n- data-science: General-purpose data tools, statistics, visualization, data processing\n- developer: Developer tools, CI/CD, package registries, code quality, infrastructure\n- drug-discovery: Pharmaceutical data, drug interactions, clinical trials, compound screening\n- finance: Market data, banking APIs, economic indicators, trading platforms\n- food: Nutrition data, food safety, recipe databases, restaurant APIs\n- games: Game data, player statistics, game development tools, esports\n- geospatial: Maps, geocoding, spatial data, GIS tools, location services\n- geoscience: Geology, seismology, mineral data, earth observation\n- government: Government open data portals, census data, regulatory information\n- health: Medical data, health records, disease tracking, clinical data\n- humanities: Cultural heritage, linguistics, historical archives, digital humanities\n- journalism: News APIs, media monitoring, fact-checking, press databases\n- law: Legal databases, case law, regulatory compliance, court records\n- maritime: Shipping data, vessel tracking, ocean data, port information\n- materials: Materials science, material properties, manufacturing data\n- neuroscience: Brain imaging, neural data, cognitive science datasets\n- nlp: Natural language processing, text corpora, language models, translation\n- open-science: Open access research, preprints, scientific data repositories\n- remote-sensing: Satellite imagery, aerial photography, Earth observation data\n- robotics: Robot control, sensor data, autonomous systems, ROS packages\n- semantic-web: Linked data, ontologies, knowledge graphs, RDF datasets\n- social-science: Demographics, surveys, social media analytics, behavioral data\n- space: Astronomy, planetary data, space mission data, orbital mechanics\n- sports: Sports statistics, athlete data, match results, fitness APIs\n- transport: Traffic data, transit APIs, logistics, vehicle data, route planning` }],
-            },
-            {
-                role: 'model',
-                parts: [{ text: 'Understood. I will use these topic labels, kinds, and region formats when updating resources. I will follow the recheck quality standards carefully — verifying accessibility, updating metadata where needed, repairing moved URLs, and only marking resources dead when they are genuinely unreachable. Ready to check a resource.' }],
-            },
-        ],
-        tools: [{ functionDeclarations: toolDeclarations }],
-        displayName: 'recheck-agent',
-        ttlSeconds: 7200,
-    });
-    return recheckCacheName;
-}
 
 // ============================================================
 // Recheck one resource
@@ -442,8 +428,8 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
         return;
     }
 
-    // Step 3: Page is broken — use Gemini to diagnose and attempt repair
-    const cacheName = await getRecheckCache();
+    // Step 3: Page is broken — use LLM to diagnose and attempt repair
+    const provider = await getLLMProvider();
 
     const resourceContext = `Resource to check:
 - Name: ${resource.name}
@@ -460,56 +446,53 @@ I already fetched the page. Here are the results:
 
 The page appears broken. Try to find where this resource moved to using web_search, then repair_url if you find it. Call update_resource when done.`;
 
-    const contents: Content[] = [
-        { role: 'user', parts: [{ text: resourceContext }] },
+    const messages: LLMMessage[] = [
+        { role: 'user', text: resourceContext },
     ];
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const response = await withRetry(() => genai.models.generateContent({
-            model: MODEL,
-            contents,
-            config: {
-                cachedContent: cacheName,
-            },
-        }), 'recheck');
+        const response = await provider.generate(messages, {
+            systemInstruction: RECHECK_SYSTEM_INSTRUCTION,
+            tools: toolDeclarations,
+        });
 
-        const candidate = response.candidates?.[0];
-        if (!candidate?.content?.parts) break;
-
-        contents.push(candidate.content);
-
-        const textParts = candidate.content.parts.filter((p: Part) => p.text);
-        for (const part of textParts) {
-            rlog.debug('agent text', { text: part.text });
+        if (response.text) {
+            rlog.debug('agent text', { text: response.text });
         }
 
-        const functionCalls = candidate.content.parts.filter((p: Part) => p.functionCall);
-        if (functionCalls.length === 0) break;
+        if (response.functionCalls.length === 0) {
+            // Model responded with text only — add to history and break
+            if (response.text) {
+                messages.push({ role: 'model', text: response.text });
+            }
+            break;
+        }
 
-        const responseParts: Part[] = [];
-        for (const part of functionCalls) {
-            const fc = part.functionCall!;
-            const toolName = fc.name!;
-            const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
+        // Add model response to history
+        messages.push({
+            role: 'model',
+            text: response.text,
+            functionCalls: response.functionCalls,
+        });
 
-            rlog.info('tool call', { tool: toolName, args: toolArgs });
+        const functionResponses = [];
+        for (const fc of response.functionCalls) {
+            rlog.info('tool call', { tool: fc.name, args: fc.args });
 
-            const result = await executeTool(toolName, toolArgs);
-            rlog.debug('tool result', { tool: toolName, result });
+            const result = await executeTool(fc.name, fc.args);
+            rlog.debug('tool result', { tool: fc.name, result });
 
-            responseParts.push({
-                functionResponse: {
-                    name: toolName,
-                    response: { result },
-                    id: fc.id,
-                },
+            functionResponses.push({
+                name: fc.name,
+                response: result,
+                id: fc.id,
             });
 
             // If we just updated, we're done with this resource
-            if (toolName === 'update_resource') return;
+            if (fc.name === 'update_resource') return;
         }
 
-        contents.push({ role: 'user', parts: responseParts });
+        messages.push({ role: 'user', functionResponses });
     }
 }
 
@@ -617,7 +600,6 @@ async function main(): Promise<void> {
         total: Number(rows[0].total),
     });
 
-    if (recheckCacheName) await deleteCache(genai, recheckCacheName);
     await db.end();
 }
 

@@ -34,7 +34,7 @@ interface RawFetchResult {
     isPlainText?: boolean;
 }
 
-const DEFAULT_TIERS: FetchTier[] = ['native', 'gemini-url-context', 'puppeteer'];
+const DEFAULT_TIERS: FetchTier[] = ['native', 'puppeteer'];
 const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_CONTENT_LENGTH = 8000;
 

@@ -1,17 +1,13 @@
-import { GoogleGenAI, Type } from '@google/genai';
-import type { Content, FunctionDeclaration, Part } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
-import { requireEnv } from './lib/env.js';
-import { createCache, deleteCache } from './lib/gemini-cache.js';
+import { getLLMProvider } from './lib/llm.js';
+import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import { Kind, Region, SourceName, Topic, Url } from './lib/types.js';
 
-const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
-
-const MODEL = 'gemini-2.5-flash-lite';
 const MAX_TURNS = 50;
 
 const TOPIC_LABELS = [
@@ -86,18 +82,18 @@ function isExcludedUrl(url: string): boolean {
 }
 
 // ============================================================
-// Tool declarations for Gemini
+// Tool declarations (provider-agnostic format)
 // ============================================================
 
-const toolDeclarations: FunctionDeclaration[] = [
+const toolDeclarations: ToolDeclaration[] = [
     {
         name: 'web_search',
         description: 'Search the web for free APIs, datasets, and services. Returns search results with URLs and snippets.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 query: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'Search query (e.g. \'free earthquake API real-time data\')',
                 },
             },
@@ -109,10 +105,10 @@ const toolDeclarations: FunctionDeclaration[] = [
         description:
             'Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying. Use this to catch red flags like reliability complaints or surprise pricing.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 name: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'Name of the resource to check (e.g. \'OpenWeatherMap API\')',
                 },
             },
@@ -124,10 +120,10 @@ const toolDeclarations: FunctionDeclaration[] = [
         description:
             'Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible. Returns a summary of who links to it.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 url: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'The URL to check references for',
                 },
             },
@@ -138,9 +134,9 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'check_existing',
         description: 'Check if a URL already exists in our resources database or discovery queue. Always call this before adding a resource.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
-                url: { type: Type.STRING, description: 'The URL to check' },
+                url: { type: 'string', description: 'The URL to check' },
             },
             required: ['url'],
         },
@@ -149,34 +145,34 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'add_resource',
         description: 'Add a verified free resource to our database. Only call this AFTER you have verified it is genuinely free or has a very generous free tier (< $1000/year).',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 name: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'Short name of the resource (e.g. \'OpenWeatherMap\')',
                 },
-                url: { type: Type.STRING, description: 'URL of the resource' },
+                url: { type: 'string', description: 'URL of the resource' },
                 kinds: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
+                    type: 'array',
+                    items: { type: 'string' },
                     description: 'Resource types. One or more of: "api", "dataset", "service", "code"',
                 },
                 topics: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
+                    type: 'array',
+                    items: { type: 'string' },
                     description: `1-4 topic labels from: ${TOPIC_LABELS.join(', ')}`,
                 },
                 regions: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
+                    type: 'array',
+                    items: { type: 'string' },
                     description: 'Geographic regions this resource covers (e.g. "Global", "Europe", "North America/United States"). Leave empty if not geographically specific.',
                 },
                 description: {
-                    type: Type.STRING,
+                    type: 'string',
                     description: 'One-sentence description of what this resource provides',
                 },
                 analysis: {
-                    type: Type.STRING,
+                    type: 'string',
                     description:
                         'A 2-4 sentence analysis covering: what data/service it provides and in what format, how to access it (API key, open, rate limits), what makes it notable, and any caveats (freshness, coverage, free tier limits).',
                 },
@@ -188,9 +184,9 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'fetch_page',
         description: 'Fetch and read a web page. Use this to verify a resource exists, check pricing/free tier, read documentation, or extract links from list pages.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
-                url: { type: Type.STRING, description: 'URL to fetch' },
+                url: { type: 'string', description: 'URL to fetch' },
             },
             required: ['url'],
         },
@@ -199,20 +195,20 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'queue_items',
         description: 'Queue multiple URLs for later processing. Use when you find a list/directory of resources.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 items: {
-                    type: Type.ARRAY,
+                    type: 'array',
                     items: {
-                        type: Type.OBJECT,
+                        type: 'object',
                         properties: {
-                            url: { type: Type.STRING, description: 'URL to queue' },
+                            url: { type: 'string', description: 'URL to queue' },
                             label: {
-                                type: Type.STRING,
+                                type: 'string',
                                 description: 'Name or label of the resource',
                             },
                             source: {
-                                type: Type.STRING,
+                                type: 'string',
                                 description: 'Where you found this link',
                             },
                         },
@@ -228,10 +224,10 @@ const toolDeclarations: FunctionDeclaration[] = [
         name: 'get_queue',
         description: 'Get the next batch of pending URLs from the discovery queue to process.',
         parameters: {
-            type: Type.OBJECT,
+            type: 'object',
             properties: {
                 limit: {
-                    type: Type.NUMBER,
+                    type: 'number',
                     description: 'How many items to retrieve (default 10)',
                 },
             },
@@ -240,13 +236,29 @@ const toolDeclarations: FunctionDeclaration[] = [
 ];
 
 // ============================================================
+// Gemini instance for web search only (cheap single-shot calls)
+// ============================================================
+
+let searchGenai: GoogleGenAI | null = null;
+function getSearchGenai(): GoogleGenAI {
+    if (searchGenai) return searchGenai;
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) throw new Error('GEMINI_API_KEY required for web search');
+    searchGenai = new GoogleGenAI({ apiKey: key });
+    return searchGenai;
+}
+
+const SEARCH_MODEL = 'gemini-2.5-flash-lite';
+
+// ============================================================
 // Web search via Gemini with Google Search grounding
 // ============================================================
 
 async function webSearch(query: string): Promise<string> {
     try {
+        const genai = getSearchGenai();
         const response = await withRetry(() => genai.models.generateContent({
-            model: MODEL,
+            model: SEARCH_MODEL,
             contents:
                 `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
             config: {
@@ -280,8 +292,9 @@ async function webSearch(query: string): Promise<string> {
 
 async function checkSocial(name: string): Promise<string> {
     try {
+        const genai = getSearchGenai();
         const response = await withRetry(() => genai.models.generateContent({
-            model: MODEL,
+            model: SEARCH_MODEL,
             contents:
                 `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
             config: {
@@ -296,8 +309,9 @@ async function checkSocial(name: string): Promise<string> {
 
 async function checkReferences(url: string): Promise<string> {
     try {
+        const genai = getSearchGenai();
         const response = await withRetry(() => genai.models.generateContent({
-            model: MODEL,
+            model: SEARCH_MODEL,
             contents:
                 `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
             config: {
@@ -346,7 +360,7 @@ async function executeTool(
                 analysis: args.analysis as string | undefined,
             });
         case 'fetch_page':
-            return fetchPage(args.url as string, { tiers: ['native', 'gemini-url-context'] });
+            return fetchPage(args.url as string);
         case 'queue_items': {
             // Filter excluded URLs from queue
             const rawItems = (args as { items: { url: string; label: string; source: string; }[]; }).items;
@@ -368,11 +382,10 @@ async function executeTool(
 // Agent loop
 // ============================================================
 
-const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const db = createPool();
 
 // ============================================================
-// Static system instruction (cached across turns and iterations)
+// System instruction for the discover agent
 // ============================================================
 
 const DISCOVER_SYSTEM_INSTRUCTION = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
@@ -409,6 +422,9 @@ For each candidate resource:
 - description: one clear sentence about what it provides and why it's useful
 - analysis: 2-4 sentences covering what data/service it provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats
 
+## Excluded domains (skip these automatically)
+${EXCLUDED_DOMAINS.join(', ')}
+
 ## Workflow
 1. web_search to find candidates
 2. For each: check_existing → fetch_page → check_references → add_resource (if it passes)
@@ -417,99 +433,64 @@ For each candidate resource:
 
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
-let discoverCacheName: string | null = null;
-
-async function getDiscoverCache(): Promise<string> {
-    if (discoverCacheName) return discoverCacheName;
-    discoverCacheName = await createCache(genai, {
-        model: MODEL,
-        systemInstruction: DISCOVER_SYSTEM_INSTRUCTION,
-        contents: [
-            {
-                role: 'user',
-                parts: [{ text: `Reference — excluded domains (skip these automatically):\n${EXCLUDED_DOMAINS.join(', ')}\n\nAvailable topic labels (use exactly these strings):\n${TOPIC_LABELS.join(', ')}\n\nKind values and definitions:\n- api: A resource that exposes HTTP endpoints for programmatic access (REST, GraphQL, gRPC). Must have documented endpoints, authentication info, or an OpenAPI/Swagger spec.\n- dataset: Downloadable or queryable data — CSV, JSON, Parquet, database dumps, data lakes, or data portals. The primary value is the data itself.\n- service: A hosted tool, platform, or SaaS product that users interact with through a UI or CLI. Not primarily an API or raw data.\n- code: A source code repository, library, SDK, framework, or package. Typically hosted on GitHub, GitLab, or a package registry.\n\nRegion format guidelines:\n- Use "Global" for resources not specific to any geography\n- Continents: Africa, Asia, Europe, North America, South America, Oceania, Antarctica\n- Sub-regions: EU, Middle East, Southeast Asia, Central America, Caribbean, Central Asia, East Africa, West Africa, Southern Africa, Nordic, Baltic, Balkans\n- Country-level: Continent/Country format, e.g. Europe/United Kingdom, North America/United States, Asia/Japan, Asia/India, Europe/Germany, South America/Brazil, Oceania/Australia, Africa/Nigeria, Asia/China, Asia/South Korea\n- Leave regions empty if the resource is not geographically specific\n\nQuality criteria for adding resources:\n- Must be a primary source (official docs, actual API endpoint, original dataset, source repo)\n- Must be currently maintained and accessible\n- Skip aggregator sites, blog posts, tutorials, listicles, and directories\n- Skip resources that require paid access with no free tier\n- Prefer resources with clear documentation and active maintenance` }],
-            },
-            {
-                role: 'model',
-                parts: [{ text: 'Understood. I will skip excluded domains and use the provided topic labels for classification. Ready for a discovery task.' }],
-            },
-        ],
-        tools: [{ functionDeclarations: toolDeclarations }],
-        displayName: 'discover-agent',
-        ttlSeconds: 7200,
-    });
-    return discoverCacheName;
-}
-
 async function discover(query: string): Promise<void> {
-    const cacheName = await getDiscoverCache();
+    const provider = await getLLMProvider();
 
-    const contents: Content[] = [
-        { role: 'user', parts: [{ text: `Your task: "${query}"\n\nBegin by searching for relevant resources.` }] },
+    const messages: LLMMessage[] = [
+        { role: 'user', text: `Your task: "${query}"\n\nBegin by searching for relevant resources.` },
     ];
 
     const alog = log.child({ agent: 'discover' });
     alog.info('agent started', { query });
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const response = await withRetry(() => genai.models.generateContent({
-            model: MODEL,
-            contents,
-            config: {
-                cachedContent: cacheName,
-            },
-        }), 'discover');
+        const response = await provider.generate(messages, {
+            systemInstruction: DISCOVER_SYSTEM_INSTRUCTION,
+            tools: toolDeclarations,
+        });
 
-        const candidate = response.candidates?.[0];
-        if (!candidate?.content?.parts) {
-            alog.warn('no response from model', { turn });
+        if (response.text) {
+            alog.debug('agent text', { text: response.text });
+        }
+
+        if (response.text?.includes('DISCOVERY COMPLETE')) {
             break;
         }
 
-        contents.push(candidate.content);
-
-        const textParts = candidate.content.parts.filter((p: Part) => p.text);
-        for (const part of textParts) {
-            alog.debug('agent text', { text: part.text });
-        }
-
-        const fullText = textParts.map((p: Part) => p.text ?? '').join('');
-        if (fullText.includes('DISCOVERY COMPLETE')) {
-            break;
-        }
-
-        const functionCalls = candidate.content.parts.filter(
-            (p: Part) => p.functionCall,
-        );
-        if (functionCalls.length === 0) {
-            contents.push({
+        if (response.functionCalls.length === 0) {
+            // Model responded with text only — nudge it to continue
+            if (response.text) {
+                messages.push({ role: 'model', text: response.text });
+            }
+            messages.push({
                 role: 'user',
-                parts: [{ text: 'Continue. Use web_search to find more resources, or get_queue if there are queued items.' }],
+                text: 'Continue. Use web_search to find more resources, or get_queue if there are queued items.',
             });
             continue;
         }
 
-        const responseParts: Part[] = [];
-        for (const part of functionCalls) {
-            const fc = part.functionCall!;
-            const toolName = fc.name!;
-            const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
+        // Add model response to history
+        messages.push({
+            role: 'model',
+            text: response.text,
+            functionCalls: response.functionCalls,
+        });
 
-            alog.info('tool call', { tool: toolName, args: toolArgs });
+        const functionResponses = [];
+        for (const fc of response.functionCalls) {
+            alog.info('tool call', { tool: fc.name, args: fc.args });
 
-            const result = await executeTool(toolName, toolArgs);
-            alog.debug('tool result', { tool: toolName, result });
+            const result = await executeTool(fc.name, fc.args);
+            alog.debug('tool result', { tool: fc.name, result });
 
-            responseParts.push({
-                functionResponse: {
-                    name: toolName,
-                    response: { result },
-                    id: fc.id,
-                },
+            functionResponses.push({
+                name: fc.name,
+                response: result,
+                id: fc.id,
             });
         }
 
-        contents.push({ role: 'user', parts: responseParts });
+        messages.push({ role: 'user', functionResponses });
     }
 
     alog.info('agent finished');
@@ -552,7 +533,6 @@ async function main(): Promise<void> {
         try {
             await run();
         } finally {
-            if (discoverCacheName) await deleteCache(genai, discoverCacheName);
             await db.end();
         }
     }

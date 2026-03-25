@@ -44,11 +44,12 @@ you can look in any area you like.  some ideas:
 - interest rates
 - banks
 - insurance
+- inflation
 - economics
 - livestock
 - pesticides
 - fertilizers
--
+- groceries
 
 Go wild. Collect your results, then update @README with your findings.  If it's a github project, clone it into @free-stuff
 

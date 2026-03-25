@@ -427,7 +427,7 @@ async function getDiscoverCache(): Promise<string> {
         contents: [
             {
                 role: 'user',
-                parts: [{ text: `Reference — excluded domains (skip these automatically):\n${EXCLUDED_DOMAINS.join(', ')}\n\nAvailable topic labels:\n${TOPIC_LABELS.join(', ')}` }],
+                parts: [{ text: `Reference — excluded domains (skip these automatically):\n${EXCLUDED_DOMAINS.join(', ')}\n\nAvailable topic labels:\n${TOPIC_LABELS.join(', ')}\n\nKind values: api (has HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)\n\nRegion examples: Global, Africa, Asia, Europe, North America, South America, Oceania, Europe/United Kingdom, North America/United States, Asia/Japan, EU, Middle East, Southeast Asia, Caribbean. Use continent, continent/country, or sub-region. Leave empty if not geographically specific.` }],
             },
             {
                 role: 'model',

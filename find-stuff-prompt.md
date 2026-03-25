@@ -35,6 +35,19 @@ you can look in any area you like.  some ideas:
 - crops
 - waste
 - recycling
+- pollution
+- manufacturing
+- bonds
+- fx
+- equities
+- derivatives
+- interest rates
+- banks
+- insurance
+- economics
+- livestock
+- pesticides
+- fertilizers
 -
 
 Go wild. Collect your results, then update @README with your findings.  If it's a github project, clone it into @free-stuff

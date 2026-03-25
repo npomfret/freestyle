@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 
 const API = "http://localhost:3001/api";
+const PAGE_SIZE = 30;
 
 interface Source {
   name: string;
@@ -19,6 +20,13 @@ interface Resource {
   topics: string[];
   sources: Source[];
   descriptions: string[];
+}
+
+interface PagedResponse {
+  items: Resource[];
+  hasMore: boolean;
+  offset: number;
+  limit: number;
 }
 
 interface TopicCount {
@@ -51,13 +59,19 @@ function timeAgo(dateStr: string): string {
 function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Resource[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [recent, setRecent] = useState<Resource[]>([]);
   const [topics, setTopics] = useState<TopicCount[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [selectedTopic, setSelectedTopic] = useState("");
   const [selectedKind, setSelectedKind] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  // Track current search/browse mode for loadMore
+  const modeRef = useRef<{ type: "search" | "browse"; query?: string; topic?: string; kind?: string }>({ type: "browse" });
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`${API}/stats`).then((r) => r.json()).then(setStats);
@@ -69,11 +83,15 @@ function App() {
     if (!query.trim()) return;
     setLoading(true);
     setSearched(true);
-    const params = new URLSearchParams({ q: query, limit: "50" });
+    setResults([]);
+    modeRef.current = { type: "search", query, topic: selectedTopic, kind: selectedKind };
+    const params = new URLSearchParams({ q: query, limit: String(PAGE_SIZE), offset: "0" });
     if (selectedTopic) params.set("topic", selectedTopic);
     if (selectedKind) params.set("kind", selectedKind);
     const res = await fetch(`${API}/search?${params}`);
-    setResults(await res.json());
+    const data: PagedResponse = await res.json();
+    setResults(data.items);
+    setHasMore(data.hasMore);
     setLoading(false);
   }, [query, selectedTopic, selectedKind]);
 
@@ -81,15 +99,64 @@ function App() {
     async (topic?: string, kind?: string) => {
       setLoading(true);
       setSearched(true);
-      const params = new URLSearchParams({ limit: "50" });
+      setResults([]);
+      modeRef.current = { type: "browse", topic, kind };
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: "0" });
       if (topic) params.set("topic", topic);
       if (kind) params.set("kind", kind);
       const res = await fetch(`${API}/resources?${params}`);
-      setResults(await res.json());
+      const data: PagedResponse = await res.json();
+      setResults(data.items);
+      setHasMore(data.hasMore);
       setLoading(false);
     },
     [],
   );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    const mode = modeRef.current;
+    const offset = results.length;
+
+    let url: string;
+    if (mode.type === "search" && mode.query) {
+      const params = new URLSearchParams({ q: mode.query, limit: String(PAGE_SIZE), offset: String(offset) });
+      if (mode.topic) params.set("topic", mode.topic);
+      if (mode.kind) params.set("kind", mode.kind);
+      url = `${API}/search?${params}`;
+    } else {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
+      if (mode.topic) params.set("topic", mode.topic);
+      if (mode.kind) params.set("kind", mode.kind);
+      url = `${API}/resources?${params}`;
+    }
+
+    const res = await fetch(url);
+    const data: PagedResponse = await res.json();
+    setResults((prev) => [...prev, ...data.items]);
+    setHasMore(data.hasMore);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, results.length]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMore]);
 
   const handleTopicClick = (topic: string) => {
     const next = topic === selectedTopic ? "" : topic;
@@ -109,6 +176,7 @@ function App() {
     setSelectedTopic("");
     setSelectedKind("");
     setResults([]);
+    setHasMore(false);
     setSearched(false);
     setQuery("");
   };
@@ -252,6 +320,9 @@ function App() {
             <div className="status">No results found.</div>
           )}
           {results.map((r) => renderCard(r))}
+          <div ref={sentinelRef} className="sentinel">
+            {loadingMore && <div className="status">Loading more...</div>}
+          </div>
         </div>
       )}
     </div>

@@ -64,7 +64,8 @@ app.get("/api/search", async (req, res) => {
   const q = req.query.q as string;
   const topic = req.query.topic as string | undefined;
   const kind = req.query.kind as string | undefined;
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const limit = Math.min(Number(req.query.limit) || 30, 200);
+  const offset = Number(req.query.offset) || 0;
 
   if (!q) {
     res.status(400).json({ error: "q parameter required" });
@@ -97,12 +98,13 @@ app.get("/api/search", async (req, res) => {
       paramIdx++;
     }
 
-    sql += ` ORDER BY r.embedding <=> $1::vector LIMIT $${paramIdx}`;
-    params.push(limit);
+    sql += ` ORDER BY r.embedding <=> $1::vector LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+    params.push(limit + 1, offset); // fetch one extra to detect hasMore
 
     const { rows } = await db.query(sql, params);
-    const enriched = await enrichResources(rows);
-    res.json(enriched);
+    const hasMore = rows.length > limit;
+    const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
+    res.json({ items: enriched, hasMore, offset, limit });
     return;
   } catch {
     // Fall through to text search
@@ -116,11 +118,12 @@ app.get("/api/search", async (req, res) => {
      WHERE (r.name % $1 OR r.fts @@ plainto_tsquery('english', $1))
        AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
      ORDER BY similarity DESC
-     LIMIT $2`,
-    [q, limit],
+     LIMIT $2 OFFSET $3`,
+    [q, limit + 1, offset],
   );
-  const enriched = await enrichResources(rows);
-  res.json(enriched);
+  const hasMore = rows.length > limit;
+  const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
+  res.json({ items: enriched, hasMore, offset, limit });
 });
 
 // Browse resources with filtering
@@ -129,7 +132,7 @@ app.get("/api/resources", async (req, res) => {
   const kind = req.query.kind as string | undefined;
   const source = req.query.source as string | undefined;
   const offset = Number(req.query.offset) || 0;
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const limit = Math.min(Number(req.query.limit) || 30, 200);
 
   let sql = "SELECT r.id, r.name, r.url, r.updated_at FROM resources r";
   const joins: string[] = [];
@@ -159,11 +162,12 @@ app.get("/api/resources", async (req, res) => {
   if (joins.length) sql += " " + joins.join(" ");
   if (wheres.length) sql += " WHERE " + wheres.join(" AND ");
   sql += ` ORDER BY r.name LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
-  params.push(limit, offset);
+  params.push(limit + 1, offset);
 
   const { rows } = await db.query(sql, params);
-  const enriched = await enrichResources(rows);
-  res.json(enriched);
+  const hasMore = rows.length > limit;
+  const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
+  res.json({ items: enriched, hasMore, offset, limit });
 });
 
 // Single resource detail

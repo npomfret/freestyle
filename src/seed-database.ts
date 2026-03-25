@@ -2,6 +2,8 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import pg from "pg";
 import { log } from "./lib/logger.js";
+import type { ResourceId, ProjectId, Url, Kind, Topic, SourceName } from "./lib/types.js";
+import { ResourceId as mkResourceId, ProjectId as mkProjectId } from "./lib/types.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const CATALOG_JSON = resolve(ROOT, "catalog.json");
@@ -11,16 +13,16 @@ const DATABASE_URL =
 
 interface CatalogResource {
   name: string;
-  url: string;
-  kinds: string[];
-  topics: string[];
-  sources: string[];
+  url: Url;
+  kinds: Kind[];
+  topics: Topic[];
+  sources: SourceName[];
   directDescriptions: string[];
 }
 
 interface CatalogProject {
   name: string;
-  repoUrl: string;
+  repoUrl: Url;
   description: string;
   labels: string[];
   listBased: boolean;
@@ -42,7 +44,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
        VALUES ($1, $2, $3, $4) RETURNING id`,
       [p.name, p.repoUrl, p.description, p.listBased],
     );
-    const pid = rows[0].id;
+    const pid = mkProjectId(rows[0].id);
     for (const label of p.labels) {
       await client.query(
         "INSERT INTO project_labels (project_id, label) VALUES ($1, $2)",
@@ -55,8 +57,8 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
   const { rows: existingRows } = await client.query(
     "SELECT url, id FROM resources",
   );
-  const existing = new Map<string, number>(
-    existingRows.map((r: { url: string; id: number }) => [r.url, r.id]),
+  const existing = new Map<Url, ResourceId>(
+    existingRows.map((r: { url: string; id: number }) => [r.url as Url, mkResourceId(r.id)]),
   );
 
   const newUrls = new Set(catalog.resources.map((r) => r.url));
@@ -73,7 +75,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
   await client.query("DELETE FROM resource_descriptions");
 
   for (const r of catalog.resources) {
-    let rid: number;
+    let rid: ResourceId;
     if (existing.has(r.url)) {
       rid = existing.get(r.url)!;
       await client.query(
@@ -85,7 +87,7 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
         "INSERT INTO resources (name, url) VALUES ($1, $2) RETURNING id",
         [r.name, r.url],
       );
-      rid = rows[0].id;
+      rid = mkResourceId(rows[0].id);
     }
 
     for (const kind of r.kinds) {

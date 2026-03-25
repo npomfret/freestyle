@@ -5,6 +5,8 @@ import { resolve } from "path";
 import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
 import { log } from "./lib/logger.js";
+import type { ResourceId } from "./lib/types.js";
+import { ResourceId as mkResourceId } from "./lib/types.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -183,7 +185,7 @@ app.get("/api/resources/:id", async (req, res) => {
 // ============================================================
 
 async function enrichResources(
-  rows: { id: number; name: string; url: string; created_at?: string; updated_at?: string; similarity?: number }[],
+  rows: { id: ResourceId; name: string; url: string; created_at?: string; updated_at?: string; similarity?: number }[],
 ) {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);

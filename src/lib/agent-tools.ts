@@ -1,6 +1,8 @@
 import pg from "pg";
 import { embed } from "./embeddings.js";
 import { log } from "./logger.js";
+import type { ResourceId, Url, Kind, Topic, SourceName, QueueItemId } from "./types.js";
+import { ResourceId as mkResourceId, QueueItemId as mkQueueItemId } from "./types.js";
 
 // ============================================================
 // Tool: check_existing
@@ -8,7 +10,7 @@ import { log } from "./logger.js";
 
 export async function checkExisting(
   db: pg.Client,
-  args: { url: string },
+  args: { url: Url },
 ): Promise<{ inResources: boolean; inQueue: boolean }> {
   const { rows: rRows } = await db.query(
     "SELECT 1 FROM resources WHERE url = $1",
@@ -29,19 +31,19 @@ export async function addResource(
   db: pg.Client,
   args: {
     name: string;
-    url: string;
-    kinds: string[];
-    topics: string[];
+    url: Url;
+    kinds: Kind[];
+    topics: Topic[];
     description: string;
   },
-): Promise<{ id: number; status: "added" | "duplicate" }> {
+): Promise<{ id: ResourceId; status: "added" | "duplicate" }> {
   // Check for duplicate
   const { rows: existing } = await db.query(
     "SELECT id FROM resources WHERE url = $1",
     [args.url],
   );
   if (existing.length > 0) {
-    return { id: existing[0].id, status: "duplicate" };
+    return { id: mkResourceId(existing[0].id), status: "duplicate" };
   }
 
   // Insert resource
@@ -49,7 +51,7 @@ export async function addResource(
     "INSERT INTO resources (name, url) VALUES ($1, $2) RETURNING id",
     [args.name, args.url],
   );
-  const id: number = rows[0].id;
+  const id = mkResourceId(rows[0].id);
 
   // Junction tables
   for (const kind of args.kinds) {
@@ -103,7 +105,7 @@ export async function addResource(
 // ============================================================
 
 export async function fetchPage(
-  args: { url: string },
+  args: { url: Url },
 ): Promise<{ content: string; statusCode: number }> {
   try {
     const resp = await fetch(args.url, {
@@ -137,7 +139,7 @@ export async function fetchPage(
 
 export async function queueItems(
   db: pg.Client,
-  args: { items: { url: string; label: string; source: string }[] },
+  args: { items: { url: Url; label: string; source: SourceName }[] },
 ): Promise<{ queued: number; skipped: number }> {
   let queued = 0;
   let skipped = 0;
@@ -164,7 +166,7 @@ export async function queueItems(
 export async function getQueue(
   db: pg.Client,
   args: { limit: number },
-): Promise<{ id: number; url: string; label: string; source: string }[]> {
+): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName }[]> {
   const { rows } = await db.query(
     `SELECT id, url, label, source FROM discovery_queue
      WHERE status = 'pending'
@@ -174,7 +176,7 @@ export async function getQueue(
   );
   // Mark as processing
   if (rows.length > 0) {
-    const ids = rows.map((r: { id: number }) => r.id);
+    const ids = rows.map((r: { id: number }) => mkQueueItemId(r.id));
     await db.query(
       "UPDATE discovery_queue SET status = 'processing' WHERE id = ANY($1)",
       [ids],

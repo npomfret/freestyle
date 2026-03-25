@@ -3,6 +3,8 @@ import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { createClient } from "./lib/db.js";
 import { embed } from "./lib/embeddings.js";
 import { log } from "./lib/logger.js";
+import type { ResourceId, Url, Topic, Kind } from "./lib/types.js";
+import { ResourceId as mkResourceId, Url as mkUrl } from "./lib/types.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -90,11 +92,11 @@ const toolDeclarations: FunctionDeclaration[] = [
 // ============================================================
 
 interface ResourceRow {
-  id: number;
+  id: ResourceId;
   name: string;
-  url: string;
-  kinds: string[];
-  topics: string[];
+  url: Url;
+  kinds: Kind[];
+  topics: Topic[];
   descriptions: string[];
 }
 
@@ -232,11 +234,11 @@ async function getNextResource(): Promise<ResourceRow | null> {
   ]);
 
   return {
-    id: r.id,
+    id: mkResourceId(r.id),
     name: r.name,
-    url: r.url,
-    kinds: kinds.rows.map((k: { kind: string }) => k.kind),
-    topics: topics.rows.map((t: { topic: string }) => t.topic),
+    url: mkUrl(r.url),
+    kinds: kinds.rows.map((k: { kind: string }) => k.kind as Kind),
+    topics: topics.rows.map((t: { topic: string }) => t.topic as Topic),
     descriptions: descs.rows.map((d: { description: string }) => d.description),
   };
 }
@@ -340,11 +342,11 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
   ]);
 
   return {
-    id: r.id,
+    id: mkResourceId(r.id),
     name: r.name,
-    url: r.url,
-    kinds: kinds.rows.map((k: { kind: string }) => k.kind),
-    topics: topics.rows.map((t: { topic: string }) => t.topic),
+    url: mkUrl(r.url),
+    kinds: kinds.rows.map((k: { kind: string }) => k.kind as Kind),
+    topics: topics.rows.map((t: { topic: string }) => t.topic as Topic),
     descriptions: descs.rows.map((d: { description: string }) => d.description),
   };
 }

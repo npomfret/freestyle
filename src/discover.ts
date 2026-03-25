@@ -10,6 +10,7 @@ import {
   getQueue,
 } from "./lib/agent-tools.js";
 import { generateDiscoveryQuery } from "./lib/discovery-topics.js";
+import { Url, Kind, Topic, SourceName } from "./lib/types.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -306,19 +307,24 @@ async function executeTool(
     case "check_references":
       return { references: await checkReferences(args.url as string) };
     case "check_existing":
-      return checkExisting(db, args as { url: string });
+      return checkExisting(db, { url: Url(args.url as string) });
     case "add_resource":
-      return addResource(db, args as {
-        name: string; url: string; kinds: string[];
-        topics: string[]; description: string;
+      return addResource(db, {
+        name: args.name as string,
+        url: Url(args.url as string),
+        kinds: (args.kinds as string[]).map(Kind),
+        topics: (args.topics as string[]).map(Topic),
+        description: args.description as string,
       });
     case "fetch_page":
-      return fetchPage(args as { url: string });
+      return fetchPage({ url: Url(args.url as string) });
     case "queue_items": {
       // Filter excluded URLs from queue
-      const items = (args as { items: { url: string; label: string; source: string }[] }).items;
-      const filtered = items.filter((i) => !isExcludedUrl(i.url));
-      const excluded = items.length - filtered.length;
+      const rawItems = (args as { items: { url: string; label: string; source: string }[] }).items;
+      const filtered = rawItems
+        .filter((i) => !isExcludedUrl(i.url))
+        .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source) }));
+      const excluded = rawItems.length - filtered.length;
       const result = await queueItems(db, { items: filtered });
       return { ...result, excludedByBlocklist: excluded };
     }

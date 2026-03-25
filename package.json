@@ -6,7 +6,8 @@
     "generate": "tsx src/generate-catalog.ts",
     "seed": "tsx src/seed-database.ts",
     "embed": "tsx src/generate-embeddings.ts",
-    "search": "tsx src/search.ts"
+    "search": "tsx src/search.ts",
+    "discover": "tsx src/discover.ts"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",

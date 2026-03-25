@@ -101,6 +101,24 @@ CREATE TABLE IF NOT EXISTS idea_resources (
 );
 
 -- ============================================================
+-- Discovery queue (for the agent crawler)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS discovery_queue (
+    id          SERIAL PRIMARY KEY,
+    url         TEXT NOT NULL,
+    label       TEXT NOT NULL DEFAULT '',
+    source      TEXT NOT NULL DEFAULT '',
+    status      TEXT NOT NULL DEFAULT 'pending',
+    notes       TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_discovery_queue_status ON discovery_queue(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_discovery_queue_url ON discovery_queue(url);
+
+-- ============================================================
 -- Indexes
 -- ============================================================
 

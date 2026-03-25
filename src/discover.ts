@@ -1,33 +1,54 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { Content, FunctionDeclaration, Part } from "@google/genai";
-import { createClient } from "./lib/db.js";
-import { log } from "./lib/logger.js";
-import {
-  checkExisting,
-  addResource,
-  fetchPage,
-  queueItems,
-  getQueue,
-} from "./lib/agent-tools.js";
-import { generateDiscoveryQuery } from "./lib/discovery-topics.js";
-import { Url, Kind, Topic, SourceName } from "./lib/types.js";
+import { GoogleGenAI, Type } from '@google/genai';
+import type { Content, FunctionDeclaration, Part } from '@google/genai';
+import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
+import { createClient } from './lib/db.js';
+import { generateDiscoveryQuery } from './lib/discovery-topics.js';
+import { log } from './lib/logger.js';
+import { Kind, SourceName, Topic, Url } from './lib/types.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
-  log.error("missing api key", { key: "GEMINI_API_KEY" });
-  process.exit(1);
+    log.error('missing api key', { key: 'GEMINI_API_KEY' });
+    process.exit(1);
 }
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = 'gemini-2.5-flash';
 const MAX_TURNS = 50;
 
 const TOPIC_LABELS = [
-  "ai-ml", "agriculture", "audio", "bioinformatics", "blockchain",
-  "chemistry", "climate", "cybersecurity", "data-science", "developer",
-  "drug-discovery", "finance", "food", "games", "geospatial", "geoscience",
-  "government", "health", "humanities", "journalism", "law", "maritime",
-  "materials", "neuroscience", "nlp", "open-science", "remote-sensing",
-  "robotics", "semantic-web", "social-science", "space", "sports", "transport",
+    'ai-ml',
+    'agriculture',
+    'audio',
+    'bioinformatics',
+    'blockchain',
+    'chemistry',
+    'climate',
+    'cybersecurity',
+    'data-science',
+    'developer',
+    'drug-discovery',
+    'finance',
+    'food',
+    'games',
+    'geospatial',
+    'geoscience',
+    'government',
+    'health',
+    'humanities',
+    'journalism',
+    'law',
+    'maritime',
+    'materials',
+    'neuroscience',
+    'nlp',
+    'open-science',
+    'remote-sensing',
+    'robotics',
+    'semantic-web',
+    'social-science',
+    'space',
+    'sports',
+    'transport',
 ];
 
 // ============================================================
@@ -37,32 +58,32 @@ const TOPIC_LABELS = [
 // ============================================================
 
 const EXCLUDED_DOMAINS = [
-  "kaggle.com",             // aggregator, not a primary source
-  "wikipedia.org",          // reference, not an API/dataset
-  "medium.com",             // blog posts
-  "towardsdatascience.com", // blog posts
-  "stackoverflow.com",      // Q&A
-  "reddit.com",             // forum
-  "youtube.com",            // video
-  "twitter.com",            // social
-  "x.com",                  // social
-  "linkedin.com",           // social
-  "freecodecamp.org",       // tutorials
-  "udemy.com",              // courses
-  "coursera.org",           // courses
-  "rapidapi.com",           // proxy/aggregator, not primary source
-  "programmableweb.com",    // dead/dying directory
-  "any-api.com",            // low-quality aggregator
-  "freepublicapis.com",     // low-quality aggregator
-  "findapis.com",           // low-quality aggregator
-  "apilist.fun",            // low-quality aggregator
-  "public-apis.io",         // aggregator of aggregators
-  "vertexaisearch.cloud.google.com", // Gemini search redirect URLs, not real
+    'kaggle.com', // aggregator, not a primary source
+    'wikipedia.org', // reference, not an API/dataset
+    'medium.com', // blog posts
+    'towardsdatascience.com', // blog posts
+    'stackoverflow.com', // Q&A
+    'reddit.com', // forum
+    'youtube.com', // video
+    'twitter.com', // social
+    'x.com', // social
+    'linkedin.com', // social
+    'freecodecamp.org', // tutorials
+    'udemy.com', // courses
+    'coursera.org', // courses
+    'rapidapi.com', // proxy/aggregator, not primary source
+    'programmableweb.com', // dead/dying directory
+    'any-api.com', // low-quality aggregator
+    'freepublicapis.com', // low-quality aggregator
+    'findapis.com', // low-quality aggregator
+    'apilist.fun', // low-quality aggregator
+    'public-apis.io', // aggregator of aggregators
+    'vertexaisearch.cloud.google.com', // Gemini search redirect URLs, not real
 ];
 
 function isExcludedUrl(url: string): boolean {
-  const lower = url.toLowerCase();
-  return EXCLUDED_DOMAINS.some((d) => lower.includes(d));
+    const lower = url.toLowerCase();
+    return EXCLUDED_DOMAINS.some((d) => lower.includes(d));
 }
 
 // ============================================================
@@ -70,154 +91,148 @@ function isExcludedUrl(url: string): boolean {
 // ============================================================
 
 const toolDeclarations: FunctionDeclaration[] = [
-  {
-    name: "web_search",
-    description:
-      "Search the web for free APIs, datasets, and services. Returns search results with URLs and snippets.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        query: {
-          type: Type.STRING,
-          description: "Search query (e.g. 'free earthquake API real-time data')",
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "check_social",
-    description:
-      "Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying. Use this to catch red flags like reliability complaints or surprise pricing.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        name: {
-          type: Type.STRING,
-          description: "Name of the resource to check (e.g. 'OpenWeatherMap API')",
-        },
-      },
-      required: ["name"],
-    },
-  },
-  {
-    name: "check_references",
-    description:
-      "Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible. Returns a summary of who links to it.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        url: {
-          type: Type.STRING,
-          description: "The URL to check references for",
-        },
-      },
-      required: ["url"],
-    },
-  },
-  {
-    name: "check_existing",
-    description:
-      "Check if a URL already exists in our resources database or discovery queue. Always call this before adding a resource.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        url: { type: Type.STRING, description: "The URL to check" },
-      },
-      required: ["url"],
-    },
-  },
-  {
-    name: "add_resource",
-    description:
-      "Add a verified free resource to our database. Only call this AFTER you have verified it is genuinely free or has a very generous free tier (< $1000/year).",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        name: {
-          type: Type.STRING,
-          description: "Short name of the resource (e.g. 'OpenWeatherMap')",
-        },
-        url: { type: Type.STRING, description: "URL of the resource" },
-        kinds: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description:
-            'Resource types. One or more of: "api", "dataset", "service", "code"',
-        },
-        topics: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description: `1-4 topic labels from: ${TOPIC_LABELS.join(", ")}`,
-        },
-        description: {
-          type: Type.STRING,
-          description: "One-sentence description of what this resource provides",
-        },
-        analysis: {
-          type: Type.STRING,
-          description: "A 2-4 sentence analysis covering: what data/service it provides and in what format, how to access it (API key, open, rate limits), what makes it notable, and any caveats (freshness, coverage, free tier limits).",
-        },
-      },
-      required: ["name", "url", "kinds", "topics", "description", "analysis"],
-    },
-  },
-  {
-    name: "fetch_page",
-    description:
-      "Fetch and read a web page. Use this to verify a resource exists, check pricing/free tier, read documentation, or extract links from list pages.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        url: { type: Type.STRING, description: "URL to fetch" },
-      },
-      required: ["url"],
-    },
-  },
-  {
-    name: "queue_items",
-    description:
-      "Queue multiple URLs for later processing. Use when you find a list/directory of resources.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        items: {
-          type: Type.ARRAY,
-          items: {
+    {
+        name: 'web_search',
+        description: 'Search the web for free APIs, datasets, and services. Returns search results with URLs and snippets.',
+        parameters: {
             type: Type.OBJECT,
             properties: {
-              url: { type: Type.STRING, description: "URL to queue" },
-              label: {
-                type: Type.STRING,
-                description: "Name or label of the resource",
-              },
-              source: {
-                type: Type.STRING,
-                description: "Where you found this link",
-              },
+                query: {
+                    type: Type.STRING,
+                    description: 'Search query (e.g. \'free earthquake API real-time data\')',
+                },
             },
-            required: ["url"],
-          },
-          description: "List of items to queue",
+            required: ['query'],
         },
-      },
-      required: ["items"],
     },
-  },
-  {
-    name: "get_queue",
-    description:
-      "Get the next batch of pending URLs from the discovery queue to process.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        limit: {
-          type: Type.NUMBER,
-          description: "How many items to retrieve (default 10)",
+    {
+        name: 'check_social',
+        description:
+            'Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying. Use this to catch red flags like reliability complaints or surprise pricing.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                name: {
+                    type: Type.STRING,
+                    description: 'Name of the resource to check (e.g. \'OpenWeatherMap API\')',
+                },
+            },
+            required: ['name'],
         },
-      },
     },
-  },
+    {
+        name: 'check_references',
+        description:
+            'Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible. Returns a summary of who links to it.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                url: {
+                    type: Type.STRING,
+                    description: 'The URL to check references for',
+                },
+            },
+            required: ['url'],
+        },
+    },
+    {
+        name: 'check_existing',
+        description: 'Check if a URL already exists in our resources database or discovery queue. Always call this before adding a resource.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                url: { type: Type.STRING, description: 'The URL to check' },
+            },
+            required: ['url'],
+        },
+    },
+    {
+        name: 'add_resource',
+        description: 'Add a verified free resource to our database. Only call this AFTER you have verified it is genuinely free or has a very generous free tier (< $1000/year).',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                name: {
+                    type: Type.STRING,
+                    description: 'Short name of the resource (e.g. \'OpenWeatherMap\')',
+                },
+                url: { type: Type.STRING, description: 'URL of the resource' },
+                kinds: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: 'Resource types. One or more of: "api", "dataset", "service", "code"',
+                },
+                topics: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: `1-4 topic labels from: ${TOPIC_LABELS.join(', ')}`,
+                },
+                description: {
+                    type: Type.STRING,
+                    description: 'One-sentence description of what this resource provides',
+                },
+                analysis: {
+                    type: Type.STRING,
+                    description:
+                        'A 2-4 sentence analysis covering: what data/service it provides and in what format, how to access it (API key, open, rate limits), what makes it notable, and any caveats (freshness, coverage, free tier limits).',
+                },
+            },
+            required: ['name', 'url', 'kinds', 'topics', 'description', 'analysis'],
+        },
+    },
+    {
+        name: 'fetch_page',
+        description: 'Fetch and read a web page. Use this to verify a resource exists, check pricing/free tier, read documentation, or extract links from list pages.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                url: { type: Type.STRING, description: 'URL to fetch' },
+            },
+            required: ['url'],
+        },
+    },
+    {
+        name: 'queue_items',
+        description: 'Queue multiple URLs for later processing. Use when you find a list/directory of resources.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                items: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            url: { type: Type.STRING, description: 'URL to queue' },
+                            label: {
+                                type: Type.STRING,
+                                description: 'Name or label of the resource',
+                            },
+                            source: {
+                                type: Type.STRING,
+                                description: 'Where you found this link',
+                            },
+                        },
+                        required: ['url'],
+                    },
+                    description: 'List of items to queue',
+                },
+            },
+            required: ['items'],
+        },
+    },
+    {
+        name: 'get_queue',
+        description: 'Get the next batch of pending URLs from the discovery queue to process.',
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                limit: {
+                    type: Type.NUMBER,
+                    description: 'How many items to retrieve (default 10)',
+                },
+            },
+        },
+    },
 ];
 
 // ============================================================
@@ -225,32 +240,34 @@ const toolDeclarations: FunctionDeclaration[] = [
 // ============================================================
 
 async function webSearch(query: string): Promise<string> {
-  try {
-    const response = await genai.models.generateContent({
-      model: MODEL,
-      contents: `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    // Extract grounding metadata for actual URLs if available
-    const groundingMeta = response.candidates?.[0]?.groundingMetadata;
-    let text = response.text ?? "No results found.";
-    if (groundingMeta?.groundingChunks) {
-      const urls = groundingMeta.groundingChunks
-        .filter((c) => c.web?.uri)
-        .map((c) => {
-          const web = c.web!;
-          return `- [${web.title ?? web.uri}](${web.uri})`;
+    try {
+        const response = await genai.models.generateContent({
+            model: MODEL,
+            contents:
+                `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
         });
-      if (urls.length > 0) {
-        text += "\n\nDirect URLs from search:\n" + urls.join("\n");
-      }
+        // Extract grounding metadata for actual URLs if available
+        const groundingMeta = response.candidates?.[0]?.groundingMetadata;
+        let text = response.text ?? 'No results found.';
+        if (groundingMeta?.groundingChunks) {
+            const urls = groundingMeta
+                .groundingChunks
+                .filter((c) => c.web?.uri)
+                .map((c) => {
+                    const web = c.web!;
+                    return `- [${web.title ?? web.uri}](${web.uri})`;
+                });
+            if (urls.length > 0) {
+                text += '\n\nDirect URLs from search:\n' + urls.join('\n');
+            }
+        }
+        return text;
+    } catch (err) {
+        return `Search failed: ${err}`;
     }
-    return text;
-  } catch (err) {
-    return `Search failed: ${err}`;
-  }
 }
 
 // ============================================================
@@ -258,33 +275,35 @@ async function webSearch(query: string): Promise<string> {
 // ============================================================
 
 async function checkSocial(name: string): Promise<string> {
-  try {
-    const response = await genai.models.generateContent({
-      model: MODEL,
-      contents: `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    return response.text ?? "No social data found.";
-  } catch (err) {
-    return `Social check failed: ${err}`;
-  }
+    try {
+        const response = await genai.models.generateContent({
+            model: MODEL,
+            contents:
+                `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+        return response.text ?? 'No social data found.';
+    } catch (err) {
+        return `Social check failed: ${err}`;
+    }
 }
 
 async function checkReferences(url: string): Promise<string> {
-  try {
-    const response = await genai.models.generateContent({
-      model: MODEL,
-      contents: `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    return response.text ?? "No reference data found.";
-  } catch (err) {
-    return `Reference check failed: ${err}`;
-  }
+    try {
+        const response = await genai.models.generateContent({
+            model: MODEL,
+            contents:
+                `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+        return response.text ?? 'No reference data found.';
+    } catch (err) {
+        return `Reference check failed: ${err}`;
+    }
 }
 
 // ============================================================
@@ -292,52 +311,52 @@ async function checkReferences(url: string): Promise<string> {
 // ============================================================
 
 async function executeTool(
-  name: string,
-  args: Record<string, unknown>,
+    name: string,
+    args: Record<string, unknown>,
 ): Promise<unknown> {
-  // Auto-exclude bad URLs before they hit the DB
-  if (name === "add_resource" || name === "check_existing") {
-    const url = args.url as string;
-    if (url && isExcludedUrl(url)) {
-      return { error: `URL excluded: domain is in the blocklist (aggregator, blog, or non-primary source)` };
+    // Auto-exclude bad URLs before they hit the DB
+    if (name === 'add_resource' || name === 'check_existing') {
+        const url = args.url as string;
+        if (url && isExcludedUrl(url)) {
+            return { error: `URL excluded: domain is in the blocklist (aggregator, blog, or non-primary source)` };
+        }
     }
-  }
 
-  switch (name) {
-    case "web_search":
-      return { results: await webSearch(args.query as string) };
-    case "check_social":
-      return { social: await checkSocial(args.name as string) };
-    case "check_references":
-      return { references: await checkReferences(args.url as string) };
-    case "check_existing":
-      return checkExisting(db, { url: Url(args.url as string) });
-    case "add_resource":
-      return addResource(db, {
-        name: args.name as string,
-        url: Url(args.url as string),
-        kinds: (args.kinds as string[]).map(Kind),
-        topics: (args.topics as string[]).map(Topic),
-        description: args.description as string,
-        analysis: args.analysis as string | undefined,
-      });
-    case "fetch_page":
-      return fetchPage({ url: Url(args.url as string) });
-    case "queue_items": {
-      // Filter excluded URLs from queue
-      const rawItems = (args as { items: { url: string; label: string; source: string }[] }).items;
-      const filtered = rawItems
-        .filter((i) => !isExcludedUrl(i.url))
-        .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source) }));
-      const excluded = rawItems.length - filtered.length;
-      const result = await queueItems(db, { items: filtered });
-      return { ...result, excludedByBlocklist: excluded };
+    switch (name) {
+        case 'web_search':
+            return { results: await webSearch(args.query as string) };
+        case 'check_social':
+            return { social: await checkSocial(args.name as string) };
+        case 'check_references':
+            return { references: await checkReferences(args.url as string) };
+        case 'check_existing':
+            return checkExisting(db, { url: Url(args.url as string) });
+        case 'add_resource':
+            return addResource(db, {
+                name: args.name as string,
+                url: Url(args.url as string),
+                kinds: (args.kinds as string[]).map(Kind),
+                topics: (args.topics as string[]).map(Topic),
+                description: args.description as string,
+                analysis: args.analysis as string | undefined,
+            });
+        case 'fetch_page':
+            return fetchPage({ url: Url(args.url as string) });
+        case 'queue_items': {
+            // Filter excluded URLs from queue
+            const rawItems = (args as { items: { url: string; label: string; source: string; }[]; }).items;
+            const filtered = rawItems
+                .filter((i) => !isExcludedUrl(i.url))
+                .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source) }));
+            const excluded = rawItems.length - filtered.length;
+            const result = await queueItems(db, { items: filtered });
+            return { ...result, excludedByBlocklist: excluded };
+        }
+        case 'get_queue':
+            return getQueue(db, args as { limit: number; });
+        default:
+            return { error: `Unknown tool: ${name}` };
     }
-    case "get_queue":
-      return getQueue(db, args as { limit: number });
-    default:
-      return { error: `Unknown tool: ${name}` };
-  }
 }
 
 // ============================================================
@@ -348,9 +367,9 @@ const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const db = createClient();
 
 async function discover(query: string): Promise<void> {
-  await db.connect();
+    await db.connect();
 
-  const systemPrompt = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
+    const systemPrompt = `You are a research agent that finds free APIs, datasets, and web services on the internet and adds them to our catalog database.
 
 Your task: "${query}"
 
@@ -381,7 +400,7 @@ For each candidate resource:
 
 ## Classification
 - kinds: "api" (has HTTP endpoints), "dataset" (downloadable data), "service" (hosted tool), "code" (repo/library)
-- topics: assign 1-4 from: ${TOPIC_LABELS.join(", ")}
+- topics: assign 1-4 from: ${TOPIC_LABELS.join(', ')}
 - description: one clear sentence about what it provides and why it's useful
 - analysis: 2-4 sentences covering what data/service it provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats
 
@@ -393,92 +412,92 @@ For each candidate resource:
 
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
-  const contents: Content[] = [
-    { role: "user", parts: [{ text: systemPrompt }] },
-  ];
+    const contents: Content[] = [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+    ];
 
-  const alog = log.child({ agent: "discover" });
-  alog.info("agent started", { query });
+    const alog = log.child({ agent: 'discover' });
+    alog.info('agent started', { query });
 
-  for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const response = await genai.models.generateContent({
-      model: MODEL,
-      contents,
-      config: {
-        tools: [{ functionDeclarations: toolDeclarations }],
-      },
-    });
+    for (let turn = 0; turn < MAX_TURNS; turn++) {
+        const response = await genai.models.generateContent({
+            model: MODEL,
+            contents,
+            config: {
+                tools: [{ functionDeclarations: toolDeclarations }],
+            },
+        });
 
-    const candidate = response.candidates?.[0];
-    if (!candidate?.content?.parts) {
-      alog.warn("no response from model", { turn });
-      break;
+        const candidate = response.candidates?.[0];
+        if (!candidate?.content?.parts) {
+            alog.warn('no response from model', { turn });
+            break;
+        }
+
+        contents.push(candidate.content);
+
+        const textParts = candidate.content.parts.filter((p: Part) => p.text);
+        for (const part of textParts) {
+            alog.debug('agent text', { text: part.text });
+        }
+
+        const fullText = textParts.map((p: Part) => p.text ?? '').join('');
+        if (fullText.includes('DISCOVERY COMPLETE')) {
+            break;
+        }
+
+        const functionCalls = candidate.content.parts.filter(
+            (p: Part) => p.functionCall,
+        );
+        if (functionCalls.length === 0) {
+            contents.push({
+                role: 'user',
+                parts: [{ text: 'Continue. Use web_search to find more resources, or get_queue if there are queued items.' }],
+            });
+            continue;
+        }
+
+        const responseParts: Part[] = [];
+        for (const part of functionCalls) {
+            const fc = part.functionCall!;
+            const toolName = fc.name!;
+            const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
+
+            alog.info('tool call', { tool: toolName, args: toolArgs });
+
+            const result = await executeTool(toolName, toolArgs);
+            alog.debug('tool result', { tool: toolName, result });
+
+            responseParts.push({
+                functionResponse: {
+                    name: toolName,
+                    response: { result },
+                    id: fc.id,
+                },
+            });
+        }
+
+        contents.push({ role: 'user', parts: responseParts });
     }
 
-    contents.push(candidate.content);
-
-    const textParts = candidate.content.parts.filter((p: Part) => p.text);
-    for (const part of textParts) {
-      alog.debug("agent text", { text: part.text });
-    }
-
-    const fullText = textParts.map((p: Part) => p.text ?? "").join("");
-    if (fullText.includes("DISCOVERY COMPLETE")) {
-      break;
-    }
-
-    const functionCalls = candidate.content.parts.filter(
-      (p: Part) => p.functionCall,
-    );
-    if (functionCalls.length === 0) {
-      contents.push({
-        role: "user",
-        parts: [{ text: "Continue. Use web_search to find more resources, or get_queue if there are queued items." }],
-      });
-      continue;
-    }
-
-    const responseParts: Part[] = [];
-    for (const part of functionCalls) {
-      const fc = part.functionCall!;
-      const toolName = fc.name!;
-      const toolArgs = (fc.args ?? {}) as Record<string, unknown>;
-
-      alog.info("tool call", { tool: toolName, args: toolArgs });
-
-      const result = await executeTool(toolName, toolArgs);
-      alog.debug("tool result", { tool: toolName, result });
-
-      responseParts.push({
-        functionResponse: {
-          name: toolName,
-          response: { result },
-          id: fc.id,
-        },
-      });
-    }
-
-    contents.push({ role: "user", parts: responseParts });
-  }
-
-  await db.end();
-  alog.info("agent finished");
+    await db.end();
+    alog.info('agent finished');
 }
 
 // ============================================================
 // CLI
 // ============================================================
 
-const userQuery = process.argv.slice(2).join(" ");
+const userQuery = process.argv.slice(2).join(' ');
 
-if (userQuery === "--process-queue") {
-  discover(
-    "Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.",
-  );
+if (userQuery === '--process-queue') {
+    discover(
+        'Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.',
+    );
 } else if (userQuery) {
-  discover(userQuery);
+    discover(userQuery);
 } else {
-  const { group, query } = generateDiscoveryQuery();
-  log.info("auto-selected topic group", { group });
-  discover(query);
+    const { group, query } = generateDiscoveryQuery();
+    log.info('auto-selected topic group', { group });
+    discover(query);
 }

@@ -1,16 +1,16 @@
-import { pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
+import { type FeatureExtractionPipeline, pipeline } from '@huggingface/transformers';
 
-const MODEL = "Xenova/all-MiniLM-L6-v2";
+const MODEL = 'Xenova/all-MiniLM-L6-v2';
 let embedder: FeatureExtractionPipeline | null = null;
 
 async function getEmbedder(): Promise<FeatureExtractionPipeline> {
-  if (!embedder) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    embedder = await (pipeline as any)("feature-extraction", MODEL, {
-      dtype: "fp32",
-    }) as FeatureExtractionPipeline;
-  }
-  return embedder;
+    if (!embedder) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        embedder = await (pipeline as any)('feature-extraction', MODEL, {
+            dtype: 'fp32',
+        }) as FeatureExtractionPipeline;
+    }
+    return embedder;
 }
 
 /**
@@ -18,13 +18,13 @@ async function getEmbedder(): Promise<FeatureExtractionPipeline> {
  * Returns an array of 384-dimension vectors.
  */
 export async function embed(texts: string[]): Promise<number[][]> {
-  const model = await getEmbedder();
-  const results: number[][] = [];
-  for (const text of texts) {
-    const output = await model(text, { pooling: "mean", normalize: true });
-    results.push(Array.from(output.data as Float32Array));
-  }
-  return results;
+    const model = await getEmbedder();
+    const results: number[][] = [];
+    for (const text of texts) {
+        const output = await model(text, { pooling: 'mean', normalize: true });
+        results.push(Array.from(output.data as Float32Array));
+    }
+    return results;
 }
 
 /** Vector dimension for this model */

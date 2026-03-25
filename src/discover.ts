@@ -434,6 +434,7 @@ async function getDiscoverCache(): Promise<string> {
                 parts: [{ text: 'Understood. I will skip excluded domains and use the provided topic labels for classification. Ready for a discovery task.' }],
             },
         ],
+        tools: [{ functionDeclarations: toolDeclarations }],
         displayName: 'discover-agent',
         ttlSeconds: 7200,
     });
@@ -456,7 +457,6 @@ async function discover(query: string): Promise<void> {
             contents,
             config: {
                 cachedContent: cacheName,
-                tools: [{ functionDeclarations: toolDeclarations }],
             },
         }), 'discover');
 

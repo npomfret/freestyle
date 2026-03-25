@@ -1,10 +1,11 @@
-import type { GoogleGenAI, Content } from '@google/genai';
+import type { GoogleGenAI, Content, FunctionDeclaration, Tool } from '@google/genai';
 import { log } from './logger.js';
 
 interface CacheOptions {
     model: string;
     systemInstruction: string;
     contents?: Content[];
+    tools?: Tool[];
     displayName: string;
     ttlSeconds?: number;
 }
@@ -15,6 +16,7 @@ export async function createCache(genai: GoogleGenAI, opts: CacheOptions): Promi
         config: {
             systemInstruction: opts.systemInstruction,
             contents: opts.contents,
+            tools: opts.tools,
             displayName: opts.displayName,
             ttl: `${opts.ttlSeconds ?? 3600}s`,
         },

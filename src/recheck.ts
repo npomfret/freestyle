@@ -399,13 +399,14 @@ async function getRecheckCache(): Promise<string> {
         contents: [
             {
                 role: 'user',
-                parts: [{ text: `Reference — available topic labels for classification:\n${TOPIC_LABELS.join(', ')}\n\nKind values: api, dataset, service, code\n\nRegion examples: Global, Europe, North America/United States, Asia/Japan, EU, Middle East, Southeast Asia` }],
+                parts: [{ text: `Reference — available topic labels for classification:\n${TOPIC_LABELS.join(', ')}\n\nKind values: api (has HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)\n\nRegion examples: Global, Africa, Asia, Europe, North America, South America, Oceania, Europe/United Kingdom, North America/United States, Asia/Japan, EU, Middle East, Southeast Asia, Caribbean. Use continent, continent/country, or sub-region. Leave empty if not geographically specific.` }],
             },
             {
                 role: 'model',
                 parts: [{ text: 'Understood. I will use these topic labels, kinds, and region formats when updating resources. Ready to check a resource.' }],
             },
         ],
+        tools: [{ functionDeclarations: toolDeclarations }],
         displayName: 'recheck-agent',
         ttlSeconds: 7200,
     });
@@ -444,7 +445,6 @@ Begin by using fetch_page to visit the URL.`;
             contents,
             config: {
                 cachedContent: cacheName,
-                tools: [{ functionDeclarations: toolDeclarations }],
             },
         }), 'recheck');
 

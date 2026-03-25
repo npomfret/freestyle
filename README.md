@@ -44,19 +44,21 @@ Optional env vars:
 
 ## Important Run Targets
 
-- `npm run generate` scans `free-stuff/` and rebuilds generated catalog artifacts; this is only needed when refreshing source data
-- `npm run seed` loads `catalog.json` into Postgres
-- `npm run embed` generates embeddings for resources and creates the vector index
-- `npm run server` starts the Express API and serves `web/dist` when it exists
-- `npm run dev:web` starts the Vite frontend in `web/`
+- `npm run generate` rebuilds generated catalog artifacts from `free-stuff/`; no CLI parameters
+- `npm run seed` loads `catalog.json` into Postgres; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run seed`
+- `npm run embed` generates embeddings for resources and creates the vector index; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run embed`
+- `npm run re-embed` re-embeds resources against the current local model; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run re-embed`
+- `npm run server` starts the Express API and serves `web/dist` when it exists; examples: `PORT=4000 npm run server` or `PORT=4000 DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run server`
+- `npm run dev:web` starts the Vite frontend in `web/`; extra Vite args can be forwarded, for example `npm run dev:web -- --host 0.0.0.0 --port 4173`
 - `npm run build:web` builds the frontend for production
-- `npm run search -- "your query"` runs a CLI semantic search against the DB
-- `npm run discover` runs the Gemini-assisted discovery flow and adds verified resources
-- `npm run recheck` revalidates existing resources and refreshes metadata/health
+- `npm run search -- "your query"` runs a CLI semantic search against the DB; example: `npm run search -- "satellite imagery for agriculture"`
+- `npm run discover` runs the Gemini-assisted discovery flow and adds verified resources; examples: `GEMINI_API_KEY=... npm run discover -- "free biodiversity datasets"` or `GEMINI_API_KEY=... npm run discover -- --process-queue`
+- `npm run recheck` revalidates existing resources and refreshes metadata/health; example: `GEMINI_API_KEY=... npm run recheck -- 25`
 
 Notes:
 
 - If `catalog.json` is already present, you can ignore `free-stuff/` and skip `npm run generate`.
 - `free-stuff/` is only required for rebuilding the catalog from source.
+- Docker Compose also supports `POSTGRES_PORT` and `POSTGRES_PASSWORD`, for example `POSTGRES_PORT=5434 docker compose up -d db`.
 - `npm run embed` improves search quality; without embeddings the API falls back to text search.
 - There is no single full-stack dev command yet, so backend and frontend are started separately.

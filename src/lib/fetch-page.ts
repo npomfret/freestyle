@@ -200,7 +200,7 @@ async function fetchWithGeminiUrlContext(url: string): Promise<RawFetchResult> {
     if (!genai) throw new Error('GEMINI_API_KEY not set');
 
     const response = await withRetry(() => genai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-flash-lite',
         contents: `Visit this URL and return the full text content of the page. Do not summarize or interpret — return the actual text as-is, including headings, navigation, and footer text. URL: ${url}`,
         config: {
             tools: [{ urlContext: {} }],

@@ -11,7 +11,7 @@ import { Kind, Region, SourceName, Topic, Url } from './lib/types.js';
 
 const GEMINI_API_KEY = requireEnv('GEMINI_API_KEY');
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-2.5-flash-lite';
 const MAX_TURNS = 50;
 
 const TOPIC_LABELS = [

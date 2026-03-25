@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+import { spawn } from 'child_process';
 
 const cliGlobs = process.argv.slice(2);
 const configuredGlob = process.env.npm_config_glob ?? process.env.npm_config_blob;

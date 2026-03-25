@@ -46,6 +46,10 @@ const toolDeclarations: FunctionDeclaration[] = [
     parameters: {
       type: Type.OBJECT,
       properties: {
+        name: {
+          type: Type.STRING,
+          description: "The correct, human-readable name for this resource (e.g. 'CLERC', 'OpenWeatherMap', 'USGS Earthquake Catalog'). Fix it if the current name is wrong, garbled, or just an emoji/symbol.",
+        },
         description: {
           type: Type.STRING,
           description: "New one-sentence description of what this resource provides. Write this even if one already exists — make it accurate and current.",
@@ -139,10 +143,16 @@ async function executeTool(
     case "update_resource": {
       if (!currentResource) return { error: "No current resource" };
       const r = currentResource;
+      const newName = args.name as string | undefined;
       const description = args.description as string;
       const isAlive = args.is_alive as boolean;
       const notes = args.notes as string;
       const topics = args.topics as string[] | undefined;
+
+      // Update name if provided
+      if (newName && newName !== r.name) {
+        await db.query("UPDATE resources SET name = $1 WHERE id = $2", [newName, r.id]);
+      }
 
       // Update description: clear old, insert new
       await db.query("DELETE FROM resource_descriptions WHERE resource_id = $1", [r.id]);
@@ -255,6 +265,7 @@ Steps:
 1. Use fetch_page to visit the URL and read what's there
 2. If the page doesn't load, use web_search to find out if it moved, was renamed, or shut down
 3. Call update_resource with:
+   - name: the correct human-readable name (ALWAYS fix it if current name is garbled, an emoji, a symbol like "![", or otherwise wrong)
    - A clear, accurate one-sentence description (write a new one even if one exists)
    - Updated topic labels if needed
    - is_alive: true/false

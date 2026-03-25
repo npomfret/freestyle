@@ -3,6 +3,7 @@ import type { Content, FunctionDeclaration, Part } from '@google/genai';
 import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
 import { requireEnv } from './lib/env.js';
+import { fetchPage } from './lib/fetch-page.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
 import type { Kind, ResourceId, Topic, Url } from './lib/types.js';
@@ -153,133 +154,7 @@ async function executeTool(
 ): Promise<unknown> {
     switch (name) {
         case 'fetch_page': {
-            const url = args.url as string;
-            try {
-                const resp = await fetch(url, {
-                    headers: { 'User-Agent': 'freestyle-recheck-agent/1.0' },
-                    signal: AbortSignal.timeout(10000),
-                    redirect: 'follow',
-                });
-
-                const finalUrl = resp.url;
-                const statusCode = resp.status;
-                const redirected = finalUrl !== url;
-
-                let rawHtml = await resp.text();
-                let text = rawHtml
-                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/&[#\w]+;/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                // Detect broken page signals
-                const problems: string[] = [];
-
-                if (statusCode >= 400) {
-                    problems.push(`HTTP ${statusCode}`);
-                }
-
-                // Soft 404 / error page detection
-                const lower = text.toLowerCase();
-                const titleMatch = rawHtml.match(/<title[^>]*>(.*?)<\/title>/i);
-                const title = titleMatch?.[1]?.trim().toLowerCase() ?? '';
-
-                const SOFT_404_SIGNALS = [
-                    'page not found',
-                    '404',
-                    'not found',
-                    'no longer available',
-                    'this page doesn\'t exist',
-                    'page does not exist',
-                    'page has been removed',
-                    'sorry, we couldn\'t find',
-                    'the page you requested',
-                    'this site can\'t be reached',
-                    'domain for sale',
-                    'domain is parked',
-                    'buy this domain',
-                    'coming soon',
-                    'under construction',
-                    'website expired',
-                    'account suspended',
-                    'account has been suspended',
-                    '403 forbidden',
-                    'access denied',
-                ];
-
-                for (const signal of SOFT_404_SIGNALS) {
-                    if (title.includes(signal) || (lower.length < 2000 && lower.includes(signal))) {
-                        problems.push(`soft 404: page contains "${signal}"`);
-                        break;
-                    }
-                }
-
-                // Only flag redirects that lose the path (homepage redirect) or change domain
-                if (redirected) {
-                    const originalUrl = new URL(url);
-                    const finalParsed = new URL(finalUrl);
-                    const originalPath = originalUrl.pathname;
-                    const finalPath = finalParsed.pathname;
-
-                    // Redirect to homepage — likely a soft 404
-                    if (originalPath.length > 1 && (finalPath === '/' || finalPath === '')) {
-                        problems.push(`redirected to homepage: ${finalUrl}`);
-                    }
-                    // Cross-domain redirect (excluding www/non-www and http/https normalization)
-                    else if (
-                        originalUrl.hostname.replace(/^www\./, '') !== finalParsed.hostname.replace(/^www\./, '')
-                    ) {
-                        problems.push(`redirected to different domain: ${finalUrl}`);
-                    }
-                    // Normal redirects (trailing slash, https upgrade, www normalization) are fine — not a problem
-                }
-
-                // Very little content (likely an error stub)
-                if (text.length < 100 && statusCode === 200) {
-                    problems.push('page has almost no content');
-                }
-
-                // Domain parking / generic CMS detection
-                if (lower.includes('godaddy') || lower.includes('squarespace') && lower.includes('claim this domain')) {
-                    problems.push('domain appears parked');
-                }
-
-                if (text.length > 8000) text = text.slice(0, 8000) + '\n...[truncated]';
-
-                const result: Record<string, unknown> = {
-                    statusCode,
-                    content: text,
-                };
-                if (redirected) result.redirectedTo = finalUrl;
-                if (problems.length > 0) {
-                    result.problems = problems;
-                    result.likely_broken = true;
-                }
-                return result;
-            } catch (err) {
-                const errStr = String(err);
-                const problems = ['fetch failed: ' + errStr];
-
-                // Classify the error
-                if (errStr.includes('ENOTFOUND') || errStr.includes('getaddrinfo')) {
-                    problems.push('DNS lookup failed — domain does not exist');
-                } else if (errStr.includes('ECONNREFUSED')) {
-                    problems.push('connection refused — server is down');
-                } else if (errStr.includes('CERT_') || errStr.includes('SSL') || errStr.includes('certificate')) {
-                    problems.push('SSL/TLS error — certificate problem');
-                } else if (errStr.includes('TimeoutError') || errStr.includes('timed out') || errStr.includes('abort')) {
-                    problems.push('request timed out after 10s');
-                }
-
-                return {
-                    statusCode: 0,
-                    content: `Error: ${errStr}`,
-                    problems,
-                    likely_broken: true,
-                };
-            }
+            return fetchPage(args.url as string);
         }
 
         case 'web_search': {

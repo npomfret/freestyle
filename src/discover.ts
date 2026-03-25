@@ -339,7 +339,7 @@ async function executeTool(
                 analysis: args.analysis as string | undefined,
             });
         case 'fetch_page':
-            return fetchPage({ url: Url(args.url as string) });
+            return fetchPage(args.url as string, { tiers: ['native', 'gemini-url-context'] });
         case 'queue_items': {
             // Filter excluded URLs from queue
             const rawItems = (args as { items: { url: string; label: string; source: string; }[]; }).items;

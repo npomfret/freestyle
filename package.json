@@ -26,6 +26,9 @@
     "express": "^5.2.1",
     "pg": "^8.13.0"
   },
+  "optionalDependencies": {
+    "puppeteer": "^24.0.0"
+  },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

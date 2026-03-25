@@ -4,6 +4,9 @@ import { log } from './logger.js';
 import type { Kind, QueueItemId, ResourceId, SourceName, Topic, Url } from './types.js';
 import { QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './types.js';
 
+// Re-export shared fetchPage
+export { fetchPage } from './fetch-page.js';
+
 // ============================================================
 // Tool: check_existing
 // ============================================================
@@ -121,39 +124,6 @@ export async function addResource(
         throw err;
     } finally {
         if (isPoolClient) (client as pg.PoolClient).release();
-    }
-}
-
-// ============================================================
-// Tool: fetch_page
-// ============================================================
-
-export async function fetchPage(
-    args: { url: Url },
-): Promise<{ content: string; statusCode: number }> {
-    try {
-        const resp = await fetch(args.url, {
-            headers: { 'User-Agent': 'freestyle-discovery-agent/1.0' },
-            signal: AbortSignal.timeout(10000),
-            redirect: 'follow',
-        });
-        const html = await resp.text();
-        // Strip HTML to rough plain text
-        let text = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/&[#\w]+;/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        // Truncate to ~8K chars
-        if (text.length > 8000) text = text.slice(0, 8000) + '\n...[truncated]';
-        return { content: text, statusCode: resp.status };
-    } catch (err) {
-        return {
-            content: `Error fetching ${args.url}: ${err}`,
-            statusCode: 0,
-        };
     }
 }
 

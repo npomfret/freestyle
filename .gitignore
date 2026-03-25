@@ -1,5 +1,5 @@
 free-stuff
-.claude
+.claude/settings.local.json
 .idea
 .gemini/.env
 .env

@@ -209,10 +209,12 @@ async function executeTool(
 
 async function getNextResource(): Promise<ResourceRow | null> {
   // Resources never checked first (ordered by id), then oldest checked
+  // Skip resources already marked dead
   const { rows } = await db.query(`
     SELECT r.id, r.name, r.url
     FROM resources r
     LEFT JOIN link_checks lc ON lc.resource_id = r.id
+    WHERE lc.is_alive IS DISTINCT FROM false
     ORDER BY lc.checked_at ASC NULLS FIRST, r.id
     LIMIT 1
   `);

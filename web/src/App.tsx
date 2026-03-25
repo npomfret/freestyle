@@ -7,6 +7,7 @@ interface Resource {
   id: number;
   name: string;
   url: string;
+  updated_at?: string;
   similarity?: number;
   kinds: string[];
   topics: string[];
@@ -25,6 +26,20 @@ interface Stats {
   datasets: number;
   topics: number;
   withEmbeddings: number;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
 }
 
 function App() {
@@ -188,7 +203,14 @@ function App() {
                 </span>
               ))}
             </div>
-            <div className="card-url">{r.url}</div>
+            <div className="card-meta">
+              <a href={r.url} className="card-url" target="_blank" rel="noopener noreferrer">{r.url}</a>
+              {r.updated_at && (
+                <span className="card-updated" title={new Date(r.updated_at).toLocaleString()}>
+                  updated {timeAgo(r.updated_at)}
+                </span>
+              )}
+            </div>
             {r.sources.length > 0 && (
               <div className="card-sources">
                 via {r.sources.slice(0, 3).join(", ")}

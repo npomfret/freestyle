@@ -59,10 +59,11 @@ app.get("/api/search", async (req, res) => {
     const vec = "[" + vecs[0].join(",") + "]";
 
     let sql = `
-      SELECT r.id, r.name, r.url,
+      SELECT r.id, r.name, r.url, r.updated_at,
              1 - (r.embedding <=> $1::vector) AS similarity
       FROM resources r
       WHERE r.embedding IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
     `;
     const params: unknown[] = [vec];
     let paramIdx = 2;
@@ -91,10 +92,11 @@ app.get("/api/search", async (req, res) => {
 
   // Fallback: trigram + FTS
   const { rows } = await db.query(
-    `SELECT r.id, r.name, r.url,
+    `SELECT r.id, r.name, r.url, r.updated_at,
             GREATEST(similarity(r.name, $1), ts_rank(r.fts, plainto_tsquery('english', $1))) AS similarity
      FROM resources r
-     WHERE r.name % $1 OR r.fts @@ plainto_tsquery('english', $1)
+     WHERE (r.name % $1 OR r.fts @@ plainto_tsquery('english', $1))
+       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)
      ORDER BY similarity DESC
      LIMIT $2`,
     [q, limit],
@@ -111,9 +113,9 @@ app.get("/api/resources", async (req, res) => {
   const offset = Number(req.query.offset) || 0;
   const limit = Math.min(Number(req.query.limit) || 50, 200);
 
-  let sql = "SELECT r.id, r.name, r.url FROM resources r";
+  let sql = "SELECT r.id, r.name, r.url, r.updated_at FROM resources r";
   const joins: string[] = [];
-  const wheres: string[] = [];
+  const wheres: string[] = ["NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.is_alive = false)"];
   const params: unknown[] = [];
   let paramIdx = 1;
 
@@ -165,7 +167,7 @@ app.get("/api/resources/:id", async (req, res) => {
 // ============================================================
 
 async function enrichResources(
-  rows: { id: number; name: string; url: string; similarity?: number }[],
+  rows: { id: number; name: string; url: string; updated_at?: string; similarity?: number }[],
 ) {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);

@@ -8,6 +8,7 @@ import {
   queueItems,
   getQueue,
 } from "./lib/agent-tools.js";
+import { generateDiscoveryQuery } from "./lib/discovery-topics.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
@@ -456,12 +457,16 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 // CLI
 // ============================================================
 
-const query = process.argv.slice(2).join(" ") || "free APIs and datasets";
+const userQuery = process.argv.slice(2).join(" ");
 
-if (query === "--process-queue") {
+if (userQuery === "--process-queue") {
   discover(
     "Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.",
   );
+} else if (userQuery) {
+  discover(userQuery);
 } else {
+  const { group, query } = generateDiscoveryQuery();
+  console.log(`Auto-selected topic group: ${group}\n`);
   discover(query);
 }

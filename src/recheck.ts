@@ -34,7 +34,7 @@ const db = createClient();
 const toolDeclarations: FunctionDeclaration[] = [
   {
     name: "fetch_page",
-    description: "Fetch and read a web page to check if the resource is still live, what it offers, and whether anything has changed.",
+    description: "Fetch a URL and check if it loads. Returns statusCode, content, and a 'likely_broken' flag with 'problems' array if issues are detected (404, soft 404, redirect to homepage, DNS failure, timeout, domain parking, etc.).",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -64,7 +64,7 @@ const toolDeclarations: FunctionDeclaration[] = [
         },
         is_alive: {
           type: Type.BOOLEAN,
-          description: "true if the resource is still accessible and working, false if dead/broken/gone",
+          description: "true ONLY if this specific URL loads and serves the expected content. false if fetch_page returned likely_broken=true, or if the page is a 404, error, redirect to homepage, parked domain, etc. Do NOT set true just because the project exists elsewhere.",
         },
         notes: {
           type: Type.STRING,
@@ -115,18 +115,103 @@ async function executeTool(
           signal: AbortSignal.timeout(10000),
           redirect: "follow",
         });
-        let text = await resp.text();
-        text = text
+
+        const finalUrl = resp.url;
+        const statusCode = resp.status;
+        const redirected = finalUrl !== url;
+
+        let rawHtml = await resp.text();
+        let text = rawHtml
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
           .replace(/<[^>]+>/g, " ")
           .replace(/&[#\w]+;/g, " ")
           .replace(/\s+/g, " ")
           .trim();
+
+        // Detect broken page signals
+        const problems: string[] = [];
+
+        if (statusCode >= 400) {
+          problems.push(`HTTP ${statusCode}`);
+        }
+
+        // Soft 404 / error page detection
+        const lower = text.toLowerCase();
+        const titleMatch = rawHtml.match(/<title[^>]*>(.*?)<\/title>/i);
+        const title = titleMatch?.[1]?.trim().toLowerCase() ?? "";
+
+        const SOFT_404_SIGNALS = [
+          "page not found", "404", "not found", "no longer available",
+          "this page doesn't exist", "page does not exist", "page has been removed",
+          "sorry, we couldn't find", "the page you requested", "this site can't be reached",
+          "domain for sale", "domain is parked", "buy this domain",
+          "coming soon", "under construction", "website expired",
+          "account suspended", "account has been suspended",
+          "403 forbidden", "access denied",
+        ];
+
+        for (const signal of SOFT_404_SIGNALS) {
+          if (title.includes(signal) || (lower.length < 2000 && lower.includes(signal))) {
+            problems.push(`soft 404: page contains "${signal}"`);
+            break;
+          }
+        }
+
+        // Redirect to a generic homepage (not the specific resource page)
+        if (redirected) {
+          const originalPath = new URL(url).pathname;
+          const finalPath = new URL(finalUrl).pathname;
+          if (originalPath.length > 1 && (finalPath === "/" || finalPath === "")) {
+            problems.push(`redirected to homepage: ${finalUrl}`);
+          } else {
+            problems.push(`redirected to: ${finalUrl}`);
+          }
+        }
+
+        // Very little content (likely an error stub)
+        if (text.length < 100 && statusCode === 200) {
+          problems.push("page has almost no content");
+        }
+
+        // Domain parking / generic CMS detection
+        if (lower.includes("godaddy") || lower.includes("squarespace") && lower.includes("claim this domain")) {
+          problems.push("domain appears parked");
+        }
+
         if (text.length > 8000) text = text.slice(0, 8000) + "\n...[truncated]";
-        return { content: text, statusCode: resp.status };
+
+        const result: Record<string, unknown> = {
+          statusCode,
+          content: text,
+        };
+        if (redirected) result.redirectedTo = finalUrl;
+        if (problems.length > 0) {
+          result.problems = problems;
+          result.likely_broken = true;
+        }
+        return result;
       } catch (err) {
-        return { content: `Error: ${err}`, statusCode: 0 };
+        const errStr = String(err);
+        const problems = ["fetch failed: " + errStr];
+
+        // Classify the error
+        if (errStr.includes("ENOTFOUND") || errStr.includes("getaddrinfo")) {
+          problems.push("DNS lookup failed — domain does not exist");
+        } else if (errStr.includes("ECONNREFUSED")) {
+          problems.push("connection refused — server is down");
+        } else if (errStr.includes("CERT_") || errStr.includes("SSL") || errStr.includes("certificate")) {
+          problems.push("SSL/TLS error — certificate problem");
+        } else if (errStr.includes("TimeoutError") || errStr.includes("timed out") || errStr.includes("abort")) {
+          problems.push("request timed out after 10s");
+        }
+
+        return {
+          statusCode: 0,
+          content: `Error: ${errStr}`,
+          problems,
+          likely_broken: true,
+        };
       }
     }
 
@@ -226,12 +311,10 @@ async function getNextResource(): Promise<ResourceRow | null> {
 
   const r = rows[0];
 
-  // Fetch kinds, topics, descriptions
-  const [kinds, topics, descs] = await Promise.all([
-    db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]),
-    db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]),
-    db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]),
-  ]);
+  // Fetch kinds, topics, descriptions (sequential — pg.Client doesn't support concurrent queries)
+  const kinds = await db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]);
+  const topics = await db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]);
+  const descs = await db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]);
 
   return {
     id: mkResourceId(r.id),
@@ -250,7 +333,7 @@ async function getNextResource(): Promise<ResourceRow | null> {
 async function recheckOne(resource: ResourceRow): Promise<void> {
   currentResource = resource;
 
-  const systemPrompt = `You are a quality-check agent. Your job is to recheck a single resource in our catalog to verify it's still alive, update its description, and note any changes.
+  const systemPrompt = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
 
 Resource to check:
 - Name: ${resource.name}
@@ -259,15 +342,38 @@ Resource to check:
 - Current topics: ${resource.topics.join(", ") || "none"}
 - Current description: ${resource.descriptions[0] || "none"}
 
-Steps:
-1. Use fetch_page to visit the URL and read what's there
-2. If the page doesn't load, use web_search to find out if it moved, was renamed, or shut down
-3. Call update_resource with:
-   - name: the correct human-readable name (ALWAYS fix it if current name is garbled, an emoji, a symbol like "![", or otherwise wrong)
-   - A clear, accurate one-sentence description (write a new one even if one exists)
-   - Updated topic labels if needed
-   - is_alive: true/false
-   - notes: what you found (e.g. "still active", "moved to new URL", "returns 404", "now requires paid plan", etc.)
+## CRITICAL: What "alive" means
+
+You are checking THIS EXACT URL: ${resource.url}
+- is_alive = true ONLY if this URL loads and serves the expected content (API docs, dataset, service page, repo, etc.)
+- is_alive = false if ANY of these are true:
+  - The URL returns a 4xx or 5xx status code
+  - The URL redirects to a generic homepage (not the specific resource)
+  - The URL shows "page not found", "domain for sale", "coming soon", "under construction", etc.
+  - The domain doesn't resolve (DNS failure)
+  - The connection times out or is refused
+  - The page has almost no content (stub/error page)
+  - The fetch_page result includes "likely_broken: true" or "problems"
+
+If the fetch result has "likely_broken: true", mark is_alive = false. Do NOT override this by searching for the project elsewhere. The project may exist at a different URL, but THIS URL is broken.
+
+## When to use web_search
+Only use web_search to:
+- Find the correct name/description if the page loads but is unclear
+- Confirm the project is truly dead (not just moved) for your notes
+Do NOT use web_search to "save" a broken URL by finding the project elsewhere.
+
+## Steps
+1. Use fetch_page to visit the URL
+2. Look at the statusCode, problems, and likely_broken fields in the result
+3. If likely_broken is true → is_alive = false, include the problems in your notes
+4. If the page loads fine → is_alive = true, write a description from what you see
+5. Call update_resource with:
+   - name: the correct human-readable name (fix if garbled/emoji/symbol)
+   - description: one sentence about what this resource provides
+   - topics: updated if needed
+   - is_alive: true/false (follow the rules above strictly)
+   - notes: what you found
 
 Be concise. One fetch, one update. Done.`;
 
@@ -335,11 +441,9 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
   if (!rows.length) return null;
 
   const r = rows[0];
-  const [kinds, topics, descs] = await Promise.all([
-    db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]),
-    db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]),
-    db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]),
-  ]);
+  const kinds = await db.query("SELECT kind FROM resource_kinds WHERE resource_id = $1", [r.id]);
+  const topics = await db.query("SELECT topic FROM resource_topics WHERE resource_id = $1", [r.id]);
+  const descs = await db.query("SELECT description FROM resource_descriptions WHERE resource_id = $1", [r.id]);
 
   return {
     id: mkResourceId(r.id),

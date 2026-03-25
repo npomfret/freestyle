@@ -233,9 +233,9 @@ async function webSearch(query: string): Promise<string> {
     let text = response.text ?? "No results found.";
     if (groundingMeta?.groundingChunks) {
       const urls = groundingMeta.groundingChunks
-        .filter((c: Record<string, unknown>) => (c as { web?: { uri?: string } }).web?.uri)
-        .map((c: Record<string, unknown>) => {
-          const web = (c as { web: { uri: string; title?: string } }).web;
+        .filter((c) => c.web?.uri)
+        .map((c) => {
+          const web = c.web!;
           return `- [${web.title ?? web.uri}](${web.uri})`;
         });
       if (urls.length > 0) {

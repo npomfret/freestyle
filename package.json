@@ -10,6 +10,7 @@
     "search": "tsx src/search.ts",
     "discover": "tsx src/discover.ts",
     "recheck": "tsx src/recheck.ts",
+    "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",
     "dev:web": "cd web && npm run dev",
     "build:web": "cd web && npm run build"

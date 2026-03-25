@@ -191,7 +191,6 @@ async function executeTool(
           "UPDATE resources SET embedding = $1::vector, updated_at = now() WHERE id = $2",
           [`[${vecs[0].join(",")}]`, r.id],
         );
-        }
       } catch {
         // Embedding update is best-effort
       }

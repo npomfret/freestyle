@@ -169,7 +169,13 @@ async function getNextResource(): Promise<ResourceRow | null> {
 }
 
 async function getResourceById(id: number): Promise<ResourceRow | null> {
-    const { rows } = await db.query('SELECT id, name, url FROM resources WHERE id = $1', [id]);
+    const { rows } = await db.query(`
+        SELECT r.id, r.name, r.url
+        FROM resources r
+        LEFT JOIN link_checks lc ON lc.resource_id = r.id
+        WHERE r.id = $1
+        AND (lc.status IS NULL OR lc.status = 'alive')
+    `, [id]);
     if (!rows.length) return null;
 
     const r = rows[0];

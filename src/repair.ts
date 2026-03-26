@@ -331,6 +331,9 @@ async function main(): Promise<void> {
                 } catch (err) {
                     log.error('repair failed', { id: resource.id, error: String(err) });
                 }
+                // Bump updated_at so getNextResource doesn't retry the same resource.
+                // On success updateResource already bumps it; an extra bump is harmless.
+                await db.query('UPDATE resources SET updated_at = now() WHERE id = $1', [resource.id]);
             }
         }
 

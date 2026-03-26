@@ -60,14 +60,14 @@ let cachedProvider: LLMProvider | null = null;
 export async function getLLMProvider(): Promise<LLMProvider> {
     if (cachedProvider) return cachedProvider;
 
-    const providerName = process.env.LLM_PROVIDER ?? 'ollama';
+    const providerName = process.env.LLM_PROVIDER ?? 'gemini-cli';
 
     switch (providerName) {
         case 'ollama': {
             const { OllamaProvider } = await import('./ollama-provider.js');
             cachedProvider = new OllamaProvider();
             log.info('using Ollama LLM provider', {
-                model: process.env.OLLAMA_MODEL ?? 'qwen2.5:32b',
+                model: process.env.OLLAMA_MODEL,
                 url: process.env.OLLAMA_URL ?? 'http://localhost:11434',
             });
             break;
@@ -78,8 +78,16 @@ export async function getLLMProvider(): Promise<LLMProvider> {
             log.info('using Gemini LLM provider');
             break;
         }
+        case 'gemini-cli': {
+            const { GeminiCliProvider } = await import('./gemini-cli-provider.js');
+            cachedProvider = new GeminiCliProvider();
+            log.info('using Gemini CLI provider', {
+                model: process.env.GEMINI_MODEL,
+            });
+            break;
+        }
         default:
-            throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'ollama' or 'gemini'.`);
+            throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'ollama', 'gemini', or 'gemini-cli'.`);
     }
 
     return cachedProvider;

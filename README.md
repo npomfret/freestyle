@@ -19,9 +19,7 @@ Freestyle is a local catalog and search app for free APIs, open datasets, and re
 2. Copy `.env.example` to `.env` and fill in your keys
 3. Start the database:
    - `docker compose up -d db`
-4. (Optional) Install Ollama and pull a model for local LLM inference:
-   - Install from https://ollama.com
-   - `ollama pull qwen2.5:32b` (or `qwen2.5:7b` for a faster, smaller model)
+4. Set up an LLM provider (see LLM Providers below)
 5. Load data into Postgres:
    - `npm run seed`
    - `npm run embed`
@@ -40,14 +38,49 @@ Defaults:
 - Frontend dev server: Vite default on `http://localhost:5173`
 - Database URL: `postgresql://freestyle:freestyle@localhost:5433/freestyle`
 
-Optional env vars (see `.env.example`):
+## LLM Providers
 
-- `DATABASE_URL` to point at a different Postgres instance
-- `PORT` to change the API port
-- `LLM_PROVIDER` — `ollama` (default, free local inference) or `gemini` (paid API)
-- `OLLAMA_MODEL` — which Ollama model to use (default: `qwen2.5:32b`)
+The pipeline jobs (discover, validity-check, repair) need an LLM. Three provider backends are supported. Set `LLM_PROVIDER` in `.env`.
+
+### `gemini-cli` (default)
+
+Uses the [Gemini CLI](https://github.com/google-gemini/gemini-cli) to call Gemini models for free. The CLI handles auth via Google OAuth — run `gemini` once to set it up.
+
+Since the CLI doesn't support native function calling, the provider simulates it by asking the model to output structured JSON and parsing the result. This is experimental but works well (~89% first-try success rate on the repair job).
+
+**Model cascade**: Configure `GEMINI_MODELS` with a comma-separated list of models ordered cheapest-first. When one model hits its rate limit, the provider automatically escalates to the next. When all Gemini models are exhausted, it falls back to Ollama for the rest of the run.
+
+```
+GEMINI_MODELS=gemini-2.5-flash-lite,gemini-2.5-flash,gemini-3-flash-preview,gemini-2.5-pro,gemini-3.1-pro-preview
+```
+
+There are three independent free-tier quotas (flash-lite, flash, pro) spread across five models. This maximizes daily throughput without spending anything.
+
+### `ollama` (local)
+
+Runs inference locally via [Ollama](https://ollama.com). Free and offline, but uses significant CPU/GPU — not ideal for laptops running long batch jobs.
+
+```
+OLLAMA_MODEL=qwen2.5:32b
+OLLAMA_URL=http://localhost:11434
+```
+
+### `gemini` (paid API)
+
+Uses the Gemini API directly with native function calling. Requires `GEMINI_API_KEY` and `GEMINI_MODEL`. This is the most reliable provider but costs money per request.
+
+## Env Vars
+
+See `.env.example` for a complete template.
+
+- `DATABASE_URL` — Postgres connection string
+- `PORT` — API server port
+- `LLM_PROVIDER` — `gemini-cli` (default), `ollama`, or `gemini`
+- `GEMINI_MODEL` — model name for `gemini-cli` (single model) and `gemini` providers
+- `GEMINI_MODELS` — comma-separated model cascade for `gemini-cli` (overrides `GEMINI_MODEL`)
+- `OLLAMA_MODEL` — Ollama model name (required when `LLM_PROVIDER=ollama`)
 - `OLLAMA_URL` — Ollama server URL (default: `http://localhost:11434`)
-- `GEMINI_API_KEY` — required for web search grounding in `discover` and `recheck`, even when using Ollama
+- `GEMINI_API_KEY` — required for the `gemini` provider and for web search grounding in `discover`
 
 ## Important Run Targets
 

@@ -1,3 +1,7 @@
+import { existsSync, mkdirSync, renameSync, createWriteStream } from 'fs';
+import type { WriteStream } from 'fs';
+import { basename, join } from 'path';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
@@ -20,6 +24,48 @@ function shouldLog(level: LogLevel): boolean {
     return LEVEL_ORDER[level] >= LEVEL_ORDER[LOG_LEVEL];
 }
 
+// ============================================================
+// File logging
+// ============================================================
+
+const LOG_DIR = join(process.cwd(), 'tmp', 'logs');
+const ARCHIVE_DIR = join(LOG_DIR, 'archive');
+
+/**
+ * Derive process name from the script filename.
+ * e.g. "src/repair.ts" → "repair", "src/recheck.ts" → "validity-check"
+ */
+function getProcessName(): string {
+    const script = process.argv[1] ?? 'unknown';
+    const name = basename(script).replace(/\.[^.]+$/, '');
+    // Map script names to their npm run target names
+    const nameMap: Record<string, string> = {
+        'recheck': 'validity-check',
+    };
+    return nameMap[name] ?? name;
+}
+
+let logStream: WriteStream | null = null;
+
+function getLogStream(): WriteStream {
+    if (!logStream) {
+        mkdirSync(LOG_DIR, { recursive: true });
+
+        const processName = getProcessName();
+        const logPath = join(LOG_DIR, `${processName}.log`);
+
+        // Archive existing log file before starting
+        if (existsSync(logPath)) {
+            mkdirSync(ARCHIVE_DIR, { recursive: true });
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            renameSync(logPath, join(ARCHIVE_DIR, `${processName}-${ts}.log`));
+        }
+
+        logStream = createWriteStream(logPath, { flags: 'w' });
+    }
+    return logStream;
+}
+
 function emit(level: LogLevel, msg: string, data?: Record<string, unknown>): void {
     if (!shouldLog(level)) return;
     const entry: LogEntry = {
@@ -28,8 +74,10 @@ function emit(level: LogLevel, msg: string, data?: Record<string, unknown>): voi
         msg,
         ...data,
     };
+    const line = JSON.stringify(entry) + '\n';
     const stream = level === 'error' || level === 'warn' ? process.stderr : process.stdout;
-    stream.write(JSON.stringify(entry) + '\n');
+    stream.write(line);
+    getLogStream().write(line);
 }
 
 export interface Logger {

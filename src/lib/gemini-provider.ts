@@ -1,11 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Content, FunctionDeclaration, Part } from '@google/genai';
+import { requiredEnv } from './config.js';
 import { createCache, deleteCache } from './gemini-cache.js';
 import { withRetry } from './retry.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration, ToolParameter } from './llm.js';
-
-const MODEL = 'gemini-2.5-flash-lite';
 
 // ============================================================
 // Conversion helpers
@@ -101,11 +100,13 @@ let activeCaches: CacheEntry[] = [];
 
 export class GeminiProvider implements LLMProvider {
     private genai: GoogleGenAI;
+    private model: string;
 
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error('GEMINI_API_KEY is required for Gemini provider');
         this.genai = new GoogleGenAI({ apiKey });
+        this.model = requiredEnv('GEMINI_MODEL');
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {
@@ -122,7 +123,7 @@ export class GeminiProvider implements LLMProvider {
             } else {
                 try {
                     cacheName = await createCache(this.genai, {
-                        model: MODEL,
+                        model: this.model,
                         systemInstruction: opts.systemInstruction,
                         contents: [
                             { role: 'user', parts: [{ text: 'Reference information loaded. Ready.' }] },
@@ -148,7 +149,7 @@ export class GeminiProvider implements LLMProvider {
         }
 
         const response = await withRetry(() => this.genai.models.generateContent({
-            model: MODEL,
+            model: this.model,
             contents,
             config,
         }), 'gemini-provider');

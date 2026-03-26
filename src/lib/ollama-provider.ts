@@ -1,7 +1,7 @@
+import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration, ToolParameter } from './llm.js';
 
-const DEFAULT_MODEL = 'qwen2.5:32b';
 const DEFAULT_URL = 'http://localhost:11434';
 
 // ============================================================
@@ -122,7 +122,7 @@ export class OllamaProvider implements LLMProvider {
     private baseUrl: string;
 
     constructor() {
-        this.model = process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
+        this.model = requiredEnv('OLLAMA_MODEL');
         this.baseUrl = process.env.OLLAMA_URL ?? DEFAULT_URL;
     }
 

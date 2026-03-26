@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { fetchPage, updateResource } from './lib/agent-tools.js';
 import type { ResourceRow } from './lib/agent-tools.js';
 import { closeBrowser } from './lib/browser.js';
+import { requiredEnv } from './lib/config.js';
 import { createPool } from './lib/db.js';
 import { getLLMProvider } from './lib/llm.js';
 import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
@@ -164,7 +165,7 @@ async function executeTool(
             try {
                 const genai = getSearchGenai();
                 const response = await withRetry(() => genai.models.generateContent({
-                    model: 'gemini-2.5-flash-lite',
+                    model: requiredEnv('GEMINI_MODEL'),
                     contents: `Search for: ${args.query}`,
                     config: { tools: [{ googleSearch: {} }] },
                 }), 'web_search');

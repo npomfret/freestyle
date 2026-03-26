@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
+import { requiredEnv } from './lib/config.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { getLLMProvider } from './lib/llm.js';
@@ -248,7 +249,7 @@ function getSearchGenai(): GoogleGenAI {
     return searchGenai;
 }
 
-const SEARCH_MODEL = 'gemini-2.5-flash-lite';
+const SEARCH_MODEL = requiredEnv('GEMINI_MODEL');
 
 // ============================================================
 // Web search via Gemini with Google Search grounding

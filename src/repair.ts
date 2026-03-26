@@ -54,7 +54,19 @@ const toolDeclarations: ToolDeclaration[] = [
                 analysis: {
                     type: 'string',
                     description:
-                        'A 2-4 sentence analysis covering: what data/service this resource provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats (freshness, coverage, free tier limits).',
+                        `A detailed write-up in markdown format. Use this structure:
+
+**Overview**: What this resource is, who provides it, and what problem it solves. 2-3 sentences.
+
+**Data & Format**: What data or functionality is available. Mention formats (JSON, CSV, GeoJSON, etc.), key endpoints or datasets, and the scope/coverage of the data.
+
+**Access**: How to get started — open access, API key required (free signup?), OAuth, rate limits, quotas. Mention the free tier specifics if applicable.
+
+**Strengths**: What makes this resource stand out — unique data, high quality, good documentation, active community, government-backed, etc.
+
+**Limitations**: Honest caveats — rate limits, data freshness, geographic gaps, missing features, unstable uptime, unclear licensing, etc.
+
+Write in a neutral, informative tone. Be specific — mention actual numbers (rate limits, dataset sizes, update frequency) when visible on the page. Aim for 150-300 words total.`,
                 },
                 notes: {
                     type: 'string',
@@ -81,23 +93,24 @@ const toolDeclarations: ToolDeclaration[] = [
 // System instruction
 // ============================================================
 
-const REPAIR_SYSTEM_INSTRUCTION = `You are a metadata repair agent. Your job is to review an existing resource in our catalog and ensure its metadata is accurate, complete, and up-to-date based on the actual page content.
+const REPAIR_SYSTEM_INSTRUCTION = `You are a metadata repair agent. Your job is to review an existing resource in our catalog and produce accurate, detailed metadata based on the actual page content.
 
 ## Your task
-You will receive a resource's current metadata and the fetched content of its URL. Review the page and call update_resource with corrected/improved metadata.
+You will receive a resource's current metadata and the fetched content of its URL. Review the page thoroughly and call update_resource with improved metadata. This is your main opportunity to produce a high-quality catalog entry, so be thorough.
 
 ## Guidelines
-- **name**: Should be the proper human-readable name. Fix garbled names, emoji-only names, or overly generic names.
-- **description**: One clear sentence about what this resource provides. Base it on what you actually see on the page, not on the existing description.
+- **name**: The proper human-readable name. Fix garbled names, emoji-only names, or overly generic names.
+- **description**: One clear, specific sentence about what this resource provides and why a developer would use it. Avoid vague language like "provides data" — say what data.
 - **topics**: 1-4 topic labels from the allowed set. Choose based on what the resource actually covers.
 - **regions**: Geographic coverage. Use "Global" if worldwide, specific regions/countries if limited. Omit if not geographically specific.
-- **analysis**: 2-4 sentences covering: what it provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats.
+- **analysis**: This is the most important field. Write a detailed markdown write-up (150-300 words) covering overview, data/format, access, strengths, and limitations. Be specific — include actual numbers (rate limits, dataset sizes, update frequencies, number of endpoints) when visible on the page. This write-up should give a developer everything they need to decide whether this resource is useful for their project.
 - **notes**: What you changed and why, or "metadata confirmed accurate" if no changes needed.
 
 ## Important
-- APIs that require a free API key are valid resources — note this in the analysis.
-- The URL is already confirmed alive — focus only on metadata quality.
-- Always call update_resource, even if the existing metadata looks correct (confirm it).
+- APIs that require a free API key are valid resources — document the signup process in the Access section.
+- The URL is already confirmed alive — focus entirely on metadata quality.
+- Always call update_resource, even if the existing metadata looks correct (confirm and improve it).
+- Read the page content carefully. Extract specific details rather than paraphrasing generically.
 
 Available topic labels: ${TOPIC_LABELS.join(', ')}
 Kind values: api (HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)

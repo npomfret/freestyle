@@ -428,6 +428,27 @@ async function recordFailure(resourceId: ResourceId, notes: string): Promise<voi
 // Main loop
 // ============================================================
 
+async function getResourceById(id: number): Promise<ResourceRow | null> {
+    const { rows } = await db.query('SELECT id, name, url FROM resources WHERE id = $1', [id]);
+    if (!rows.length) return null;
+
+    const r = rows[0];
+    const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
+    const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
+    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
+    const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
+
+    return {
+        id: mkResourceId(r.id),
+        name: r.name,
+        url: mkUrl(r.url),
+        kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
+        topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
+        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
+        descriptions: descs.rows.map((d: { description: string; }) => d.description),
+    };
+}
+
 async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
     const { rows } = await db.query('SELECT id, name, url FROM resources WHERE url = $1', [url]);
     if (!rows.length) return null;
@@ -450,14 +471,20 @@ async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
 }
 
 async function main(): Promise<void> {
-    const arg = process.argv[2];
-    const isSingleUrl = arg?.startsWith('http');
+    const args = process.argv.slice(2);
+    const idFlag = args.indexOf('--id');
+    const urlFlag = args.indexOf('--url');
+    const singleId = idFlag !== -1 ? Number(args[idFlag + 1]) : null;
+    const singleUrl = urlFlag !== -1 ? args[urlFlag + 1] : null;
+    const batchArg = (singleId == null && singleUrl == null) ? args[0] : undefined;
 
     try {
-        if (isSingleUrl) {
-            const resource = await getResourceByUrl(arg);
+        if (singleId != null || singleUrl != null) {
+            const resource = singleUrl
+                ? await getResourceByUrl(singleUrl)
+                : await getResourceById(singleId!);
             if (!resource) {
-                log.error('resource not found', { url: arg });
+                log.error('resource not found', { id: singleId, url: singleUrl });
                 process.exit(1);
             }
             log.info('rechecking single resource', { id: resource.id, name: resource.name, url: resource.url });
@@ -468,7 +495,7 @@ async function main(): Promise<void> {
                 await recordFailure(resource.id, `Agent error: ${err}`);
             }
         } else {
-            const count = Number(arg) || 10;
+            const count = Number(batchArg) || 10;
             log.info('recheck started', { count });
 
             for (let i = 0; i < count; i++) {

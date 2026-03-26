@@ -280,21 +280,22 @@ Review the page content and call update_resource with accurate, complete metadat
 // ============================================================
 
 async function main(): Promise<void> {
-    const arg = process.argv[2];
-    const count = Number(arg) || 10;
+    const args = process.argv.slice(2);
+    const idFlag = args.indexOf('--id');
+    const singleId = idFlag !== -1 ? Number(args[idFlag + 1]) : null;
+    const batchArg = singleId == null ? args[0] : undefined;
 
     try {
-        // If a specific resource ID is given
-        if (arg && Number.isInteger(Number(arg)) && Number(arg) > 0) {
-            const resource = await getResourceById(Number(arg));
+        if (singleId != null && Number.isInteger(singleId) && singleId > 0) {
+            const resource = await getResourceById(singleId);
             if (!resource) {
-                log.error('resource not found', { id: arg });
+                log.error('resource not found or not alive', { id: singleId });
                 process.exit(1);
             }
             log.info('repairing single resource', { id: resource.id, name: resource.name, url: resource.url });
             await repairOne(resource);
         } else {
-            const batchSize = Number(arg) || 10;
+            const batchSize = Number(batchArg) || 10;
             log.info('repair started', { count: batchSize });
 
             for (let i = 0; i < batchSize; i++) {

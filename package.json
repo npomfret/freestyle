@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "generate": "tsx src/generate-catalog.ts",
     "migrate": "tsx src/migrate.ts",
-    "seed": "tsx src/seed-database.ts",
     "embed": "tsx src/generate-embeddings.ts",
     "re-embed": "tsx src/re-embed-all.ts",
     "search": "tsx src/search.ts",

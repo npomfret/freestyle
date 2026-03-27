@@ -3,7 +3,6 @@ free-stuff
 .idea
 .gemini/.env
 .env
-catalog.json
 node_modules
 dist
 tmp

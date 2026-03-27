@@ -1,15 +1,12 @@
 # Freestyle
 
-Freestyle is a system for finding, recording, analysing, and maintaining a database of free or near-free datasets, databases, APIs, services, and related developer resources. The app currently runs from the generated `catalog.json` data and a Postgres database, with an Express API plus a small React frontend for cataloging and search. A legacy `free-stuff/` source corpus still exists for optional catalog regeneration, but it is not needed for normal development or runtime use.
+Freestyle is a system for finding, recording, analysing, and maintaining a database of free or near-free datasets, databases, APIs, services, and related developer resources. It runs against a Postgres database with an Express API and a small React frontend for cataloging and search.
 
 ## Project Shape
 
 - `src/` contains the TypeScript backend, data pipeline scripts, and maintenance jobs.
 - `db/schema.sql` bootstraps the Postgres schema, including `pgvector` and trigram search support.
 - `web/` contains the Vite/React frontend.
-- `catalog.json` is the generated structured output used for seeding the database and is enough for normal app usage.
-- `CATALOG.md` is the generated long-form catalog document written by the legacy catalog generator.
-- `free-stuff/` is a legacy optional source corpus used only by `npm run generate`.
 
 ## Local Setup
 
@@ -20,8 +17,7 @@ Freestyle is a system for finding, recording, analysing, and maintaining a datab
 3. Start the database:
    - `docker compose up -d db`
 4. Set up an LLM provider (see LLM Providers below)
-5. Load the generated catalog into Postgres:
-   - `npm run seed`
+5. Generate embeddings:
    - `npm run embed`
 6. Start the backend:
    - `npm run server`
@@ -33,14 +29,6 @@ Defaults:
 - API server: `http://localhost:3001`
 - Frontend dev server: Vite default on `http://localhost:5173`
 - Database URL: `postgresql://freestyle:freestyle@localhost:5433/freestyle`
-
-## Legacy Catalog Regeneration
-
-You can ignore this section unless you intentionally want to rebuild `catalog.json` and `CATALOG.md` from the old source corpus.
-
-1. Make sure `free-stuff/` is available, or point `SOURCE_CORPUS_DIR` at an equivalent checkout.
-2. Run `npm run generate`
-3. Rerun `npm run seed`
 
 ## LLM Providers
 
@@ -96,12 +84,8 @@ See `.env.example` for a complete template.
 - `LOCAL_LLM_URL` — URL of the local LLM server (used by both `local` and `ollama` providers)
 - `LOCAL_LLM_MODEL` — model name sent in requests; required for `ollama`, optional for `local` (MLX Studio ignores it — the port determines the model)
 - `GEMINI_API_KEY` — required for the `gemini` provider and for web search grounding in `discover`
-- `SOURCE_CORPUS_DIR` — optional override for the legacy source corpus used by `npm run generate`
-
 ## Important Run Targets
 
-- `npm run generate` rebuilds generated catalog artifacts from the legacy source corpus; optional env override example: `SOURCE_CORPUS_DIR=/path/to/source-corpus npm run generate`
-- `npm run seed` loads `catalog.json` into Postgres; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run seed`
 - `npm run embed` generates embeddings for resources and creates the vector index; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run embed`
 - `npm run re-embed` re-embeds resources against the current local model; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run re-embed`
 - `npm run server` starts the Express API and serves `web/dist` when it exists; examples: `PORT=4000 npm run server` or `PORT=4000 DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run server`
@@ -117,8 +101,6 @@ See `.env.example` for a complete template.
 
 Notes:
 
-- `catalog.json` in the repo is enough for normal app usage and development.
-- `npm run generate` is a legacy maintenance command for rebuilding catalog artifacts from the source corpus.
 - Docker Compose also supports `POSTGRES_PORT` and `POSTGRES_PASSWORD`, for example `POSTGRES_PORT=5434 docker compose up -d db`.
 - `npm run embed` improves search quality; without embeddings the API falls back to text search.
 - There is no single full-stack dev command yet, so backend and frontend are started separately.

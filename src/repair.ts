@@ -5,7 +5,7 @@ import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { log } from './lib/logger.js';
-import { getNextRepairResource, getResourceById } from './lib/resource-queries.js';
+import { getNextRepairResource, getRepairResourceById } from './lib/resource-queries.js';
 import { fetchPageTool, repairUpdateTool } from './lib/tool-declarations.js';
 import { TOPICS } from './lib/types.js';
 
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
 
     try {
         if (singleId != null && Number.isInteger(singleId) && singleId > 0) {
-            const resource = await getResourceById(db, singleId);
+            const resource = await getRepairResourceById(db, singleId);
             if (!resource) {
                 log.error('resource not found or not alive', { id: singleId });
                 process.exit(1);

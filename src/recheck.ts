@@ -158,8 +158,8 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
 
         onToolResult: (call) => call.name === 'update_resource',
 
-        onNoTools: (response) => {
-            recordFailure(resource.id, `agent returned no action: ${response.text?.slice(0, 200) ?? 'no text'}`);
+        onNoTools: async (response): Promise<'break'> => {
+            await recordFailure(resource.id, `agent returned no action: ${response.text?.slice(0, 200) ?? 'no text'}`);
             return 'break';
         },
     };

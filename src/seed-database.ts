@@ -5,6 +5,19 @@ import { log } from './lib/logger.js';
 import type { Kind, ProjectId, ResourceId, SourceName, Topic, Url } from './lib/types.js';
 import { ProjectId as mkProjectId, ResourceId as mkResourceId } from './lib/types.js';
 
+// Translates old 32-label catalog vocabulary to the current 71-label schema vocabulary.
+const TOPIC_REMAP: Record<string, string> = {
+    'agriculture':  'crops',
+    'blockchain':   'crypto',
+    'data-science': 'ai-ml',
+    'finance':      'banking',
+    'games':        'gaming',
+    'geoscience':   'earth-science',
+    'health':       'public-health',
+    'social-science': 'demographics',
+    'transport':    'logistics',
+};
+
 const ROOT = resolve(import.meta.dirname, '..');
 const CATALOG_JSON = resolve(ROOT, 'catalog.json');
 const DATABASE_URL = process.env.DATABASE_URL
@@ -117,7 +130,10 @@ async function seed(client: pg.Client, catalog: Catalog): Promise<void> {
         }
 
         for (const kind of r.kinds) kindRows.push([rid, kind]);
-        for (const topic of r.topics) topicRows.push([rid, topic]);
+        for (const topic of r.topics) {
+            const mapped = TOPIC_REMAP[topic as string] ?? topic;
+            topicRows.push([rid, mapped as Topic]);
+        }
         for (const source of r.sources) sourceRows.push([rid, source]);
         for (const desc of r.directDescriptions) descRows.push([rid, desc]);
     }

@@ -31,6 +31,18 @@ export async function getResourceById(db: pg.Pool | pg.Client, id: number): Prom
     return hydrateResource(db, rows[0]);
 }
 
+/** Like getResourceById but returns null for dead resources (mirrors getNextRepairResource's alive guard). */
+export async function getRepairResourceById(db: pg.Pool | pg.Client, id: number): Promise<ResourceRow | null> {
+    const { rows } = await db.query(`
+        SELECT r.id, r.name, r.url
+        FROM resources r
+        LEFT JOIN link_checks lc ON lc.resource_id = r.id
+        WHERE r.id = $1 AND (lc.status IS NULL OR lc.status = 'alive')
+    `, [id]);
+    if (!rows.length) return null;
+    return hydrateResource(db, rows[0]);
+}
+
 export async function getResourceByUrl(db: pg.Pool | pg.Client, url: string): Promise<ResourceRow | null> {
     const { rows } = await db.query('SELECT id, name, url FROM resources WHERE url = $1', [url]);
     if (!rows.length) return null;

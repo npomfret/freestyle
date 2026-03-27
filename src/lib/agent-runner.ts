@@ -47,8 +47,9 @@ export interface AgentConfig {
     /**
      * Called when the LLM returns no function calls.
      * Return 'break' to exit, or messages to inject and continue.
+     * May be async (e.g. to write a failure record before exiting).
      */
-    onNoTools?(response: LLMResponse): 'break' | LLMMessage[];
+    onNoTools?(response: LLMResponse): Promise<'break' | LLMMessage[]> | 'break' | LLMMessage[];
 }
 
 // ============================================================
@@ -92,7 +93,7 @@ export async function runAgent(
         // No tool calls
         if (response.functionCalls.length === 0) {
             if (config.onNoTools) {
-                const action = config.onNoTools(response);
+                const action = await config.onNoTools(response);
                 if (action === 'break') {
                     return { turns: turn + 1, terminated: 'no-tools' };
                 }

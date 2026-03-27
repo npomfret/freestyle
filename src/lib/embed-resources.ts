@@ -24,10 +24,12 @@ export async function embedResources(
     SELECT r.id, r.name, r.url,
            COALESCE(string_agg(DISTINCT rd.description, ' '), '') AS descriptions,
            COALESCE(string_agg(DISTINCT rt.topic, ' '), '') AS topics,
+           COALESCE(string_agg(DISTINCT rk.kind, ' '), '') AS kinds,
            COALESCE(string_agg(DISTINCT rr.region, ' '), '') AS regions
     FROM resources r
     LEFT JOIN resource_descriptions rd ON rd.resource_id = r.id
     LEFT JOIN resource_topics rt ON rt.resource_id = r.id
+    LEFT JOIN resource_kinds rk ON rk.resource_id = r.id
     LEFT JOIN resource_regions rr ON rr.resource_id = r.id
     WHERE r.embedding IS NULL
     GROUP BY r.id, r.name, r.url
@@ -44,7 +46,7 @@ export async function embedResources(
     let total = 0;
     for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
-        const texts = batch.map((r) => [r.name, r.descriptions, r.topics, r.regions].filter(Boolean).join(' '));
+        const texts = batch.map((r) => [r.name, r.descriptions, r.topics, r.kinds, r.regions].filter(Boolean).join(' '));
 
         const vecs = await embed(texts);
 

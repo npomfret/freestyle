@@ -1,229 +1,25 @@
-import { GoogleGenAI } from '@google/genai';
 import { fetchPage, updateResource } from './lib/agent-tools.js';
 import type { ResourceRow } from './lib/agent-tools.js';
+import { runAgent, toolHandlers } from './lib/agent-runner.js';
+import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
-import { requiredEnv } from './lib/config.js';
 import { createPool } from './lib/db.js';
-import { getLLMProvider } from './lib/llm.js';
-import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
-import { withRetry } from './lib/retry.js';
+import { webSearch } from './lib/gemini-search.js';
 import { log } from './lib/logger.js';
-import type { Kind, Region, ResourceId, Topic, Url } from './lib/types.js';
-import { TOPICS, ResourceId as mkResourceId, Url as mkUrl } from './lib/types.js';
+import { getNextRecheckResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
+import { fetchPageTool, recheckUpdateTool, repairUrlTool, webSearchTool } from './lib/tool-declarations.js';
+import type { ResourceId } from './lib/types.js';
+import { TOPICS } from './lib/types.js';
 
-const MAX_TURNS = 20;
-
-const TOPIC_LABELS = TOPICS;
+const TOPIC_LIST = TOPICS.join(', ');
 
 const db = createPool();
 
-// Gemini instance for web search only (cheap single-shot calls)
-let searchGenai: GoogleGenAI | null = null;
-function getSearchGenai(): GoogleGenAI {
-    if (searchGenai) return searchGenai;
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error('GEMINI_API_KEY required for web search');
-    searchGenai = new GoogleGenAI({ apiKey: key });
-    return searchGenai;
-}
-
 // ============================================================
-// Tool declarations (provider-agnostic format)
+// System instruction
 // ============================================================
 
-const toolDeclarations: ToolDeclaration[] = [
-    {
-        name: 'fetch_page',
-        description:
-            'Fetch a URL and check if it loads. Returns statusCode, content, and a \'likely_broken\' flag with \'problems\' array if issues are detected (404, soft 404, redirect to homepage, DNS failure, timeout, domain parking, etc.).',
-        parameters: {
-            type: 'object',
-            properties: {
-                url: { type: 'string', description: 'URL to fetch' },
-            },
-            required: ['url'],
-        },
-    },
-    {
-        name: 'update_resource',
-        description: 'Update a resource\'s metadata after rechecking it.',
-        parameters: {
-            type: 'object',
-            properties: {
-                name: {
-                    type: 'string',
-                    description:
-                        'The correct, human-readable name for this resource (e.g. \'CLERC\', \'OpenWeatherMap\', \'USGS Earthquake Catalog\'). Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
-                },
-                description: {
-                    type: 'string',
-                    description: 'New one-sentence description of what this resource provides. Write this even if one already exists — make it accurate and current.',
-                },
-                topics: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: `Updated topic labels (1-4) from: ${TOPIC_LABELS.join(', ')}. Keep existing ones if still accurate, adjust if needed.`,
-                },
-                regions: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Updated geographic regions (e.g. "Global", "Europe", "North America/United States"). Keep existing ones if still accurate, adjust if needed.',
-                },
-                is_alive: {
-                    type: 'boolean',
-                    description:
-                        'true ONLY if this specific URL loads and serves the expected content. false if fetch_page returned likely_broken=true, or if the page is a 404, error, redirect to homepage, parked domain, etc. Do NOT set true just because the project exists elsewhere.',
-                },
-                notes: {
-                    type: 'string',
-                    description: 'Brief notes about what you found: any changes, issues, or notable details',
-                },
-                analysis: {
-                    type: 'string',
-                    description:
-                        'A 2-4 sentence analysis covering: what data/service this resource provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats (freshness, coverage, free tier limits). Write this if the page loaded successfully.',
-                },
-            },
-            required: ['description', 'is_alive', 'notes'],
-        },
-    },
-    {
-        name: 'web_search',
-        description: 'Search the web for more information about this resource if the page itself doesn\'t load or is unclear.',
-        parameters: {
-            type: 'object',
-            properties: {
-                query: { type: 'string', description: 'Search query' },
-            },
-            required: ['query'],
-        },
-    },
-    {
-        name: 'repair_url',
-        description: 'If the original URL is broken but you found the resource at a new URL, call this to update the URL. Call fetch_page on the new URL first to verify it works before calling this.',
-        parameters: {
-            type: 'object',
-            properties: {
-                new_url: { type: 'string', description: 'The new, working URL for this resource' },
-                reason: { type: 'string', description: 'Why the URL changed (e.g. \'domain moved\', \'repo transferred\', \'new docs site\')' },
-            },
-            required: ['new_url', 'reason'],
-        },
-    },
-];
-
-// ============================================================
-// Tool execution
-// ============================================================
-
-let currentResource: ResourceRow | null = null;
-
-async function executeTool(
-    name: string,
-    args: Record<string, unknown>,
-): Promise<unknown> {
-    switch (name) {
-        case 'fetch_page': {
-            return fetchPage(args.url as string);
-        }
-
-        case 'web_search': {
-            try {
-                const genai = getSearchGenai();
-                const response = await withRetry(() => genai.models.generateContent({
-                    model: requiredEnv('GEMINI_MODEL'),
-                    contents: `Search for: ${args.query}`,
-                    config: { tools: [{ googleSearch: {} }] },
-                }), 'web_search');
-                return { results: response.text ?? 'No results.' };
-            } catch (err) {
-                return { results: `Search failed: ${err}` };
-            }
-        }
-
-        case 'update_resource': {
-            if (!currentResource) return { error: 'No current resource' };
-            return updateResource(db, currentResource, {
-                name: args.name as string | undefined,
-                description: args.description as string,
-                topics: args.topics as string[] | undefined,
-                regions: args.regions as string[] | undefined,
-                analysis: args.analysis as string | undefined,
-                is_alive: args.is_alive as boolean,
-                notes: args.notes as string,
-            });
-        }
-
-        case 'repair_url': {
-            if (!currentResource) return { error: 'No current resource' };
-            const r = currentResource;
-            const newUrl = args.new_url as string;
-            const reason = args.reason as string;
-
-            // Check the new URL isn't already in our database
-            const { rows: dupeRows } = await db.query(
-                'SELECT id FROM resources WHERE url = $1',
-                [newUrl],
-            );
-            if (dupeRows.length > 0) {
-                return { error: `URL already exists as resource ${dupeRows[0].id}`, url: newUrl };
-            }
-
-            const oldUrl = r.url;
-            await db.query('UPDATE resources SET url = $1, updated_at = now() WHERE id = $2', [newUrl, r.id]);
-            log.info('url repaired', { id: r.id, oldUrl, newUrl, reason });
-
-            return { status: 'url_updated', id: r.id, oldUrl, newUrl, reason };
-        }
-
-        default:
-            return { error: `Unknown tool: ${name}` };
-    }
-}
-
-// ============================================================
-// Get next resource to check
-// ============================================================
-
-async function getNextResource(): Promise<ResourceRow | null> {
-    // Resources never checked first (ordered by id), then oldest checked
-    // Skip resources already marked dead
-    const { rows } = await db.query(`
-    SELECT r.id, r.name, r.url
-    FROM resources r
-    LEFT JOIN link_checks lc ON lc.resource_id = r.id
-    WHERE lc.status IS DISTINCT FROM 'dead'
-      AND (lc.checked_at IS NULL OR lc.checked_at < now() - interval '14 days')
-    ORDER BY lc.checked_at ASC NULLS FIRST, r.id
-    LIMIT 1
-  `);
-
-    if (!rows.length) return null;
-
-    const r = rows[0];
-
-    // Fetch kinds, topics, regions, descriptions (sequential — pg.Client doesn't support concurrent queries)
-    const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
-    const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
-    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
-    const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
-
-    return {
-        id: mkResourceId(r.id),
-        name: r.name,
-        url: mkUrl(r.url),
-        kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
-        topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
-        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
-        descriptions: descs.rows.map((d: { description: string; }) => d.description),
-    };
-}
-
-// ============================================================
-// System instruction for the recheck agent
-// ============================================================
-
-const RECHECK_SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
+const SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is to recheck whether a specific URL in our catalog still works.
 
 ## CRITICAL: What "alive" means
 
@@ -264,7 +60,7 @@ If fetch_page returns likely_broken, follow this sequence:
    - is_alive: true/false (follow the rules above strictly)
    - notes: what you found, include old URL if repaired
 
-Available topic labels: ${TOPIC_LABELS.join(', ')}
+Available topic labels: ${TOPIC_LIST}
 
 Kind values: api (HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)
 
@@ -273,103 +69,7 @@ Region format: "Global", continent (e.g. "Europe"), continent/country (e.g. "Nor
 Be concise.`;
 
 // ============================================================
-// Recheck one resource
-// ============================================================
-
-async function recheckOne(resource: ResourceRow): Promise<void> {
-    currentResource = resource;
-    const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
-
-    // Step 1: Pre-fetch the page ourselves (native only — no Gemini fallback)
-    const fetchResult = await fetchPage(resource.url, { tiers: ['native', 'puppeteer'] });
-    rlog.info('pre-fetch result', {
-        statusCode: fetchResult.statusCode,
-        likely_broken: fetchResult.likely_broken,
-        problems: fetchResult.problems,
-    });
-
-    // Step 2: If healthy, update DB directly — no Gemini needed
-    if (!fetchResult.likely_broken && fetchResult.statusCode >= 200 && fetchResult.statusCode < 400) {
-        await db.query(
-            `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
-             VALUES ($1, now(), $2, 'alive', 0, 'pre-fetch OK')
-             ON CONFLICT (resource_id) DO UPDATE
-             SET checked_at = now(), status_code = $2, status = 'alive', fail_count = 0, notes = 'pre-fetch OK'`,
-            [resource.id, fetchResult.statusCode],
-        );
-        rlog.info('resource alive (no LLM needed)');
-        return;
-    }
-
-    // Step 3: Page is broken — use LLM to diagnose and attempt repair
-    const provider = await getLLMProvider();
-
-    const resourceContext = `Resource to check:
-- Name: ${resource.name}
-- URL: ${resource.url}
-- Current kinds: ${resource.kinds.join(', ') || 'none'}
-- Current topics: ${resource.topics.join(', ') || 'none'}
-- Current regions: ${resource.regions.join(', ') || 'none'}
-- Current description: ${resource.descriptions[0] || 'none'}
-
-I already fetched the page. Here are the results:
-- Status code: ${fetchResult.statusCode}
-- Problems: ${fetchResult.problems?.join(', ') || 'none'}
-- Content preview: ${fetchResult.content.slice(0, 500)}
-
-The page appears broken. Try to find where this resource moved to using web_search, then repair_url if you find it. Call update_resource when done.`;
-
-    const messages: LLMMessage[] = [
-        { role: 'user', text: resourceContext },
-    ];
-
-    for (let turn = 0; turn < MAX_TURNS; turn++) {
-        const response = await provider.generate(messages, {
-            systemInstruction: RECHECK_SYSTEM_INSTRUCTION,
-            tools: toolDeclarations,
-        });
-
-        if (response.text) {
-            rlog.debug('agent text', { text: response.text });
-        }
-
-        if (response.functionCalls.length === 0) {
-            // Model responded with text only — record so this resource doesn't keep resurfacing
-            rlog.warn('agent returned no action', { text: response.text });
-            await recordFailure(resource.id, `agent returned no action: ${response.text?.slice(0, 200) ?? 'no text'}`);
-            break;
-        }
-
-        // Add model response to history
-        messages.push({
-            role: 'model',
-            text: response.text,
-            functionCalls: response.functionCalls,
-        });
-
-        const functionResponses = [];
-        for (const fc of response.functionCalls) {
-            rlog.info('tool call', { tool: fc.name, args: fc.args });
-
-            const result = await executeTool(fc.name, fc.args);
-            rlog.debug('tool result', { tool: fc.name, result });
-
-            functionResponses.push({
-                name: fc.name,
-                response: result,
-                id: fc.id,
-            });
-
-            // If we just updated, we're done with this resource
-            if (fc.name === 'update_resource') return;
-        }
-
-        messages.push({ role: 'user', functionResponses });
-    }
-}
-
-// ============================================================
-// Record a failure with suspect/dead escalation
+// Failure escalation (suspect → dead)
 // ============================================================
 
 async function recordFailure(resourceId: ResourceId, notes: string): Promise<void> {
@@ -392,50 +92,99 @@ async function recordFailure(resourceId: ResourceId, notes: string): Promise<voi
 }
 
 // ============================================================
-// Main loop
+// Recheck one resource
 // ============================================================
 
-async function getResourceById(id: number): Promise<ResourceRow | null> {
-    const { rows } = await db.query('SELECT id, name, url FROM resources WHERE id = $1', [id]);
-    if (!rows.length) return null;
+async function recheckOne(resource: ResourceRow): Promise<void> {
+    const rlog = log.child({ agent: 'recheck', resourceId: resource.id, url: resource.url });
 
-    const r = rows[0];
-    const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
-    const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
-    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
-    const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
+    // Pre-fetch the page (native + puppeteer, no Gemini fallback)
+    const fetchResult = await fetchPage(resource.url, { tiers: ['native', 'puppeteer'] });
+    rlog.info('pre-fetch result', {
+        statusCode: fetchResult.statusCode,
+        likely_broken: fetchResult.likely_broken,
+        problems: fetchResult.problems,
+    });
 
-    return {
-        id: mkResourceId(r.id),
-        name: r.name,
-        url: mkUrl(r.url),
-        kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
-        topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
-        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
-        descriptions: descs.rows.map((d: { description: string; }) => d.description),
+    // Fast-path: if healthy, update DB directly — no LLM needed
+    if (!fetchResult.likely_broken && fetchResult.statusCode >= 200 && fetchResult.statusCode < 400) {
+        await db.query(
+            `INSERT INTO link_checks (resource_id, checked_at, status_code, status, fail_count, notes)
+             VALUES ($1, now(), $2, 'alive', 0, 'pre-fetch OK')
+             ON CONFLICT (resource_id) DO UPDATE
+             SET checked_at = now(), status_code = $2, status = 'alive', fail_count = 0, notes = 'pre-fetch OK'`,
+            [resource.id, fetchResult.statusCode],
+        );
+        rlog.info('resource alive (no LLM needed)');
+        return;
+    }
+
+    // Page is broken — use LLM to diagnose and attempt repair
+    const config: AgentConfig = {
+        name: 'recheck',
+        systemInstruction: SYSTEM_INSTRUCTION,
+        tools: [fetchPageTool, recheckUpdateTool, webSearchTool, repairUrlTool],
+        maxTurns: 20,
+
+        toolHandlers: toolHandlers(
+            ['fetch_page', async (args) => fetchPage(args.url as string)],
+            ['web_search', async (args) => ({ results: await webSearch(args.query as string) })],
+            ['update_resource', async (args) => updateResource(db, resource, {
+                name: args.name as string | undefined,
+                description: args.description as string,
+                topics: args.topics as string[] | undefined,
+                regions: args.regions as string[] | undefined,
+                analysis: args.analysis as string | undefined,
+                is_alive: args.is_alive as boolean,
+                notes: args.notes as string,
+            })],
+            ['repair_url', async (args) => {
+                const newUrl = args.new_url as string;
+                const reason = args.reason as string;
+                const { rows: dupeRows } = await db.query(
+                    'SELECT id FROM resources WHERE url = $1', [newUrl],
+                );
+                if (dupeRows.length > 0) {
+                    return { error: `URL already exists as resource ${dupeRows[0].id}`, url: newUrl };
+                }
+                const oldUrl = resource.url;
+                await db.query('UPDATE resources SET url = $1, updated_at = now() WHERE id = $2', [newUrl, resource.id]);
+                rlog.info('url repaired', { id: resource.id, oldUrl, newUrl, reason });
+                return { status: 'url_updated', id: resource.id, oldUrl, newUrl, reason };
+            }],
+        ),
+
+        onResponse: () => 'continue',
+
+        onToolResult: (call) => call.name === 'update_resource',
+
+        onNoTools: (response) => {
+            recordFailure(resource.id, `agent returned no action: ${response.text?.slice(0, 200) ?? 'no text'}`);
+            return 'break';
+        },
     };
+
+    const context = `Resource to check:
+- Name: ${resource.name}
+- URL: ${resource.url}
+- Current kinds: ${resource.kinds.join(', ') || 'none'}
+- Current topics: ${resource.topics.join(', ') || 'none'}
+- Current regions: ${resource.regions.join(', ') || 'none'}
+- Current description: ${resource.descriptions[0] || 'none'}
+
+I already fetched the page. Here are the results:
+- Status code: ${fetchResult.statusCode}
+- Problems: ${fetchResult.problems?.join(', ') || 'none'}
+- Content preview: ${fetchResult.content.slice(0, 500)}
+
+The page appears broken. Try to find where this resource moved to using web_search, then repair_url if you find it. Call update_resource when done.`;
+
+    await runAgent(config, [{ role: 'user', text: context }]);
 }
 
-async function getResourceByUrl(url: string): Promise<ResourceRow | null> {
-    const { rows } = await db.query('SELECT id, name, url FROM resources WHERE url = $1', [url]);
-    if (!rows.length) return null;
-
-    const r = rows[0];
-    const kinds = await db.query('SELECT kind FROM resource_kinds WHERE resource_id = $1', [r.id]);
-    const topics = await db.query('SELECT topic FROM resource_topics WHERE resource_id = $1', [r.id]);
-    const regions = await db.query('SELECT region FROM resource_regions WHERE resource_id = $1', [r.id]);
-    const descs = await db.query('SELECT description FROM resource_descriptions WHERE resource_id = $1', [r.id]);
-
-    return {
-        id: mkResourceId(r.id),
-        name: r.name,
-        url: mkUrl(r.url),
-        kinds: kinds.rows.map((k: { kind: string; }) => k.kind as Kind),
-        topics: topics.rows.map((t: { topic: string; }) => t.topic as Topic),
-        regions: regions.rows.map((rg: { region: string; }) => rg.region as Region),
-        descriptions: descs.rows.map((d: { description: string; }) => d.description),
-    };
-}
+// ============================================================
+// Main
+// ============================================================
 
 async function main(): Promise<void> {
     const args = process.argv.slice(2);
@@ -448,8 +197,8 @@ async function main(): Promise<void> {
     try {
         if (singleId != null || singleUrl != null) {
             const resource = singleUrl
-                ? await getResourceByUrl(singleUrl)
-                : await getResourceById(singleId!);
+                ? await getResourceByUrl(db, singleUrl)
+                : await getResourceById(db, singleId!);
             if (!resource) {
                 log.error('resource not found', { id: singleId, url: singleUrl });
                 process.exit(1);
@@ -466,7 +215,7 @@ async function main(): Promise<void> {
             log.info('recheck started', { count });
 
             for (let i = 0; i < count; i++) {
-                const resource = await getNextResource();
+                const resource = await getNextRecheckResource(db);
                 if (!resource) {
                     log.info('no more resources to check');
                     break;

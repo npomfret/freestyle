@@ -6,7 +6,7 @@ import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { webSearch } from './lib/gemini-search.js';
 import { log } from './lib/logger.js';
-import { getNextRecheckResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
+import { getNextRecheckResource, getNextSuspectResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
 import { fetchPageTool, recheckUpdateTool, repairUrlTool, webSearchTool } from './lib/tool-declarations.js';
 import type { ResourceId } from './lib/types.js';
 import { TOPICS } from './lib/types.js';
@@ -192,7 +192,8 @@ async function main(): Promise<void> {
     const urlFlag = args.indexOf('--url');
     const singleId = idFlag !== -1 ? Number(args[idFlag + 1]) : null;
     const singleUrl = urlFlag !== -1 ? args[urlFlag + 1] : null;
-    const batchArg = (singleId == null && singleUrl == null) ? args[0] : undefined;
+    const suspectOnly = args.includes('--suspect');
+    const batchArg = (singleId == null && singleUrl == null) ? args.find((a) => /^\d+$/.test(a)) : undefined;
 
     try {
         if (singleId != null || singleUrl != null) {
@@ -212,12 +213,14 @@ async function main(): Promise<void> {
             }
         } else {
             const count = Number(batchArg) || 10;
-            log.info('recheck started', { count });
+            log.info('recheck started', { count, suspectOnly });
 
             for (let i = 0; i < count; i++) {
-                const resource = await getNextRecheckResource(db);
+                const resource = suspectOnly
+                    ? await getNextSuspectResource(db)
+                    : await getNextRecheckResource(db);
                 if (!resource) {
-                    log.info('no more resources to check');
+                    log.info(suspectOnly ? 'no more suspect resources' : 'no more resources to check');
                     break;
                 }
 

@@ -11,6 +11,7 @@
     "search": "tsx src/search.ts",
     "discover": "tsx src/discover.ts",
     "validity-check": "tsx src/recheck.ts",
+    "validity-check:suspect": "tsx src/recheck.ts --suspect",
     "repair": "tsx src/repair.ts",
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",

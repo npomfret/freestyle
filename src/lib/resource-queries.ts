@@ -63,6 +63,20 @@ export async function getNextRepairResource(db: pg.Pool | pg.Client): Promise<Re
     return hydrateResource(db, rows[0]);
 }
 
+/** Next suspect resource for targeted recheck (ignores the 14-day window). */
+export async function getNextSuspectResource(db: pg.Pool | pg.Client): Promise<ResourceRow | null> {
+    const { rows } = await db.query(`
+        SELECT r.id, r.name, r.url
+        FROM resources r
+        JOIN link_checks lc ON lc.resource_id = r.id
+        WHERE lc.status = 'suspect'
+        ORDER BY lc.checked_at ASC NULLS FIRST, r.id
+        LIMIT 1
+    `);
+    if (!rows.length) return null;
+    return hydrateResource(db, rows[0]);
+}
+
 /** Next resource for recheck: unchecked first, then oldest checked (>14 days), skip dead. */
 export async function getNextRecheckResource(db: pg.Pool | pg.Client): Promise<ResourceRow | null> {
     const { rows } = await db.query(`

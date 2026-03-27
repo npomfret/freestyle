@@ -76,6 +76,17 @@ async function fetchJson<T>(url: string): Promise<T> {
 // Custom hooks
 // ============================================================
 
+function useRelated(id: number | null) {
+    const [related, setRelated] = useState<Resource[]>([]);
+    useEffect(() => {
+        if (id == null) { setRelated([]); return; }
+        fetchJson<Resource[]>(`${API}/resources/${id}/related`)
+            .then(setRelated)
+            .catch(() => setRelated([]));
+    }, [id]);
+    return related;
+}
+
 function useRecent() {
     const [recent, setRecent] = useState<Resource[]>([]);
 
@@ -212,6 +223,7 @@ function App() {
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
     const recent = useRecent();
+    const related = useRelated(expandedId);
     const { topics, regions, stats } = useTopicsAndStats();
     const rs = useResourceSearch();
 
@@ -291,6 +303,22 @@ function App() {
                 </div>
                 {r.descriptions.length > 0 && <p className='description'>{r.descriptions[0]}</p>}
                 {isExpanded && r.analysis && <div className='analysis'>{r.analysis}</div>}
+                {isExpanded && related.length > 0 && (
+                    <div className='related'>
+                        <h4 className='related-heading'>Similar resources</h4>
+                        {related.map((rel) => (
+                            <div key={rel.id} className='related-item'>
+                                <a href={rel.url} target='_blank' rel='noopener noreferrer'>{rel.name}</a>
+                                <span className='related-kinds'>
+                                    {rel.kinds.map((k) => (
+                                        <span key={k} className={`tag kind-${k}`}>{k}</span>
+                                    ))}
+                                </span>
+                                {rel.descriptions[0] && <p className='related-desc'>{rel.descriptions[0]}</p>}
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <div className='tags'>
                     {r.kinds.map((k) => (
                         <span key={k} className={`tag kind-${k}`}>

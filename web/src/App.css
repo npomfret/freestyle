@@ -398,3 +398,53 @@ header h1 {
   min-height: 1px;
   padding: 8px 0;
 }
+
+/* Similar resources section */
+.related {
+  border-top: 1px solid #1e1e2e;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.related-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.related-item {
+  padding: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.related-item a {
+  font-size: 13px;
+  color: #99b;
+  text-decoration: none;
+}
+
+.related-item a:hover {
+  color: #bbf;
+  text-decoration: underline;
+}
+
+.related-kinds {
+  display: flex;
+  gap: 3px;
+}
+
+.related-desc {
+  width: 100%;
+  font-size: 12px;
+  color: #666;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

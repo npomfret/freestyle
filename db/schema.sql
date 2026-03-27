@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ============================================================
--- Core tables (regenerated from source repos)
+-- Core catalog tables
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS resources (
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS resource_descriptions (
 );
 
 -- ============================================================
--- Source projects (the ~150 repos in free-stuff/)
+-- Catalog source metadata captured for provenance
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS projects (

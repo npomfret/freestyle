@@ -173,7 +173,10 @@ async function main(): Promise<void> {
     try {
         raw = readFileSync(CATALOG_JSON, 'utf-8');
     } catch {
-        log.error('catalog not found', { path: CATALOG_JSON, hint: 'run npm run generate first' });
+        log.error('catalog not found', {
+            path: CATALOG_JSON,
+            hint: 'restore catalog.json or run npm run generate if you intentionally want to rebuild it from the legacy source corpus',
+        });
         process.exit(1);
     }
 

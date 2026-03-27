@@ -60,6 +60,7 @@ async function repairOne(resource: ResourceRow): Promise<void> {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [repairUpdateTool, fetchPageTool],
         maxTurns: 10,
+        provider: 'gemini-cli',
 
         toolHandlers: toolHandlers(
             ['update_resource', async (args) => updateResource(db, resource, {

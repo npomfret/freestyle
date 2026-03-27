@@ -31,6 +31,9 @@ export interface AgentConfig {
     /** Maximum turns before the loop gives up. */
     maxTurns: number;
 
+    /** Override the global LLM_PROVIDER for this agent. */
+    provider?: string;
+
     /**
      * Called after each LLM response. Return 'done' to exit the loop,
      * 'continue' to keep going normally, or a message array to inject
@@ -65,7 +68,7 @@ export async function runAgent(
     config: AgentConfig,
     initialMessages: LLMMessage[],
 ): Promise<AgentResult> {
-    const provider = await getLLMProvider();
+    const provider = await getLLMProvider(config.provider);
     const alog = rootLog.child({ agent: config.name });
     const messages = [...initialMessages];
 

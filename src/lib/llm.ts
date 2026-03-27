@@ -57,15 +57,15 @@ export interface LLMProvider {
 
 let cachedProvider: LLMProvider | null = null;
 
-export async function getLLMProvider(): Promise<LLMProvider> {
-    if (cachedProvider) return cachedProvider;
+export async function getLLMProvider(override?: string): Promise<LLMProvider> {
+    const providerName = override ?? process.env.LLM_PROVIDER ?? 'gemini-cli';
+    if (!override && cachedProvider) return cachedProvider;
 
-    const providerName = process.env.LLM_PROVIDER ?? 'gemini-cli';
-
+    let provider: LLMProvider;
     switch (providerName) {
         case 'ollama': {
             const { OllamaProvider } = await import('./ollama-provider.js');
-            cachedProvider = new OllamaProvider();
+            provider = new OllamaProvider();
             log.info('using Ollama LLM provider', {
                 model: process.env.LOCAL_LLM_MODEL,
                 url: process.env.LOCAL_LLM_URL ?? 'http://localhost:11434',
@@ -74,13 +74,13 @@ export async function getLLMProvider(): Promise<LLMProvider> {
         }
         case 'gemini': {
             const { GeminiProvider } = await import('./gemini-provider.js');
-            cachedProvider = new GeminiProvider();
+            provider = new GeminiProvider();
             log.info('using Gemini LLM provider');
             break;
         }
         case 'gemini-cli': {
             const { GeminiCliProvider } = await import('./gemini-cli-provider.js');
-            cachedProvider = new GeminiCliProvider();
+            provider = new GeminiCliProvider();
             log.info('using Gemini CLI provider', {
                 model: process.env.GEMINI_MODEL,
             });
@@ -88,7 +88,7 @@ export async function getLLMProvider(): Promise<LLMProvider> {
         }
         case 'local': {
             const { LocalProvider } = await import('./local-provider.js');
-            cachedProvider = new LocalProvider();
+            provider = new LocalProvider();
             log.info('using local LLM provider (OpenAI-compatible)', {
                 model: process.env.LOCAL_LLM_MODEL ?? 'local',
                 url: process.env.LOCAL_LLM_URL,
@@ -99,5 +99,6 @@ export async function getLLMProvider(): Promise<LLMProvider> {
             throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
     }
 
-    return cachedProvider;
+    if (!override) cachedProvider = provider;
+    return provider;
 }

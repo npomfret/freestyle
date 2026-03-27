@@ -125,6 +125,7 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [fetchPageTool, recheckUpdateTool, webSearchTool, repairUrlTool],
         maxTurns: 20,
+        provider: 'gemini-cli',
 
         toolHandlers: toolHandlers(
             ['fetch_page', async (args) => fetchPage(args.url as string)],

@@ -5,7 +5,7 @@ import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { webSearch } from './lib/gemini-search.js';
-import { log } from './lib/logger.js';
+import { log, serializeError } from './lib/logger.js';
 import { getNextRecheckResource, getNextSuspectResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
 import { fetchPageTool, recheckUpdateTool, repairUrlTool, webSearchTool } from './lib/tool-declarations.js';
 import type { ResourceId } from './lib/types.js';
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
             try {
                 await recheckOne(resource);
             } catch (err) {
-                log.error('recheck failed', { id: resource.id, url: resource.url, error: String(err) });
+                log.error('recheck failed', { id: resource.id, url: resource.url, ...serializeError(err) });
                 await recordFailure(resource.id, `Agent error: ${err}`);
             }
         } else {
@@ -229,7 +229,7 @@ async function main(): Promise<void> {
                 try {
                     await recheckOne(resource);
                 } catch (err) {
-                    log.error('recheck failed', { id: resource.id, url: resource.url, error: String(err) });
+                    log.error('recheck failed', { id: resource.id, url: resource.url, ...serializeError(err) });
                     await recordFailure(resource.id, `Agent error: ${err}`);
                 }
             }

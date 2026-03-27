@@ -109,3 +109,23 @@ function createLogger(context: Record<string, unknown> = {}): Logger {
 }
 
 export const log = createLogger();
+
+/**
+ * Serialize an unknown thrown value into a structured object suitable for
+ * passing to log.error(). Captures message, stack, and cause chain.
+ */
+export function serializeError(err: unknown): Record<string, unknown> {
+    if (!(err instanceof Error)) {
+        return { error: String(err) };
+    }
+    const result: Record<string, unknown> = {
+        error: err.message,
+        stack: err.stack,
+    };
+    if (err.cause != null) {
+        result.cause = err.cause instanceof Error
+            ? { message: err.cause.message, stack: err.cause.stack }
+            : String(err.cause);
+    }
+    return result;
+}

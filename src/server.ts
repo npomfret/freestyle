@@ -5,7 +5,7 @@ import type { Request, Response } from 'express';
 import { resolve } from 'path';
 import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
-import { log } from './lib/logger.js';
+import { log, serializeError } from './lib/logger.js';
 import type { ResourceId } from './lib/types.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -95,7 +95,7 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
             dead24h: Number(dead24h),
         });
     } catch (err) {
-        log.error('stats failed', { error: String(err) });
+        log.error('stats failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -108,7 +108,7 @@ app.get('/api/regions', async (_req: Request, res: Response) => {
         );
         res.json(rows.map((r) => ({ region: r.region, count: Number(r.count) })));
     } catch (err) {
-        log.error('regions failed', { error: String(err) });
+        log.error('regions failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -121,7 +121,7 @@ app.get('/api/topics', async (_req: Request, res: Response) => {
         );
         res.json(rows.map((r) => ({ topic: r.topic, count: Number(r.count) })));
     } catch (err) {
-        log.error('topics failed', { error: String(err) });
+        log.error('topics failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -141,7 +141,7 @@ app.get('/api/recent', async (req: Request, res: Response) => {
         const enriched = await enrichResources(rows);
         res.json(enriched);
     } catch (err) {
-        log.error('recent failed', { error: String(err) });
+        log.error('recent failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -244,7 +244,7 @@ app.get('/api/search', async (req: Request, res: Response) => {
         const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
         res.json({ items: enriched, hasMore, offset, limit });
     } catch (err) {
-        log.error('search failed', { error: String(err) });
+        log.error('search failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -307,7 +307,7 @@ app.get('/api/resources', async (req: Request, res: Response) => {
         const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
         res.json({ items: enriched, hasMore, offset, limit });
     } catch (err) {
-        log.error('browse failed', { error: String(err) });
+        log.error('browse failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -331,7 +331,7 @@ app.get('/api/resources/:id', async (req: Request, res: Response) => {
         const enriched = await enrichResources(rows);
         res.json(enriched[0]);
     } catch (err) {
-        log.error('resource detail failed', { error: String(err) });
+        log.error('resource detail failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -370,7 +370,7 @@ app.get('/api/resources/:id/related', async (req: Request, res: Response) => {
 
         res.json(await enrichResources(rows));
     } catch (err) {
-        log.error('related resources failed', { error: String(err) });
+        log.error('related resources failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });

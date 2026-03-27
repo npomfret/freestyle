@@ -4,7 +4,7 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
-import { log } from './lib/logger.js';
+import { log, serializeError } from './lib/logger.js';
 import { getNextRepairResource, getNextNoAnalysisResource, getNextNoDescriptionResource, getRepairResourceById } from './lib/resource-queries.js';
 import { fetchPageTool, repairUpdateTool } from './lib/tool-declarations.js';
 import { TOPICS } from './lib/types.js';
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
                 try {
                     await repairOne(resource);
                 } catch (err) {
-                    log.error('repair failed', { id: resource.id, error: String(err) });
+                    log.error('repair failed', { id: resource.id, ...serializeError(err) });
                 }
                 // Bump updated_at so getNextRepairResource doesn't retry the same resource.
                 await db.query('UPDATE resources SET updated_at = now() WHERE id = $1', [resource.id]);

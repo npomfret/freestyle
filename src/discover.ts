@@ -4,7 +4,7 @@ import type { AgentConfig } from './lib/agent-runner.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { webSearch, checkSocial, checkReferences } from './lib/gemini-search.js';
-import { log } from './lib/logger.js';
+import { log, serializeError } from './lib/logger.js';
 import {
     fetchPageTool, webSearchTool, checkExistingTool, addResourceTool,
     checkSocialTool, checkReferencesTool, queueItemsTool, getQueueTool,
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
             try {
                 await run();
             } catch (err) {
-                log.error('discovery loop iteration failed', { error: String(err) });
+                log.error('discovery loop iteration failed', serializeError(err));
             }
         }
     } else {

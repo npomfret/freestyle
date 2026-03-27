@@ -336,6 +336,45 @@ app.get('/api/resources/:id', async (req: Request, res: Response) => {
     }
 });
 
+// Related resources by embedding similarity
+app.get('/api/resources/:id/related', async (req: Request, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) {
+            res.status(400).json({ error: 'Invalid resource id' });
+            return;
+        }
+        const limit = clampInt(req.query.limit, 1, 20, 5);
+
+        const { rows: target } = await db.query(
+            'SELECT embedding FROM resources WHERE id = $1',
+            [id],
+        );
+        if (!target.length) {
+            res.status(404).json({ error: 'Not found' });
+            return;
+        }
+        if (!target[0].embedding) {
+            res.json([]);
+            return;
+        }
+
+        const { rows } = await db.query(`
+            SELECT r.id, r.name, r.url, r.created_at, r.updated_at,
+                   1 - (r.embedding <=> $1::vector) AS similarity
+            FROM resources r
+            WHERE r.id != $2 AND r.embedding IS NOT NULL
+            ORDER BY r.embedding <=> $1::vector
+            LIMIT $3
+        `, [target[0].embedding, id, limit]);
+
+        res.json(await enrichResources(rows));
+    } catch (err) {
+        log.error('related resources failed', { error: String(err) });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // ============================================================
 // Helpers
 // ============================================================

@@ -1,0 +1,24 @@
+---
+description: Draft a commit message for the current changes. Manual command only.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash(git status:*)
+  - Bash(git diff:*)
+  - Bash(git log:*)
+---
+
+# Comment
+
+Draft a commit message for the current changeset.
+
+- Analyze staged and unstaged changes first.
+- Do not stage, unstage, commit, or edit files.
+- If untracked files are present, call that out before drafting the message.
+- Output:
+  - one concise subject line
+  - blank line
+  - one short paragraph per concern when the changeset mixes concerns
+- Keep the message intent-focused, not file-by-file.
+- After the message, offer an optional split suggestion if the changeset mixes concerns.

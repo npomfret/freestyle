@@ -1,4 +1,4 @@
-import { fetchPage, updateResource } from './lib/agent-tools.js';
+import { fetchPage, updateResource, queueItems } from './lib/agent-tools.js';
 import type { ResourceRow } from './lib/agent-tools.js';
 import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
@@ -6,8 +6,8 @@ import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { log, serializeError } from './lib/logger.js';
 import { getNextRepairResource, getNextNoAnalysisResource, getNextNoDescriptionResource, getRepairResourceById } from './lib/resource-queries.js';
-import { fetchPageTool, repairUpdateTool } from './lib/tool-declarations.js';
-import { TOPICS } from './lib/types.js';
+import { fetchPageTool, repairUpdateTool, queueItemsTool } from './lib/tool-declarations.js';
+import { TOPICS, Url, SourceName } from './lib/types.js';
 
 const TOPIC_LIST = TOPICS.join(', ');
 
@@ -36,6 +36,9 @@ You will receive a resource's current metadata and the fetched content of its UR
 - Always call update_resource, even if the existing metadata looks correct (confirm and improve it).
 - Read the page content carefully. Extract specific details rather than paraphrasing generically.
 
+## List resources
+If the page is primarily a curated list/index of other resources (e.g. a GitHub "awesome list" whose README is mostly links to datasets, APIs, or tools), call queue_items BEFORE update_resource to extract the individual resource URLs. Set depth=1 for each item (these are one level below the current resource). The system stops drilling at depth 3 automatically — no need to judge whether children are also lists.
+
 Available topic labels: ${TOPIC_LIST}
 Kind values: api (HTTP endpoints), dataset (downloadable data), service (hosted tool), code (repo/library)
 Region format: "Global", continent, continent/country, or sub-region`;
@@ -58,7 +61,7 @@ async function repairOne(resource: ResourceRow): Promise<void> {
     const config: AgentConfig = {
         name: 'repair',
         systemInstruction: SYSTEM_INSTRUCTION,
-        tools: [repairUpdateTool, fetchPageTool],
+        tools: [repairUpdateTool, fetchPageTool, queueItemsTool],
         maxTurns: 10,
         provider: 'gemini-cli',
 
@@ -73,6 +76,16 @@ async function repairOne(resource: ResourceRow): Promise<void> {
                 notes: args.notes as string,
             }, { skipLinkChecks: true })],
             ['fetch_page', async (args) => fetchPage(args.url as string)],
+            ['queue_items', async (args) => {
+                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
+                const items = rawItems.map((i) => ({
+                    url: Url(i.url),
+                    label: i.label ?? '',
+                    source: SourceName(i.source ?? resource.url),
+                    depth: i.depth ?? 1,
+                }));
+                return queueItems(db, { items });
+            }],
         ),
 
         onResponse: () => 'continue',

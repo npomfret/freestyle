@@ -73,6 +73,15 @@ The URL we store should be the resource's main website, documentation page, or p
 - Generic/obvious resources everyone already knows (Google Maps, Twitter API, etc.)
 - Marketing pages that say "API" but are really selling SaaS
 
+## Handling lists and "awesome lists"
+GitHub repos whose README is primarily a curated list of links (e.g. "awesome-public-datasets", "public-apis", "awesome-X") are **directories, not primary resources**. Do NOT add them with add_resource. Instead:
+1. fetch_page the URL to get the content
+2. queue_items all the individual resource URLs found in the list
+3. When queueing items from a source that was itself queued at depth N, set depth = N+1 in each item
+4. The system stops drilling at depth 3 — items with depth >= 3 are dropped automatically
+
+This applies to any page that is primarily an index of other resources, not a resource itself.
+
 ## Quality evaluation process
 For each candidate resource:
 1. Use fetch_page to visit the actual page — verify it loads, is real, and is free
@@ -94,8 +103,9 @@ ${EXCLUDED_DOMAINS.join(', ')}
 ## Workflow
 1. web_search to find candidates
 2. For each: check_existing → fetch_page → check_references → add_resource (if it passes)
-3. If you find a list/directory: fetch_page it, queue_items the individual resources, get_queue to process them
-4. Search from multiple angles — try different search terms, follow links from good resources
+3. If you find a list/directory (awesome list, dataset index, API catalog): fetch_page it, queue_items the individual resources (depth=0 for top-level finds), do NOT add_resource for the list itself
+4. When processing items from get_queue, pass depth = item.depth+1 in queue_items if those items are also lists
+5. Search from multiple angles — try different search terms, follow links from good resources
 
 ## How to search
 Search for the subject matter directly — e.g. "crystal structure database", "earthquake data portal", "ship tracking AIS" — NOT "free crystal structure APIs databases datasets".
@@ -144,10 +154,10 @@ async function discover(query: string): Promise<void> {
             }],
             ['fetch_page', async (args) => fetchPage(args.url as string)],
             ['queue_items', async (args) => {
-                const rawItems = (args as { items: { url: string; label: string; source: string }[] }).items;
+                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
                 const filtered = rawItems
                     .filter((i) => !isExcludedUrl(i.url))
-                    .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source) }));
+                    .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source), depth: i.depth ?? 0 }));
                 const excluded = rawItems.length - filtered.length;
                 const result = await queueItems(db, { items: filtered });
                 return { ...result, excludedByBlocklist: excluded };

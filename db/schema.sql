@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS discovery_queue (
     label       TEXT NOT NULL DEFAULT '',
     source      TEXT NOT NULL DEFAULT '',
     status      TEXT NOT NULL DEFAULT 'pending',
+    depth       INT NOT NULL DEFAULT 0,
     notes       TEXT,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     processing_started_at TIMESTAMPTZ,

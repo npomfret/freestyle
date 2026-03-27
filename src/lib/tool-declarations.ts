@@ -228,7 +228,7 @@ export const checkReferencesTool: ToolDeclaration = {
 
 export const queueItemsTool: ToolDeclaration = {
     name: 'queue_items',
-    description: 'Queue multiple URLs for later processing. Use when you find a list/directory of resources.',
+    description: 'Queue multiple URLs for later processing. Use when you find a list/directory of resources. Items at depth >= 3 are silently dropped to prevent infinite recursion.',
     parameters: {
         type: 'object',
         properties: {
@@ -240,6 +240,7 @@ export const queueItemsTool: ToolDeclaration = {
                         url: { type: 'string', description: 'URL to queue' },
                         label: { type: 'string', description: 'Name or label of the resource' },
                         source: { type: 'string', description: 'Where you found this link' },
+                        depth: { type: 'number', description: 'Nesting depth — set to (source item depth + 1). Omit or use 0 for top-level items. Items at depth >= 3 are dropped.' },
                     },
                     required: ['url'],
                 },
@@ -252,7 +253,7 @@ export const queueItemsTool: ToolDeclaration = {
 
 export const getQueueTool: ToolDeclaration = {
     name: 'get_queue',
-    description: 'Get the next batch of pending URLs from the discovery queue to process.',
+    description: 'Get the next batch of pending URLs from the discovery queue to process. Each item includes a `depth` field — use depth+1 when calling queue_items for any children you find.',
     parameters: {
         type: 'object',
         properties: {

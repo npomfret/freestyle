@@ -283,19 +283,27 @@ export async function updateResource(
 // Tool: queue_items (accurate metrics)
 // ============================================================
 
+const MAX_DEPTH = 3;
+
 export async function queueItems(
     db: pg.Pool | pg.Client,
-    args: { items: { url: Url; label: string; source: SourceName }[] },
-): Promise<{ queued: number; skipped: number }> {
+    args: { items: { url: Url; label: string; source: SourceName; depth?: number }[] },
+): Promise<{ queued: number; skipped: number; tooDeep: number }> {
     let queued = 0;
     let skipped = 0;
+    let tooDeep = 0;
     for (const item of args.items) {
+        const depth = item.depth ?? 0;
+        if (depth >= MAX_DEPTH) {
+            tooDeep++;
+            continue;
+        }
         try {
             const { rowCount } = await db.query(
-                `INSERT INTO discovery_queue (url, label, source)
-         VALUES ($1, $2, $3)
+                `INSERT INTO discovery_queue (url, label, source, depth)
+         VALUES ($1, $2, $3, $4)
          ON CONFLICT (url) DO NOTHING`,
-                [item.url, item.label || '', item.source || ''],
+                [item.url, item.label || '', item.source || '', depth],
             );
             if (rowCount && rowCount > 0) queued++;
             else skipped++;
@@ -303,7 +311,7 @@ export async function queueItems(
             skipped++;
         }
     }
-    return { queued, skipped };
+    return { queued, skipped, tooDeep };
 }
 
 // ============================================================
@@ -313,7 +321,7 @@ export async function queueItems(
 export async function getQueue(
     db: pg.Pool | pg.Client,
     args: { limit: number },
-): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName }[]> {
+): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName; depth: number }[]> {
     // Reset items stuck in 'processing' for >10 minutes (crash recovery).
     // Use processing_started_at so we measure from when processing began, not when the item was queued.
     // IS NULL handles rows that were stuck in processing before this column was added.
@@ -336,13 +344,14 @@ export async function getQueue(
     SET status = 'processing', processing_started_at = now()
     FROM claimed
     WHERE dq.id = claimed.id
-    RETURNING dq.id, dq.url, dq.label, dq.source`,
+    RETURNING dq.id, dq.url, dq.label, dq.source, dq.depth`,
         [args.limit || 10],
     );
-    return rows.map((r: { id: number; url: string; label: string; source: string }) => ({
+    return rows.map((r: { id: number; url: string; label: string; source: string; depth: number }) => ({
         id: mkQueueItemId(r.id),
         url: r.url as Url,
         label: r.label,
         source: r.source as SourceName,
+        depth: r.depth,
     }));
 }

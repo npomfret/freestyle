@@ -372,25 +372,16 @@ header h1 {
   gap: 8px;
 }
 
-/* Expanded card / analysis */
-.card-expanded {
-  border-color: #3a3a5a;
-}
-
 .expand-indicator {
-  font-size: 10px;
-  color: #555;
+  font-size: 16px;
+  color: #444;
   margin-left: auto;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
-.analysis {
-  font-size: 13px;
-  color: #aaa;
-  line-height: 1.5;
-  padding: 10px 0 4px;
-  border-top: 1px solid #1e1e2e;
-  margin-top: 8px;
-  white-space: pre-wrap;
+.card:hover .expand-indicator {
+  color: #666;
 }
 
 /* Infinite scroll sentinel */
@@ -399,52 +390,205 @@ header h1 {
   padding: 8px 0;
 }
 
-/* Similar resources section */
-.related {
-  border-top: 1px solid #1e1e2e;
-  margin-top: 10px;
-  padding-top: 8px;
-}
-
-.related-heading {
-  font-size: 11px;
-  font-weight: 600;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 6px;
-}
-
-.related-item {
-  padding: 4px 0;
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
 }
 
-.related-item a {
-  font-size: 13px;
-  color: #99b;
+.modal {
+  position: relative;
+  background: #14141f;
+  border: 1px solid #2a2a4a;
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 720px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #aaa;
+  background: #1e1e2e;
+}
+
+.modal-header {
+  margin-bottom: 20px;
+  padding-right: 32px;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.modal-title a {
+  color: #9aacff;
   text-decoration: none;
 }
 
-.related-item a:hover {
-  color: #bbf;
+.modal-title a:hover {
   text-decoration: underline;
 }
 
-.related-kinds {
+.modal-tags {
   display: flex;
-  gap: 3px;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
 }
 
-.related-desc {
-  width: 100%;
+.modal-url {
   font-size: 12px;
-  color: #666;
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #446;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.modal-url:hover {
+  color: #77a;
+  text-decoration: underline;
+}
+
+.modal-section {
+  border-top: 1px solid #1e1e2e;
+  padding: 16px 0;
+}
+
+.modal-section-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: #556;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 10px;
+}
+
+.modal-descriptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-desc {
+  font-size: 14px;
+  color: #bbb;
+  line-height: 1.6;
+}
+
+.modal-analysis {
+  font-size: 14px;
+  color: #aaa;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.modal-tags-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.modal-sources {
+  font-size: 12px;
+  color: #555;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.modal-sources-label {
+  color: #444;
+  margin-right: 2px;
+}
+
+.modal-sources a {
+  color: #668;
+  text-decoration: none;
+}
+
+.modal-sources a:hover {
+  color: #99b;
+  text-decoration: underline;
+}
+
+.modal-sources-sep {
+  color: #444;
+}
+
+.modal-related {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-related-item {
+  padding: 12px;
+  background: #0e0e1a;
+  border: 1px solid #1e1e2e;
+  border-radius: 8px;
+}
+
+.modal-related-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.modal-related-header a {
+  font-size: 14px;
+  font-weight: 500;
+  color: #7b8fff;
+  text-decoration: none;
+}
+
+.modal-related-header a:hover {
+  text-decoration: underline;
+}
+
+.modal-related-kinds {
+  display: flex;
+  gap: 4px;
+}
+
+.modal-related-desc {
+  font-size: 13px;
+  color: #777;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.modal-footer {
+  border-top: 1px solid #1e1e2e;
+  padding-top: 12px;
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #444;
 }

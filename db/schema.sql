@@ -149,8 +149,9 @@ CREATE TABLE IF NOT EXISTS discovery_queue (
     source      TEXT NOT NULL DEFAULT '',
     status      TEXT NOT NULL DEFAULT 'pending',
     notes       TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    processed_at TIMESTAMPTZ
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processing_started_at TIMESTAMPTZ,
+    processed_at          TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_discovery_queue_status ON discovery_queue(status);

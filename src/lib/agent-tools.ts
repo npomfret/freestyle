@@ -191,22 +191,22 @@ export async function updateResource(
             );
         }
 
-        // Update topics if provided (filter to valid labels)
-        if (args.topics && args.topics.length > 0) {
+        // Update topics if provided (filter to valid labels).
+        // Delete unconditionally so an empty array clears stale topics.
+        if (args.topics !== undefined) {
+            await client.query('DELETE FROM resource_topics WHERE resource_id = $1', [resource.id]);
             const validTopics = args.topics.filter(t => (TOPICS as readonly string[]).includes(t));
-            if (validTopics.length > 0) {
-                await client.query('DELETE FROM resource_topics WHERE resource_id = $1', [resource.id]);
-                for (const t of validTopics) {
-                    await client.query(
-                        'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
-                        [resource.id, t],
-                    );
-                }
+            for (const t of validTopics) {
+                await client.query(
+                    'INSERT INTO resource_topics (resource_id, topic) VALUES ($1, $2)',
+                    [resource.id, t],
+                );
             }
         }
 
-        // Update regions if provided
-        if (args.regions && args.regions.length > 0) {
+        // Update regions if provided.
+        // Delete unconditionally so an empty array clears stale regions.
+        if (args.regions !== undefined) {
             await client.query('DELETE FROM resource_regions WHERE resource_id = $1', [resource.id]);
             for (const reg of args.regions) {
                 await client.query(
@@ -314,11 +314,13 @@ export async function getQueue(
     db: pg.Pool | pg.Client,
     args: { limit: number },
 ): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName }[]> {
-    // Reset items stuck in 'processing' for >10 minutes (crash recovery)
+    // Reset items stuck in 'processing' for >10 minutes (crash recovery).
+    // Use processing_started_at so we measure from when processing began, not when the item was queued.
+    // IS NULL handles rows that were stuck in processing before this column was added.
     await db.query(
-        `UPDATE discovery_queue SET status = 'pending'
+        `UPDATE discovery_queue SET status = 'pending', processing_started_at = NULL
          WHERE status = 'processing'
-         AND created_at < now() - interval '10 minutes'`,
+         AND (processing_started_at IS NULL OR processing_started_at < now() - interval '10 minutes')`,
     );
 
     // Atomic claim: SELECT + UPDATE in a single statement using a CTE
@@ -331,7 +333,7 @@ export async function getQueue(
       FOR UPDATE SKIP LOCKED
     )
     UPDATE discovery_queue dq
-    SET status = 'processing'
+    SET status = 'processing', processing_started_at = now()
     FROM claimed
     WHERE dq.id = claimed.id
     RETURNING dq.id, dq.url, dq.label, dq.source`,

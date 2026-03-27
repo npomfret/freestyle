@@ -364,6 +364,10 @@ app.get('/api/resources/:id/related', async (req: Request, res: Response) => {
                    1 - (r.embedding <=> $1::vector) AS similarity
             FROM resources r
             WHERE r.id != $2 AND r.embedding IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM link_checks lc
+                WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead')
+              )
             ORDER BY r.embedding <=> $1::vector
             LIMIT $3
         `, [target[0].embedding, id, limit]);

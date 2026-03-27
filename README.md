@@ -1,6 +1,6 @@
 # Freestyle
 
-Freestyle is a local catalog and search app for free APIs, open datasets, and related developer resources. In normal use it runs from the generated `catalog.json` data and a local Postgres database, with an Express API plus a small React frontend. The checked-out `free-stuff/` repo collection is only needed if you want to regenerate the catalog from source.
+Freestyle is a system for finding, recording, analysing, and maintaining a database of free or near-free datasets, databases, APIs, services, and related developer resources. During development it runs from the generated `catalog.json` data and a Postgres database, with an Express API plus a small React frontend for cataloging and search. The checked-out `free-stuff/` repo collection is only needed if you want to regenerate the catalog from source.
 
 ## Project Shape
 

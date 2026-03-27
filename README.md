@@ -61,8 +61,8 @@ There are three independent free-tier quotas (flash-lite, flash, pro) spread acr
 Runs inference locally via [Ollama](https://ollama.com). Free and offline, but uses significant CPU/GPU — not ideal for laptops running long batch jobs.
 
 ```
-OLLAMA_MODEL=qwen2.5:32b
-OLLAMA_URL=http://localhost:11434
+LOCAL_LLM_MODEL=qwen2.5:32b
+LOCAL_LLM_URL=http://localhost:11434
 ```
 
 ### `gemini` (paid API)
@@ -78,8 +78,8 @@ See `.env.example` for a complete template.
 - `LLM_PROVIDER` — `gemini-cli` (default), `ollama`, or `gemini`
 - `GEMINI_MODEL` — model name for `gemini-cli` (single model) and `gemini` providers
 - `GEMINI_MODELS` — comma-separated model cascade for `gemini-cli` (overrides `GEMINI_MODEL`)
-- `OLLAMA_MODEL` — Ollama model name (required when `LLM_PROVIDER=ollama`)
-- `OLLAMA_URL` — Ollama server URL (default: `http://localhost:11434`)
+- `LOCAL_LLM_MODEL` — local model name (required when `LLM_PROVIDER=ollama`; works with Ollama, MLX Studio, LM Studio, etc.)
+- `LOCAL_LLM_URL` — local LLM server URL (default: `http://localhost:11434`)
 - `GEMINI_API_KEY` — required for the `gemini` provider and for web search grounding in `discover`
 
 ## Important Run Targets

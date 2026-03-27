@@ -122,8 +122,8 @@ export class OllamaProvider implements LLMProvider {
     private baseUrl: string;
 
     constructor() {
-        this.model = requiredEnv('OLLAMA_MODEL');
-        this.baseUrl = process.env.OLLAMA_URL ?? DEFAULT_URL;
+        this.model = requiredEnv('LOCAL_LLM_MODEL');
+        this.baseUrl = process.env.LOCAL_LLM_URL ?? DEFAULT_URL;
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {

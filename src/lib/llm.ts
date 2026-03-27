@@ -67,8 +67,8 @@ export async function getLLMProvider(): Promise<LLMProvider> {
             const { OllamaProvider } = await import('./ollama-provider.js');
             cachedProvider = new OllamaProvider();
             log.info('using Ollama LLM provider', {
-                model: process.env.OLLAMA_MODEL,
-                url: process.env.OLLAMA_URL ?? 'http://localhost:11434',
+                model: process.env.LOCAL_LLM_MODEL,
+                url: process.env.LOCAL_LLM_URL ?? 'http://localhost:11434',
             });
             break;
         }

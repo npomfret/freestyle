@@ -97,6 +97,10 @@ ${EXCLUDED_DOMAINS.join(', ')}
 3. If you find a list/directory: fetch_page it, queue_items the individual resources, get_queue to process them
 4. Search from multiple angles — try different search terms, follow links from good resources
 
+## How to search
+Search for the subject matter directly — e.g. "crystal structure database", "earthquake data portal", "ship tracking AIS" — NOT "free crystal structure APIs databases datasets".
+Find the resource first, then evaluate whether it's free. Appending "free API" to every query produces worse results.
+
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
 // ============================================================

@@ -86,8 +86,17 @@ export async function getLLMProvider(): Promise<LLMProvider> {
             });
             break;
         }
+        case 'local': {
+            const { LocalProvider } = await import('./local-provider.js');
+            cachedProvider = new LocalProvider();
+            log.info('using local LLM provider (OpenAI-compatible)', {
+                model: process.env.LOCAL_LLM_MODEL ?? 'local',
+                url: process.env.LOCAL_LLM_URL,
+            });
+            break;
+        }
         default:
-            throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'ollama', 'gemini', or 'gemini-cli'.`);
+            throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
     }
 
     return cachedProvider;

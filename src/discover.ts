@@ -7,45 +7,11 @@ import { getLLMProvider } from './lib/llm.js';
 import type { LLMMessage, ToolDeclaration } from './lib/llm.js';
 import { withRetry } from './lib/retry.js';
 import { log } from './lib/logger.js';
-import { Kind, Region, SourceName, Topic, Url } from './lib/types.js';
+import { Kind, Region, SourceName, Topic, TOPICS, Url } from './lib/types.js';
 
 const MAX_TURNS = 50;
 
-const TOPIC_LABELS = [
-    'ai-ml',
-    'agriculture',
-    'audio',
-    'bioinformatics',
-    'blockchain',
-    'chemistry',
-    'climate',
-    'cybersecurity',
-    'data-science',
-    'developer',
-    'drug-discovery',
-    'finance',
-    'food',
-    'games',
-    'geospatial',
-    'geoscience',
-    'government',
-    'health',
-    'humanities',
-    'journalism',
-    'law',
-    'maritime',
-    'materials',
-    'neuroscience',
-    'nlp',
-    'open-science',
-    'remote-sensing',
-    'robotics',
-    'semantic-web',
-    'social-science',
-    'space',
-    'sports',
-    'transport',
-];
+const TOPIC_LABELS = TOPICS;
 
 // ============================================================
 // Exclusion list — skip these domains/URLs automatically
@@ -156,7 +122,7 @@ const toolDeclarations: ToolDeclaration[] = [
                 kinds: {
                     type: 'array',
                     items: { type: 'string' },
-                    description: 'Resource types. One or more of: "api", "dataset", "service", "code"',
+                    description: 'Resource types. One or more of: "api", "dataset", "service"',
                 },
                 topics: {
                     type: 'array',

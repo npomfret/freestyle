@@ -21,14 +21,43 @@ export type KindValue = (typeof KINDS)[number];
 
 // === Known topic labels ===
 export const TOPICS = [
-    'ai-ml', 'agriculture', 'audio', 'bioinformatics', 'blockchain',
-    'chemistry', 'climate', 'cybersecurity', 'data-science', 'developer',
-    'drug-discovery', 'finance', 'food', 'games', 'geospatial', 'geoscience',
-    'government', 'health', 'humanities', 'journalism', 'law', 'maritime',
-    'materials', 'neuroscience', 'nlp', 'open-science', 'remote-sensing',
-    'robotics', 'semantic-web', 'social-science', 'space', 'sports', 'transport',
+    // Finance & Economics
+    'banking', 'capital-markets', 'forex', 'commodities', 'economics',
+    'insurance', 'crypto', 'alternative-data',
+    // Energy
+    'oil-gas', 'electricity', 'renewables', 'utilities',
+    // Agriculture & Food
+    'crops', 'livestock', 'food',
+    // Environment & Climate
+    'climate', 'pollution', 'biodiversity', 'oceans',
+    // Health & Medicine
+    'public-health', 'clinical', 'pharma', 'mental-health',
+    // Science & Research
+    'chemistry', 'physics', 'biology', 'earth-science', 'materials',
+    'neuroscience', 'drug-discovery', 'open-science',
+    // Space & Remote Sensing
+    'space', 'astronomy', 'remote-sensing',
+    // Transport & Logistics
+    'roads-traffic', 'public-transit', 'maritime', 'aviation', 'logistics',
+    // Technology & Computing
+    'ai-ml', 'nlp', 'iot', 'cybersecurity', 'developer', 'cloud',
+    // Government & Public Sector
+    'government', 'law', 'crime', 'military',
+    // Demographics & Society
+    'demographics', 'education', 'employment', 'housing',
+    // Media & Communication
+    'journalism', 'social-media', 'audio', 'images-video',
+    // Commerce & Industry
+    'retail', 'manufacturing', 'construction',
+    // Sports & Entertainment
+    'sports', 'entertainment', 'gaming',
+    // Geospatial
+    'geospatial', 'urban',
+    // International
+    'humanitarian', 'trade',
+    // Other
+    'bioinformatics', 'semantic-web', 'humanities', 'robotics',
 ] as const;
-export type TopicValue = (typeof TOPICS)[number];
 
 // === Constructors (use at system boundaries: DB reads, CLI args, API input) ===
 export const ResourceId = (n: number) => n as ResourceId;

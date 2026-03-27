@@ -16,13 +16,33 @@ CREATE TABLE IF NOT EXISTS resources (
 
 CREATE TABLE IF NOT EXISTS resource_kinds (
     resource_id INT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
-    kind        TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('api', 'dataset', 'service', 'code')),
     PRIMARY KEY (resource_id, kind)
 );
 
 CREATE TABLE IF NOT EXISTS resource_topics (
     resource_id INT NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
-    topic       TEXT NOT NULL,
+    topic       TEXT NOT NULL CHECK (topic IN (
+        'banking', 'capital-markets', 'forex', 'commodities', 'economics',
+        'insurance', 'crypto', 'alternative-data',
+        'oil-gas', 'electricity', 'renewables', 'utilities',
+        'crops', 'livestock', 'food',
+        'climate', 'pollution', 'biodiversity', 'oceans',
+        'public-health', 'clinical', 'pharma', 'mental-health',
+        'chemistry', 'physics', 'biology', 'earth-science', 'materials',
+        'neuroscience', 'drug-discovery', 'open-science',
+        'space', 'astronomy', 'remote-sensing',
+        'roads-traffic', 'public-transit', 'maritime', 'aviation', 'logistics',
+        'ai-ml', 'nlp', 'iot', 'cybersecurity', 'developer', 'cloud',
+        'government', 'law', 'crime', 'military',
+        'demographics', 'education', 'employment', 'housing',
+        'journalism', 'social-media', 'audio', 'images-video',
+        'retail', 'manufacturing', 'construction',
+        'sports', 'entertainment', 'gaming',
+        'geospatial', 'urban',
+        'humanitarian', 'trade',
+        'bioinformatics', 'semantic-web', 'humanities', 'robotics'
+    )),
     PRIMARY KEY (resource_id, topic)
 );
 

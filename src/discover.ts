@@ -118,6 +118,7 @@ async function discover(query: string): Promise<void> {
             addResourceTool, fetchPageTool, queueItemsTool, getQueueTool,
         ],
         maxTurns: 50,
+        provider: 'gemini-cli',
 
         toolHandlers: toolHandlers(
             ['web_search', async (args) => ({ results: await webSearch(args.query as string) })],

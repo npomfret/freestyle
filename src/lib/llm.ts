@@ -58,7 +58,7 @@ export interface LLMProvider {
 let cachedProvider: LLMProvider | null = null;
 
 export async function getLLMProvider(override?: string): Promise<LLMProvider> {
-    const providerName = override ?? process.env.LLM_PROVIDER ?? 'gemini-cli';
+    const providerName = override ?? 'gemini-cli';
     if (!override && cachedProvider) return cachedProvider;
 
     let provider: LLMProvider;

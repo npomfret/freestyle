@@ -18,6 +18,16 @@ const corsOrigin = process.env.CORS_ORIGIN ?? '*';
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
+// Health check (before rate limiter so it's never throttled)
+app.get('/health', async (_req: Request, res: Response) => {
+    try {
+        const { rows } = await db.query('SELECT COUNT(*) FROM resources');
+        res.json({ status: 'ok', resources: Number(rows[0].count) });
+    } catch (err) {
+        res.status(503).json({ status: 'error', message: String(err) });
+    }
+});
+
 // Simple in-memory rate limiter (per IP, 100 req/min)
 const rateBuckets = new Map<string, number[]>();
 const RATE_LIMIT = 100;

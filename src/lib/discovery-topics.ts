@@ -466,7 +466,7 @@ export function generateDiscoveryQuery(): { group: string; query: string; } {
     const group = pickRandomGroup();
     // Pick 2-4 random topics from the group to form a focused query
     const shuffled = [...group.topics].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, 2 + Math.floor(Math.random() * 3));
+    const selected = shuffled.slice(0, 4 + Math.floor(Math.random() * 5));
     const query = `Find free APIs, datasets, and web services related to: ${selected.join(', ')}. Focus area: ${group.name}`;
     return { group: group.name, query };
 }

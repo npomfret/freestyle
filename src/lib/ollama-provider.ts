@@ -2,7 +2,6 @@ import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration, ToolParameter } from './llm.js';
 
-const DEFAULT_URL = 'http://localhost:11434';
 
 // ============================================================
 // Ollama API types
@@ -122,8 +121,8 @@ export class OllamaProvider implements LLMProvider {
     private baseUrl: string;
 
     constructor() {
-        this.model = requiredEnv('LOCAL_LLM_MODEL');
-        this.baseUrl = process.env.LOCAL_LLM_URL ?? DEFAULT_URL;
+        this.model = requiredEnv('OLLAMA_MODEL');
+        this.baseUrl = requiredEnv('OLLAMA_URL');
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {

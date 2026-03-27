@@ -237,7 +237,7 @@ function isRateLimitError(err: string): boolean {
 export class GeminiCliProvider implements LLMProvider {
     private models: string[];
     private currentModelIndex: number;
-    private ollamaFallback: LLMProvider | null = null;
+    private localFallback: LLMProvider | null = null;
 
     constructor() {
         checkGeminiCliReady();
@@ -313,11 +313,17 @@ export class GeminiCliProvider implements LLMProvider {
                     if (this.escalateModel()) {
                         continue; // retry with next model
                     }
-                    // All models exhausted — fall back to Ollama
-                    if (!this.ollamaFallback) {
-                        log.warn('all gemini models rate-limited, falling back to Ollama');
-                        const { OllamaProvider } = await import('./ollama-provider.js');
-                        this.ollamaFallback = new OllamaProvider();
+                    // All models exhausted — fall back to local LLM (OpenAI-compatible if configured, else Ollama)
+                    if (!this.localFallback) {
+                        if (process.env.OPENAI_COMPATIBLE_URL) {
+                            log.warn('all gemini models rate-limited, falling back to local LLM (OpenAI-compatible)');
+                            const { LocalProvider } = await import('./local-provider.js');
+                            this.localFallback = new LocalProvider();
+                        } else {
+                            log.warn('all gemini models rate-limited, falling back to Ollama');
+                            const { OllamaProvider } = await import('./ollama-provider.js');
+                            this.localFallback = new OllamaProvider();
+                        }
                     }
                     throw new AllModelsExhaustedError();
                 }
@@ -327,9 +333,9 @@ export class GeminiCliProvider implements LLMProvider {
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {
-        // If we've already exhausted all Gemini models, go straight to Ollama
-        if (this.ollamaFallback) {
-            return this.ollamaFallback.generate(messages, opts);
+        // If we've already exhausted all Gemini models, go straight to local LLM
+        if (this.localFallback) {
+            return this.localFallback.generate(messages, opts);
         }
 
         const prompt = buildPrompt(messages, opts);
@@ -341,7 +347,7 @@ export class GeminiCliProvider implements LLMProvider {
             responseText = await this.callCliWithEscalation(prompt);
         } catch (err) {
             if (err instanceof AllModelsExhaustedError) {
-                return this.ollamaFallback!.generate(messages, opts);
+                return this.localFallback!.generate(messages, opts);
             }
             throw err;
         }

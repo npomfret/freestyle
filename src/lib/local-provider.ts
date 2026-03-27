@@ -1,7 +1,6 @@
+import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions } from './llm.js';
-
-const DEFAULT_URL = 'http://localhost:11434';
 
 // ============================================================
 // OpenAI-compatible API types
@@ -89,10 +88,8 @@ export class LocalProvider implements LLMProvider {
     private baseUrl: string;
 
     constructor() {
-        // Model name is optional — for MLX Studio the port determines the model,
-        // so this is only used as a placeholder in the request body.
-        this.model = process.env.LOCAL_LLM_MODEL ?? 'local';
-        this.baseUrl = process.env.LOCAL_LLM_URL ?? DEFAULT_URL;
+        this.model = requiredEnv('OPENAI_COMPATIBLE_MODEL');
+        this.baseUrl = requiredEnv('OPENAI_COMPATIBLE_URL');
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {

@@ -3,19 +3,19 @@ import cors from 'cors';
 import express from 'express';
 import type { Request, Response } from 'express';
 import { resolve } from 'path';
+import { requiredEnv } from './lib/config.js';
 import { createPool } from './lib/db.js';
 import { embed } from './lib/embeddings.js';
 import { log, serializeError } from './lib/logger.js';
 import type { ResourceId } from './lib/types.js';
 
-const PORT = Number(process.env.PORT ?? 3001);
+const PORT = Number(requiredEnv('PORT'));
 const VALID_KINDS = new Set(['api', 'dataset', 'service', 'code']);
 
 const app = express();
 
 // CORS — configurable origin
-const corsOrigin = process.env.CORS_ORIGIN ?? '*';
-app.use(cors({ origin: corsOrigin }));
+app.use(cors({ origin: requiredEnv('CORS_ORIGIN') }));
 app.use(express.json());
 
 // Health check (before rate limiter so it's never throttled)

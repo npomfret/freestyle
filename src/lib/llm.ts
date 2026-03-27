@@ -67,8 +67,8 @@ export async function getLLMProvider(override?: string): Promise<LLMProvider> {
             const { OllamaProvider } = await import('./ollama-provider.js');
             provider = new OllamaProvider();
             log.info('using Ollama LLM provider', {
-                model: process.env.LOCAL_LLM_MODEL,
-                url: process.env.LOCAL_LLM_URL ?? 'http://localhost:11434',
+                model: process.env.OLLAMA_MODEL,
+                url: process.env.OLLAMA_URL,
             });
             break;
         }
@@ -90,8 +90,8 @@ export async function getLLMProvider(override?: string): Promise<LLMProvider> {
             const { LocalProvider } = await import('./local-provider.js');
             provider = new LocalProvider();
             log.info('using local LLM provider (OpenAI-compatible)', {
-                model: process.env.LOCAL_LLM_MODEL ?? 'local',
-                url: process.env.LOCAL_LLM_URL,
+                model: process.env.OPENAI_COMPATIBLE_MODEL,
+                url: process.env.OPENAI_COMPATIBLE_URL,
             });
             break;
         }

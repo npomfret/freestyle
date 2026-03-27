@@ -13,6 +13,8 @@
     "validity-check": "tsx src/recheck.ts",
     "validity-check:suspect": "tsx src/recheck.ts --suspect",
     "repair": "tsx src/repair.ts",
+    "repair:no-analysis": "tsx src/repair.ts --mode no-analysis",
+    "repair:no-description": "tsx src/repair.ts --mode no-description",
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",
     "dev": "tsx src/dev.ts",

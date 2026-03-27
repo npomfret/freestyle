@@ -5,7 +5,7 @@ import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { log } from './lib/logger.js';
-import { getNextRepairResource, getRepairResourceById } from './lib/resource-queries.js';
+import { getNextRepairResource, getNextNoAnalysisResource, getNextNoDescriptionResource, getRepairResourceById } from './lib/resource-queries.js';
 import { fetchPageTool, repairUpdateTool } from './lib/tool-declarations.js';
 import { TOPICS } from './lib/types.js';
 
@@ -103,8 +103,16 @@ Review the page content and call update_resource with accurate, complete metadat
 async function main(): Promise<void> {
     const args = process.argv.slice(2);
     const idFlag = args.indexOf('--id');
+    const modeFlag = args.indexOf('--mode');
     const singleId = idFlag !== -1 ? Number(args[idFlag + 1]) : null;
-    const batchArg = singleId == null ? args[0] : undefined;
+    const mode = modeFlag !== -1 ? args[modeFlag + 1] : 'all';
+    const batchArg = singleId == null ? args.find((a) => /^\d+$/.test(a)) : undefined;
+
+    const getNextResource = mode === 'no-analysis'
+        ? () => getNextNoAnalysisResource(db)
+        : mode === 'no-description'
+            ? () => getNextNoDescriptionResource(db)
+            : () => getNextRepairResource(db);
 
     try {
         if (singleId != null && Number.isInteger(singleId) && singleId > 0) {
@@ -117,12 +125,12 @@ async function main(): Promise<void> {
             await repairOne(resource);
         } else {
             const batchSize = Number(batchArg) || 10;
-            log.info('repair started', { count: batchSize });
+            log.info('repair started', { count: batchSize, mode });
 
             for (let i = 0; i < batchSize; i++) {
-                const resource = await getNextRepairResource(db);
+                const resource = await getNextResource();
                 if (!resource) {
-                    log.info('no more resources to repair');
+                    log.info('no more resources to repair', { mode });
                     break;
                 }
 

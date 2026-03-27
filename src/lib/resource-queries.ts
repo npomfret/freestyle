@@ -77,6 +77,38 @@ export async function getNextSuspectResource(db: pg.Pool | pg.Client): Promise<R
     return hydrateResource(db, rows[0]);
 }
 
+/** Next alive resource with no analysis entry. */
+export async function getNextNoAnalysisResource(db: pg.Pool | pg.Client): Promise<ResourceRow | null> {
+    const { rows } = await db.query(`
+        SELECT r.id, r.name, r.url
+        FROM resources r
+        LEFT JOIN link_checks lc ON lc.resource_id = r.id
+        LEFT JOIN resource_analyses ra ON ra.resource_id = r.id
+        WHERE (lc.status IS NULL OR lc.status = 'alive')
+          AND ra.resource_id IS NULL
+        ORDER BY r.updated_at ASC
+        LIMIT 1
+    `);
+    if (!rows.length) return null;
+    return hydrateResource(db, rows[0]);
+}
+
+/** Next alive resource with no description entry. */
+export async function getNextNoDescriptionResource(db: pg.Pool | pg.Client): Promise<ResourceRow | null> {
+    const { rows } = await db.query(`
+        SELECT r.id, r.name, r.url
+        FROM resources r
+        LEFT JOIN link_checks lc ON lc.resource_id = r.id
+        LEFT JOIN resource_descriptions rd ON rd.resource_id = r.id
+        WHERE (lc.status IS NULL OR lc.status = 'alive')
+          AND rd.resource_id IS NULL
+        ORDER BY r.updated_at ASC
+        LIMIT 1
+    `);
+    if (!rows.length) return null;
+    return hydrateResource(db, rows[0]);
+}
+
 /** Next resource for recheck: unchecked first, then oldest checked (>14 days), skip dead. */
 export async function getNextRecheckResource(db: pg.Pool | pg.Client): Promise<ResourceRow | null> {
     const { rows } = await db.query(`

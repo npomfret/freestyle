@@ -44,4 +44,5 @@ export interface Stats {
     added24h: number;
     checked24h: number;
     dead24h: number;
+    repaired24h: number;
 }

@@ -94,10 +94,16 @@ function App() {
                         <span>{stats.datasets.toLocaleString()} datasets</span>
                         <span className='sep'>·</span>
                         <span>{stats.topics} topics</span>
-                        {(stats.added24h > 0 || stats.checked24h > 0) && (
+                        {(stats.added24h > 0 || stats.checked24h > 0 || stats.repaired24h > 0) && (
                             <>
                                 <span className='sep'>·</span>
                                 <span>{stats.added24h} added today</span>
+                                {stats.repaired24h > 0 && (
+                                    <>
+                                        <span className='sep'>·</span>
+                                        <span>{stats.repaired24h} repaired today</span>
+                                    </>
+                                )}
                                 <span className='sep'>·</span>
                                 <span>{stats.checked24h} checked today</span>
                                 {stats.dead24h > 0 && (

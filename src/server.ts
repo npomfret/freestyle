@@ -84,6 +84,7 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
         const added24h = (await db.query('SELECT COUNT(*) FROM resources WHERE created_at >= now() - interval \'24 hours\'')).rows[0].count;
         const checked24h = (await db.query('SELECT COUNT(*) FROM link_checks WHERE checked_at >= now() - interval \'24 hours\'')).rows[0].count;
         const dead24h = (await db.query('SELECT COUNT(*) FROM link_checks WHERE status = \'dead\' AND checked_at >= now() - interval \'24 hours\'')).rows[0].count;
+        const repaired24h = (await db.query('SELECT COUNT(*) FROM resource_analyses WHERE updated_at >= now() - interval \'24 hours\'')).rows[0].count;
         res.json({
             resources: Number(resources),
             apis: Number(apis),
@@ -93,6 +94,7 @@ app.get('/api/stats', async (_req: Request, res: Response) => {
             added24h: Number(added24h),
             checked24h: Number(checked24h),
             dead24h: Number(dead24h),
+            repaired24h: Number(repaired24h),
         });
     } catch (err) {
         log.error('stats failed', serializeError(err));

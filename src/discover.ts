@@ -119,7 +119,14 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 
 const db = createPool();
 
-async function discover(query: string): Promise<void> {
+/** If url is a GitHub org root (github.com/<org>), return the repositories listing URL. */
+function githubOrgReposUrl(url: string): string | null {
+    const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/?$/);
+    if (!match) return null;
+    return `https://github.com/orgs/${match[1]}/repositories?type=all`;
+}
+
+async function discover(query: string, isUrl = false): Promise<void> {
     const config: AgentConfig = {
         name: 'discover',
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -182,9 +189,14 @@ async function discover(query: string): Promise<void> {
         },
     };
 
-    await runAgent(config, [
-        { role: 'user', text: `Your task: "${query}"\n\nBegin by searching for relevant resources.` },
-    ]);
+    const reposUrl = isUrl ? githubOrgReposUrl(query) : null;
+    const initialMessage = reposUrl
+        ? `Evaluate the GitHub organization at ${query}. Fetch its repository listing at ${reposUrl} to find individual repos. For each relevant repo, evaluate it and add it to the catalog if it qualifies. Do NOT add the org page itself.`
+        : isUrl
+        ? `Evaluate this specific URL and add it to the catalog if appropriate: ${query}\n\nBegin by fetching the page directly with fetch_page.`
+        : `Your task: "${query}"\n\nBegin by searching for relevant resources.`;
+
+    await runAgent(config, [{ role: 'user', text: initialMessage }]);
 }
 
 // ============================================================
@@ -202,7 +214,8 @@ async function run(): Promise<void> {
             'Process the pending items in the discovery queue. Use get_queue to fetch them, evaluate each one, and add good ones to the database.',
         );
     } else if (userQuery) {
-        await discover(userQuery);
+        const isUrl = /^https?:\/\//.test(userQuery);
+        await discover(userQuery, isUrl);
     } else {
         const { group, query } = generateDiscoveryQuery();
         log.info('auto-selected topic group', { group });

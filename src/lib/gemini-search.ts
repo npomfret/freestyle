@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { requiredEnv } from './config.js';
 import { withRetry } from './retry.js';
+import { pickGeminiModel } from './gemini-cli-quota.js';
 
 // ============================================================
 // Shared Gemini instance for web search grounding
@@ -17,8 +17,6 @@ function getSearchGenai(): GoogleGenAI {
     return searchGenai;
 }
 
-const SEARCH_MODEL = requiredEnv('GEMINI_MODEL');
-
 /**
  * Web search via Gemini with Google Search grounding.
  * Returns text results including grounding URLs when available.
@@ -26,8 +24,9 @@ const SEARCH_MODEL = requiredEnv('GEMINI_MODEL');
 export async function webSearch(query: string): Promise<string> {
     try {
         const genai = getSearchGenai();
+        const model = await pickGeminiModel();
         const response = await withRetry(() => genai.models.generateContent({
-            model: SEARCH_MODEL,
+            model,
             contents:
                 `Search for: ${query}\n\nReturn a list of relevant URLs with brief descriptions. IMPORTANT: Return the actual destination URLs, not redirect URLs. Focus on primary sources — the actual API documentation, dataset download page, or GitHub repo. Skip aggregator sites, blog posts, tutorials, and directories. Format each result as:\n- [Name](URL) - description`,
             config: {
@@ -61,8 +60,9 @@ export async function webSearch(query: string): Promise<string> {
 export async function checkSocial(name: string): Promise<string> {
     try {
         const genai = getSearchGenai();
+        const model = await pickGeminiModel();
         const response = await withRetry(() => genai.models.generateContent({
-            model: SEARCH_MODEL,
+            model,
             contents:
                 `Search for: "${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com\n\nAlso search for: "${name}" API trends\n\nSummarize:\n1. Is this resource being discussed on Reddit, HackerNews, or Twitter? How recently?\n2. Is sentiment positive, negative, or mixed?\n3. Is interest growing, stable, or declining?\n4. Any red flags (e.g. people complaining about reliability, surprise pricing, shutdowns)?\n5. Overall social signal: strong, moderate, weak, or none`,
             config: {
@@ -81,8 +81,9 @@ export async function checkSocial(name: string): Promise<string> {
 export async function checkReferences(url: string): Promise<string> {
     try {
         const genai = getSearchGenai();
+        const model = await pickGeminiModel();
         const response = await withRetry(() => genai.models.generateContent({
-            model: SEARCH_MODEL,
+            model,
             contents:
                 `Search for: "${url}"\n\nFind pages that link to or mention this URL. Summarize:\n1. How many results reference it (roughly)\n2. What kinds of sites reference it (academic, government, industry, blogs, awesome-lists)\n3. Any notable organizations or projects that use or recommend it\n4. Overall credibility signal: strong, moderate, weak, or unknown`,
             config: {

@@ -82,9 +82,7 @@ export async function getLLMProvider(override?: string): Promise<LLMProvider> {
         case 'gemini-cli': {
             const { GeminiCliProvider } = await import('./gemini-cli-provider.js');
             provider = new GeminiCliProvider();
-            log.info('using Gemini CLI provider', {
-                model: process.env.GEMINI_MODEL,
-            });
+            log.info('using Gemini CLI provider');
             break;
         }
         case 'local': {

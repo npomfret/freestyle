@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import { withRetry } from './retry.js';
+import { pickGeminiModel } from './gemini-cli-quota.js';
 
 // ============================================================
 // Types
@@ -200,8 +200,9 @@ async function fetchWithGeminiUrlContext(url: string): Promise<RawFetchResult> {
     const genai = getGenAI();
     if (!genai) throw new Error('GEMINI_API_KEY not set');
 
+    const model = await pickGeminiModel();
     const response = await withRetry(() => genai.models.generateContent({
-        model: requiredEnv('GEMINI_MODEL'),
+        model,
         contents: `Visit this URL and return the full text content of the page. Do not summarize or interpret — return the actual text as-is, including headings, navigation, and footer text. URL: ${url}`,
         config: {
             tools: [{ urlContext: {} }],

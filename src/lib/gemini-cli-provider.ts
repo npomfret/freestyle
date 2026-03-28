@@ -2,6 +2,8 @@ import { execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
 import { requiredEnv } from './config.js';
 import { log } from './logger.js';
+import { modelFamily, fetchGeminiQuota } from './gemini-cli-quota.js';
+import type { GeminiQuotaSnapshot } from './gemini-cli-quota.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration } from './llm.js';
 
 const execFileAsync = promisify(execFile);
@@ -234,52 +236,105 @@ function isRateLimitError(err: string): boolean {
     return RATE_LIMIT_PATTERNS.some((p) => p.test(err));
 }
 
-// How long to treat a model as rate-limited before retrying it (ms).
+// How long to treat a family as rate-limited before retrying it (ms).
 const RATE_LIMIT_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+// How long to trust a successful quota snapshot before re-fetching.
+const QUOTA_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export class GeminiCliProvider implements LLMProvider {
     private models: string[];
-    private rateLimitedAt: Map<string, number> = new Map();
+    /** Per-family runtime rate-limit timestamp (set when a CLI call returns a rate-limit error). */
+    private familyRateLimitedAt: Map<string, number> = new Map();
     private localFallback: LLMProvider | null = null;
+
+    /** Proactively fetched quota snapshot. */
+    private quotaSnapshot: GeminiQuotaSnapshot | null = null;
+    private quotaFetchedAt = 0;
+    /** In-flight startup probe — awaited before the first model selection. */
+    private quotaStartupPromise: Promise<void> | null = null;
 
     constructor() {
         checkGeminiCliReady();
-        // Models in order of preference (cheapest first).
-        // Configure via GEMINI_MODELS (comma-separated) or GEMINI_MODEL (single).
-        const modelsEnv = process.env.GEMINI_MODELS;
-        if (modelsEnv) {
-            this.models = modelsEnv.split(',').map((m) => m.trim()).filter(Boolean);
-        } else {
-            this.models = [requiredEnv('GEMINI_MODEL')];
-        }
+        // Models in order of preference (cheapest first). Configure via GEMINI_MODELS (comma-separated).
+        const modelsEnv = requiredEnv('GEMINI_MODELS');
+        this.models = modelsEnv.split(',').map((m) => m.trim()).filter(Boolean);
         log.info('gemini-cli models', { models: this.models });
+        // Start quota probe immediately so the snapshot is ready before the first request.
+        this.quotaStartupPromise = this.refreshQuota();
     }
 
-    /** Returns the cheapest model whose rate-limit cooldown has expired, or null if all are exhausted. */
-    private get model(): string | null {
-        const now = Date.now();
-        for (const m of this.models) {
-            const t = this.rateLimitedAt.get(m);
-            if (!t || now - t > RATE_LIMIT_COOLDOWN_MS) return m;
+    /**
+     * Refresh the quota snapshot if the cache is stale.
+     * Failures are non-fatal: logs a warning and leaves snapshot null.
+     */
+    private async refreshQuota(): Promise<void> {
+        if (Date.now() - this.quotaFetchedAt < QUOTA_TTL_MS) return;
+        try {
+            this.quotaSnapshot = await fetchGeminiQuota();
+            this.quotaFetchedAt = Date.now();
+            log.info('gemini-cli quota snapshot', {
+                families: this.quotaSnapshot.families.map(
+                    (f) => `${f.family}=${f.remainingPercent}%`,
+                ),
+            });
+        } catch (err) {
+            log.warn('gemini-cli quota probe failed, falling back to reactive rate-limit handling', {
+                error: String(err),
+            });
         }
+    }
+
+    /**
+     * Returns the first configured model whose family:
+     *   1. is not in the runtime family rate-limit map (or cooldown has expired), AND
+     *   2. has remaining quota > 0 according to the latest snapshot (if available).
+     *
+     * Preserves user-specified model ordering.
+     */
+    private async chooseModel(): Promise<string | null> {
+        // Wait for the startup probe if it hasn't finished yet, then fall through to TTL check.
+        if (this.quotaStartupPromise) {
+            await this.quotaStartupPromise;
+            this.quotaStartupPromise = null;
+        }
+        await this.refreshQuota();
+
+        const now = Date.now();
+
+        for (const m of this.models) {
+            const fam = modelFamily(m);
+
+            // Check runtime family rate-limit
+            const limitedAt = this.familyRateLimitedAt.get(fam);
+            if (limitedAt && now - limitedAt <= RATE_LIMIT_COOLDOWN_MS) continue;
+
+            // Check proactive quota snapshot (skip families at 0%)
+            if (this.quotaSnapshot) {
+                const familyData = this.quotaSnapshot.families.find((f) => f.family === fam);
+                if (familyData && familyData.remainingPercent === 0) continue;
+            }
+
+            return m;
+        }
+
         return null;
     }
 
-    private markRateLimited(model: string): void {
-        this.rateLimitedAt.set(model, Date.now());
-        const next = this.model;
-        if (next) {
-            log.info('gemini-cli model rate-limited, switching', { from: model, to: next });
-        }
+    private markFamilyRateLimited(model: string): void {
+        const fam = modelFamily(model);
+        this.familyRateLimitedAt.set(fam, Date.now());
+        // Invalidate quota cache so next call re-probes
+        this.quotaFetchedAt = 0;
+        log.info('gemini-cli family rate-limited', { family: fam, model });
     }
 
-    private async callCli(prompt: string, model?: string): Promise<string> {
-        const useModel = model ?? this.model ?? this.models[this.models.length - 1];
+    private async callCli(prompt: string, model: string): Promise<string> {
         let stdout: string;
         try {
             const result = await execFileAsync('gemini', [
                 '-p', prompt,
-                '-m', useModel,
+                '-m', model,
                 '-o', 'json',
             ], {
                 timeout: 120_000,
@@ -290,9 +345,9 @@ export class GeminiCliProvider implements LLMProvider {
             const errStr = String(err);
             // Check for rate limiting — let caller handle escalation
             if (isRateLimitError(errStr)) {
-                throw new RateLimitError(errStr, useModel);
+                throw new RateLimitError(errStr, model);
             }
-            log.error('gemini-cli exec failed', { error: errStr, model: useModel });
+            log.error('gemini-cli exec failed', { error: errStr, model });
             throw new Error(`Gemini CLI failed: ${errStr}`);
         }
 
@@ -310,12 +365,12 @@ export class GeminiCliProvider implements LLMProvider {
         }
     }
 
-    /** Call CLI with automatic model switching on rate limits. Retries cheaper models after cooldown. */
+    /** Call CLI with automatic family switching on rate limits. Retries after marking family. */
     private async callCliWithEscalation(prompt: string): Promise<string> {
         for (;;) {
-            const model = this.model;
+            const model = await this.chooseModel();
             if (!model) {
-                // All models currently rate-limited — ensure local fallback is initialised
+                // All models currently exhausted — ensure local fallback is initialised
                 if (!this.localFallback) {
                     if (process.env.OPENAI_COMPATIBLE_URL) {
                         log.warn('all gemini models rate-limited, falling back to local LLM (OpenAI-compatible)');
@@ -333,8 +388,8 @@ export class GeminiCliProvider implements LLMProvider {
                 return await this.callCli(prompt, model);
             } catch (err) {
                 if (err instanceof RateLimitError) {
-                    this.markRateLimited(model);
-                    continue; // retry — model getter will pick next available
+                    this.markFamilyRateLimited(err.model);
+                    continue; // retry — chooseModel will skip the exhausted family
                 }
                 throw err;
             }
@@ -344,7 +399,7 @@ export class GeminiCliProvider implements LLMProvider {
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {
         const prompt = buildPrompt(messages, opts);
 
-        log.debug('gemini-cli prompt', { length: prompt.length, model: this.model ?? 'local-fallback' });
+        log.debug('gemini-cli prompt', { length: prompt.length });
 
         let responseText: string;
         try {
@@ -362,7 +417,6 @@ export class GeminiCliProvider implements LLMProvider {
         }
 
         log.debug('gemini-cli response', {
-            model: this.model,
             length: responseText.length,
         });
 

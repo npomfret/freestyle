@@ -13,12 +13,15 @@
     "repair": "tsx src/repair.ts",
     "repair:no-analysis": "tsx src/repair.ts --mode no-analysis",
     "repair:no-description": "tsx src/repair.ts --mode no-description",
+    "add-url": "tsx src/discover.ts",
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
     "server": "tsx src/server.ts",
     "dev": "tsx src/dev.ts",
     "dev:web": "cd web && npm run dev",
     "build:web": "cd web && npm run build",
-    "format": "node scripts/format.js"
+    "format": "node scripts/format.js",
+    "gemini-quota": "tsx src/gemini-quota.ts",
+    "test": "node --import tsx/esm --test 'src/**/*.test.ts'"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",

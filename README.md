@@ -98,6 +98,7 @@ See `.env.example` for a complete template.
 - `npm run repair` re-indexes metadata for alive resources (name, description, topics, regions, analysis) using the LLM; examples: `npm run repair -- 25`, `npm run repair -- --id 42`
 - `npm run repair:no-analysis` runs repair only on resources that have no analysis text yet
 - `npm run repair:no-description` runs repair only on resources that have no description yet
+- `npm run add-url -- <url>` runs the discovery agent on a specific URL you've found; example: `npm run add-url -- https://github.com/sportstimes/f1`. For GitHub organization URLs (e.g. `https://github.com/sportstimes`) it automatically fetches the repositories listing and queues all member repos for evaluation.
 
 Notes:
 

@@ -104,3 +104,22 @@ Notes:
 - Docker Compose also supports `POSTGRES_PORT` and `POSTGRES_PASSWORD`, for example `POSTGRES_PORT=5434 docker compose up -d db`.
 - `npm run embed` improves search quality; without embeddings the API falls back to text search.
 - There is no single full-stack dev command yet, so backend and frontend are started separately.
+
+## Debugging
+
+Logs are written as newline-delimited JSON to `tmp/logs/`. Each process writes to a named file (`repair.log`, `discover.log`, `validity-check.log`, `server.log`). Previous runs are archived to `tmp/logs/archive/` with a timestamp suffix.
+
+Tail a live run:
+
+```
+tail -f tmp/logs/repair.log | npx pino-pretty
+# or without pino-pretty:
+tail -f tmp/logs/repair.log
+```
+
+Common things to look for:
+
+- `"all gemini models rate-limited, falling back to local LLM"` — all Gemini quotas are exhausted for the day. Either wait for reset, set `LOCAL_LLM_URL` to a running local server, or use the paid `gemini` provider.
+- `"ECONNREFUSED … LOCAL_LLM_URL"` — the local LLM fallback URL is set but the server isn't running. Start your local LLM server or unset `LOCAL_LLM_URL` to disable the fallback.
+- `"skipping — page appears broken (run validity-check first)"` — the fetch detected a redirect, 404, or empty page. Run `npm run validity-check` to mark those resources before repairing.
+- `"repair failed"` with a stack trace — the agent crashed mid-turn. The `id` field identifies the resource; re-run with `npm run repair -- --id <id>` to retry it in isolation.

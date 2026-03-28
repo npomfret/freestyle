@@ -234,9 +234,12 @@ function isRateLimitError(err: string): boolean {
     return RATE_LIMIT_PATTERNS.some((p) => p.test(err));
 }
 
+// How long to treat a model as rate-limited before retrying it (ms).
+const RATE_LIMIT_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
 export class GeminiCliProvider implements LLMProvider {
     private models: string[];
-    private currentModelIndex: number;
+    private rateLimitedAt: Map<string, number> = new Map();
     private localFallback: LLMProvider | null = null;
 
     constructor() {
@@ -249,25 +252,29 @@ export class GeminiCliProvider implements LLMProvider {
         } else {
             this.models = [requiredEnv('GEMINI_MODEL')];
         }
-        this.currentModelIndex = 0;
         log.info('gemini-cli models', { models: this.models });
     }
 
-    private get model(): string {
-        return this.models[this.currentModelIndex];
+    /** Returns the cheapest model whose rate-limit cooldown has expired, or null if all are exhausted. */
+    private get model(): string | null {
+        const now = Date.now();
+        for (const m of this.models) {
+            const t = this.rateLimitedAt.get(m);
+            if (!t || now - t > RATE_LIMIT_COOLDOWN_MS) return m;
+        }
+        return null;
     }
 
-    private escalateModel(): boolean {
-        if (this.currentModelIndex < this.models.length - 1) {
-            this.currentModelIndex++;
-            log.info('gemini-cli escalating model', { model: this.model });
-            return true;
+    private markRateLimited(model: string): void {
+        this.rateLimitedAt.set(model, Date.now());
+        const next = this.model;
+        if (next) {
+            log.info('gemini-cli model rate-limited, switching', { from: model, to: next });
         }
-        return false;
     }
 
     private async callCli(prompt: string, model?: string): Promise<string> {
-        const useModel = model ?? this.model;
+        const useModel = model ?? this.model ?? this.models[this.models.length - 1];
         let stdout: string;
         try {
             const result = await execFileAsync('gemini', [
@@ -303,29 +310,31 @@ export class GeminiCliProvider implements LLMProvider {
         }
     }
 
-    /** Call CLI with automatic model escalation on rate limits. */
+    /** Call CLI with automatic model switching on rate limits. Retries cheaper models after cooldown. */
     private async callCliWithEscalation(prompt: string): Promise<string> {
         for (;;) {
+            const model = this.model;
+            if (!model) {
+                // All models currently rate-limited — ensure local fallback is initialised
+                if (!this.localFallback) {
+                    if (process.env.OPENAI_COMPATIBLE_URL) {
+                        log.warn('all gemini models rate-limited, falling back to local LLM (OpenAI-compatible)');
+                        const { LocalProvider } = await import('./local-provider.js');
+                        this.localFallback = new LocalProvider();
+                    } else {
+                        log.warn('all gemini models rate-limited, falling back to Ollama');
+                        const { OllamaProvider } = await import('./ollama-provider.js');
+                        this.localFallback = new OllamaProvider();
+                    }
+                }
+                throw new AllModelsExhaustedError();
+            }
             try {
-                return await this.callCli(prompt);
+                return await this.callCli(prompt, model);
             } catch (err) {
                 if (err instanceof RateLimitError) {
-                    if (this.escalateModel()) {
-                        continue; // retry with next model
-                    }
-                    // All models exhausted — fall back to local LLM (OpenAI-compatible if configured, else Ollama)
-                    if (!this.localFallback) {
-                        if (process.env.OPENAI_COMPATIBLE_URL) {
-                            log.warn('all gemini models rate-limited, falling back to local LLM (OpenAI-compatible)');
-                            const { LocalProvider } = await import('./local-provider.js');
-                            this.localFallback = new LocalProvider();
-                        } else {
-                            log.warn('all gemini models rate-limited, falling back to Ollama');
-                            const { OllamaProvider } = await import('./ollama-provider.js');
-                            this.localFallback = new OllamaProvider();
-                        }
-                    }
-                    throw new AllModelsExhaustedError();
+                    this.markRateLimited(model);
+                    continue; // retry — model getter will pick next available
                 }
                 throw err;
             }
@@ -333,14 +342,9 @@ export class GeminiCliProvider implements LLMProvider {
     }
 
     async generate(messages: LLMMessage[], opts: GenerateOptions): Promise<LLMResponse> {
-        // If we've already exhausted all Gemini models, go straight to local LLM
-        if (this.localFallback) {
-            return this.localFallback.generate(messages, opts);
-        }
-
         const prompt = buildPrompt(messages, opts);
 
-        log.debug('gemini-cli prompt', { length: prompt.length, model: this.model });
+        log.debug('gemini-cli prompt', { length: prompt.length, model: this.model ?? 'local-fallback' });
 
         let responseText: string;
         try {

@@ -55,11 +55,12 @@ export interface LLMProvider {
 // Provider factory
 // ============================================================
 
-let cachedProvider: LLMProvider | null = null;
+const providerCache = new Map<string, LLMProvider>();
 
 export async function getLLMProvider(override?: string): Promise<LLMProvider> {
     const providerName = override ?? 'gemini-cli';
-    if (!override && cachedProvider) return cachedProvider;
+    const cached = providerCache.get(providerName);
+    if (cached) return cached;
 
     let provider: LLMProvider;
     switch (providerName) {
@@ -99,6 +100,6 @@ export async function getLLMProvider(override?: string): Promise<LLMProvider> {
             throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
     }
 
-    if (!override) cachedProvider = provider;
+    providerCache.set(providerName, provider);
     return provider;
 }

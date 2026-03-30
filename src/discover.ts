@@ -231,7 +231,7 @@ async function main(): Promise<void> {
                 await run();
             } catch (err) {
                 log.error('discovery loop iteration failed', serializeError(err));
-                await new Promise(r => setTimeout(r, 30_000));
+                await new Promise(r => setTimeout(r, 5 * 60_000));
             }
         }
     } else {

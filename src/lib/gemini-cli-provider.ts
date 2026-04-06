@@ -406,7 +406,23 @@ export class GeminiCliProvider implements LLMProvider {
             responseText = await this.callCliWithEscalation(prompt);
         } catch (err) {
             if (err instanceof AllModelsExhaustedError) {
-                return this.localFallback!.generate(messages, opts);
+                if (!this.localFallback) {
+                    if (process.env.OPENAI_COMPATIBLE_URL) {
+                        log.warn('all gemini models rate-limited, falling back to local LLM (OpenAI-compatible)');
+                        const { LocalProvider } = await import('./local-provider.js');
+                        this.localFallback = new LocalProvider();
+                    } else {
+                        log.warn('all gemini models rate-limited, falling back to Ollama');
+                        const { OllamaProvider } = await import('./ollama-provider.js');
+                        this.localFallback = new OllamaProvider();
+                    }
+                }
+                try {
+                    return await this.localFallback.generate(messages, opts);
+                } catch (fallbackErr) {
+                    log.error('fallback LLM also failed', { error: String(fallbackErr) });
+                    throw fallbackErr;
+                }
             }
             throw err;
         }

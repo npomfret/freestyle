@@ -354,14 +354,16 @@ export class GeminiCliProvider implements LLMProvider {
         // Strip non-JSON prefix (e.g. "Loaded cached credentials.")
         const jsonStart = stdout.indexOf('{');
         if (jsonStart === -1) {
-            return '';
+            // Empty response — treat as model-specific issue, try next model
+            throw new RateLimitError('Empty response from Gemini CLI', model);
         }
 
         try {
             const parsed: GeminiCliOutput = JSON.parse(stdout.slice(jsonStart));
             return parsed.response;
         } catch {
-            return '';
+            // Invalid JSON — treat as model-specific issue, try next model
+            throw new RateLimitError('Invalid JSON response from Gemini CLI', model);
         }
     }
 

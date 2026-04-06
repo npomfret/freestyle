@@ -6,3 +6,4 @@ free-stuff
 node_modules
 dist
 tmp
+.aider*

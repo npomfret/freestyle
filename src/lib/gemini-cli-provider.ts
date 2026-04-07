@@ -155,6 +155,14 @@ function parseJson(text: string): Record<string, unknown> | null {
 }
 
 /**
+ * Tool name aliases — map alternative names to canonical tool names.
+ * Handles cases where Gemini uses different naming than declared tools.
+ */
+const TOOL_ALIASES: Record<string, string> = {
+    'google_web_search': 'web_search',
+};
+
+/**
  * Match a parsed JSON response to a tool declaration.
  * For single-tool scenarios, maps directly. For multi-tool, uses the "action" field.
  */
@@ -168,8 +176,10 @@ function matchToTool(
         matched = tools[0];
     } else {
         // Multi-tool: check "action" or "tool" field
-        const action = (json.action ?? json.tool) as string | undefined;
+        let action = (json.action ?? json.tool) as string | undefined;
         if (action) {
+            // Apply alias mapping
+            action = TOOL_ALIASES[action] ?? action;
             matched = tools.find((t) => t.name === action);
         }
     }

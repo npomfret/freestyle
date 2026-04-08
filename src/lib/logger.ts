@@ -24,6 +24,21 @@ function shouldLog(level: LogLevel): boolean {
     return LEVEL_ORDER[level] >= LEVEL_ORDER[LOG_LEVEL];
 }
 
+/**
+ * Format a date as ISO-like string in local time (e.g., "2026-04-08T12:52:50.497")
+ */
+function getLocalISOString(date: Date): string {
+    const pad = (n: number, len: number = 2) => String(n).padStart(len, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+    const ms = pad(date.getMilliseconds(), 3);
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}`;
+}
+
 // ============================================================
 // File logging
 // ============================================================
@@ -57,7 +72,7 @@ function getLogStream(): WriteStream {
         // Archive existing log file before starting
         if (existsSync(logPath)) {
             mkdirSync(ARCHIVE_DIR, { recursive: true });
-            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const ts = getLocalISOString(new Date()).replace(/[:.]/g, '-');
             renameSync(logPath, join(ARCHIVE_DIR, `${processName}-${ts}.log`));
         }
 
@@ -69,7 +84,7 @@ function getLogStream(): WriteStream {
 function emit(level: LogLevel, msg: string, data?: Record<string, unknown>): void {
     if (!shouldLog(level)) return;
     const entry: LogEntry = {
-        ts: new Date().toISOString(),
+        ts: getLocalISOString(new Date()),
         level,
         msg,
         ...data,

@@ -22,6 +22,11 @@ function getSearchGenai(): GoogleGenAI {
  * Returns text results including grounding URLs when available.
  */
 export async function webSearch(query: string): Promise<string> {
+    const originalEnvKey = process.env.GEMINI_API_KEY; // Store original key
+    if (!originalEnvKey) {
+        return 'Web search requires GEMINI_API_KEY environment variable to be set. Please provide a valid Gemini API key.';
+    }
+
     try {
         const genai = getSearchGenai();
         const model = await pickGeminiModel();
@@ -34,8 +39,14 @@ export async function webSearch(query: string): Promise<string> {
             },
         }), 'web_search');
 
+        const text = response.text?.trim();
         const groundingMeta = response.candidates?.[0]?.groundingMetadata;
-        let text = response.text ?? 'No results found.';
+
+        if (!text && (!groundingMeta || groundingMeta.groundingChunks?.length === 0)) {
+            return `No web search results found for query: "${query}".`;
+        }
+
+        let resultText = text || '';
         if (groundingMeta?.groundingChunks) {
             const urls = groundingMeta
                 .groundingChunks
@@ -45,12 +56,24 @@ export async function webSearch(query: string): Promise<string> {
                     return `- [${web.title ?? web.uri}](${web.uri})`;
                 });
             if (urls.length > 0) {
-                text += '\n\nDirect URLs from search:\n' + urls.join('\n');
+                resultText += (resultText ? '\n\n' : '') + 'Direct URLs from search:\n' + urls.join('\n');
             }
         }
-        return text;
-    } catch (err) {
-        return `Search failed: ${err}`;
+        return resultText || `No web search results found for query: "${query}".`; // Fallback in case only grounding was empty
+    } catch (err: any) {
+        if (err instanceof Error) {
+            // Check for common API key or network errors
+            if (err.message.includes('API key not valid') || err.message.includes('invalid_grant')) {
+                return `Web search failed due to an invalid or expired GEMINI_API_KEY. Please check your API key. Error: ${err.message}`;
+            }
+            if (err.message.includes('NETWORK_ERROR') || err.message.includes('fetch failed')) {
+                return `Web search failed due to a network error. Please check your internet connection. Error: ${err.message}`;
+            }
+            if (err.message.includes('resource exhausted') || err.message.includes('quota')) {
+                return `Web search failed due to quota exhaustion. Please try again later. Error: ${err.message}`;
+            }
+        }
+        return `Web search failed due to an unexpected error. Error: ${err.message || err}`;
     }
 }
 

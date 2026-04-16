@@ -14,8 +14,7 @@ Freestyle is a system for finding, recording, analysing, and maintaining a datab
    - `npm install`
    - `cd web && npm install`
 2. Copy `.env.example` to `.env` and fill in your keys
-3. Start the database:
-   - `docker compose up -d db`
+3. Point `DATABASE_URL` at an existing Postgres database
 4. Set up an LLM provider (see LLM Providers below)
 5. Generate embeddings:
    - `npm run embed`
@@ -23,6 +22,8 @@ Freestyle is a system for finding, recording, analysing, and maintaining a datab
    - `npm run server`
 7. Start the frontend in another terminal:
    - `npm run dev:web`
+
+`npm run dev` starts only the API server and Vite dev server. It does not start Docker Postgres or run migrations.
 
 Defaults:
 

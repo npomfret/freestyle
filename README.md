@@ -48,6 +48,17 @@ Minimal production commands:
 - `npm run deploy:up` starts the production app
 - `npm run deploy:logs` tails app logs
 
+Remote DB tunnel:
+
+- `npm run db:tunnel` opens an SSH tunnel from local `localhost:5543` to the server Postgres on `fsd.snowmonkey.co.uk`
+- Leave that terminal open while running local scripts against the remote database
+- Point `DATABASE_URL` at the tunnel, for example: `postgresql://freestyle:<server-password>@127.0.0.1:5543/freestyle`
+- Optional overrides:
+  - `SSH_TUNNEL_HOST` defaults to `root@fsd.snowmonkey.co.uk`
+  - `SSH_TUNNEL_LOCAL_PORT` defaults to `5543`
+  - `SSH_TUNNEL_REMOTE_HOST` defaults to `127.0.0.1`
+  - `SSH_TUNNEL_REMOTE_PORT` defaults to `5543`
+
 For the exact server bootstrap, restore, nginx handoff, and SSH tunnel steps, see [docs/deploy.md](/Users/nickpomfret/projects/freestyle/docs/deploy.md).
 
 ## LLM Providers

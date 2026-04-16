@@ -30,6 +30,25 @@ Defaults:
 - Frontend dev server: Vite default on `http://localhost:5173`
 - Database URL: `postgresql://freestyle:freestyle@localhost:5433/freestyle`
 
+## Deployment
+
+Production deploys are intended for `fsd.snowmonkey.co.uk` using Docker Compose from `/opt/freestyle`.
+
+- `freestyle-db` runs `pgvector/pgvector:pg17` and is only exposed on server loopback, not publicly.
+- `freestyle-app` serves both the API and the built frontend on port `3001`.
+- Shared nginx stays outside this repo and should proxy to `freestyle-app:3001` on `snowmonkey-proxy-network`.
+- Initial data should be copied from the local Postgres with `pg_dump` and restored into the server DB before starting the app.
+- Ongoing local writes to the remote DB should use an SSH tunnel to the loopback-bound Postgres port, not a public DB port.
+
+Minimal production commands:
+
+- `npm run deploy:build` builds the production app image
+- `npm run deploy:db` starts the production database
+- `npm run deploy:up` starts the production app
+- `npm run deploy:logs` tails app logs
+
+For the exact server bootstrap, restore, nginx handoff, and SSH tunnel steps, see [docs/deploy.md](/Users/nickpomfret/projects/freestyle/docs/deploy.md).
+
 ## LLM Providers
 
 The pipeline jobs (discover, validity-check, repair) need an LLM. Four provider backends are supported. Set `LLM_PROVIDER` in `.env`.

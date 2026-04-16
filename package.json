@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "deploy:build": "docker compose -f docker-compose.production.yml --env-file .env.production build app",
+    "deploy:db": "docker compose -f docker-compose.production.yml --env-file .env.production up -d db",
+    "deploy:up": "docker compose -f docker-compose.production.yml --env-file .env.production up -d app",
+    "deploy:logs": "docker compose -f docker-compose.production.yml --env-file .env.production logs -f app",
     "migrate": "tsx src/migrate.ts",
     "embed": "tsx src/generate-embeddings.ts",
     "re-embed": "tsx src/re-embed-all.ts",

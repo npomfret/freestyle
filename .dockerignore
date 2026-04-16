@@ -1,0 +1,12 @@
+.git
+.idea
+.claude
+.gemini
+node_modules
+web/node_modules
+tmp
+.env
+.env.production
+freestyle.dump
+*.log
+.DS_Store

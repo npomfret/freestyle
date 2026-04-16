@@ -1,0 +1,65 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: freestyle-db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5543}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-freestyle}
+      POSTGRES_USER: ${POSTGRES_USER:-freestyle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - freestyle_pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freestyle} -d ${POSTGRES_DB:-freestyle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: freestyle-app
+    container_name: freestyle-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-freestyle}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-freestyle}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini-cli}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_MODELS: ${GEMINI_MODELS:-gemini-2.5-flash-lite,gemini-2.5-flash,gemini-2.5-pro}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_COMPATIBLE_URL: ${OPENAI_COMPATIBLE_URL:-}
+      OPENAI_COMPATIBLE_MODEL: ${OPENAI_COMPATIBLE_MODEL:-}
+      OLLAMA_URL: ${OLLAMA_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+    ports:
+      - "127.0.0.1:${APP_PORT:-3001}:3001"
+    networks:
+      default:
+      proxy:
+        aliases:
+          - freestyle-app
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  freestyle_pgdata:
+
+networks:
+  default:
+  proxy:
+    external: true
+    name: snowmonkey-proxy-network

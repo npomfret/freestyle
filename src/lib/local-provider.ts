@@ -115,7 +115,7 @@ export class LocalProvider implements LLMProvider {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(180_000), // 180 second timeout
+            signal: AbortSignal.timeout(300_000), // 300 second timeout
         });
 
         if (!resp.ok) {

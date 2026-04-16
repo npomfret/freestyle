@@ -3,7 +3,7 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
-import { webSearch, checkSocial, checkReferences } from './lib/gemini-search.js';
+import { webSearch, checkSocial, checkReferences } from './lib/search.js';
 import { log, serializeError } from './lib/logger.js';
 import {
     fetchPageTool, webSearchTool, checkExistingTool, addResourceTool,
@@ -135,7 +135,6 @@ async function discover(query: string, isUrl = false): Promise<void> {
             addResourceTool, fetchPageTool, queueItemsTool, getQueueTool,
         ],
         maxTurns: 50,
-        provider: 'gemini-cli',
 
         toolHandlers: toolHandlers(
             ['web_search', async (args) => ({ results: await webSearch(args.query as string) })],

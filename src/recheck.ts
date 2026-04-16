@@ -4,7 +4,7 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
-import { webSearch } from './lib/gemini-search.js';
+import { webSearch } from './lib/search.js';
 import { log, serializeError } from './lib/logger.js';
 import { getNextRecheckResource, getNextSuspectResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
 import { fetchPageTool, recheckUpdateTool, repairUrlTool, webSearchTool } from './lib/tool-declarations.js';
@@ -125,7 +125,6 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [fetchPageTool, recheckUpdateTool, webSearchTool, repairUrlTool],
         maxTurns: 20,
-        provider: 'gemini-cli',
 
         toolHandlers: toolHandlers(
             ['fetch_page', async (args) => fetchPage(args.url as string)],

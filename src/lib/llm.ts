@@ -55,10 +55,26 @@ export interface LLMProvider {
 // Provider factory
 // ============================================================
 
+export type LLMProviderName = 'local' | 'gemini' | 'gemini-cli' | 'ollama';
+
 const providerCache = new Map<string, LLMProvider>();
 
+export function resolveLLMProviderName(override?: string): LLMProviderName {
+    const providerName = override?.trim() || (process.env.GEMINI_API_KEY ? 'gemini' : 'local');
+
+    switch (providerName) {
+        case 'local':
+        case 'gemini':
+        case 'gemini-cli':
+        case 'ollama':
+            return providerName;
+        default:
+            throw new Error(`Unknown LLM provider: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
+    }
+}
+
 export async function getLLMProvider(override?: string): Promise<LLMProvider> {
-    const providerName = override ?? 'gemini-cli';
+    const providerName = resolveLLMProviderName(override);
     const cached = providerCache.get(providerName);
     if (cached) return cached;
 
@@ -95,7 +111,7 @@ export async function getLLMProvider(override?: string): Promise<LLMProvider> {
             break;
         }
         default:
-            throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
+            throw new Error(`Unknown LLM provider: ${providerName}. Use 'gemini-cli', 'gemini', 'ollama', or 'local'.`);
     }
 
     providerCache.set(providerName, provider);

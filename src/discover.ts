@@ -101,7 +101,7 @@ For each candidate resource:
 ${EXCLUDED_DOMAINS.join(', ')}
 
 ## Workflow
-1. web_search to find candidates
+1. lookup_web to find candidates
 2. For each: check_existing → fetch_page → check_references → add_resource (if it passes)
 3. If you find a list/directory (awesome list, dataset index, API catalog): fetch_page it, queue_items the individual resources (depth=0 for top-level finds), do NOT add_resource for the list itself
 4. When processing items from get_queue, pass depth = item.depth+1 in queue_items if those items are also lists
@@ -137,7 +137,7 @@ async function discover(query: string, isUrl = false): Promise<void> {
         maxTurns: 50,
 
         toolHandlers: toolHandlers(
-            ['web_search', async (args) => ({ results: await webSearch(args.query as string) })],
+            ['lookup_web', async (args) => ({ results: await webSearch(args.query as string) })],
             ['check_social', async (args) => ({ social: await checkSocial(args.name as string) })],
             ['check_references', async (args) => ({ references: await checkReferences(args.url as string) })],
             ['check_existing', async (args) => {
@@ -182,7 +182,7 @@ async function discover(query: string, isUrl = false): Promise<void> {
             if (response.text) msgs.push({ role: 'model' as const, text: response.text });
             msgs.push({
                 role: 'user' as const,
-                text: 'Continue. Use web_search to find more resources, or get_queue if there are queued items.',
+                text: 'Continue. Use lookup_web to find more resources, or get_queue if there are queued items.',
             });
             return msgs;
         },

@@ -21,7 +21,7 @@ export const fetchPageTool: ToolDeclaration = {
 };
 
 export const webSearchTool: ToolDeclaration = {
-    name: 'web_search',
+    name: 'lookup_web',
     description: 'Search the web for information. Returns search results with URLs and snippets.',
     parameters: {
         type: 'object',

@@ -40,7 +40,7 @@ Some APIs and datasets are free but require an API key or registration to access
 
 ## When the URL is broken: try to repair it
 If fetch_page returns likely_broken, follow this sequence:
-1. Use web_search to find where the resource moved to (e.g. "AgensGraph official site", "AgensGraph GitHub")
+1. Use lookup_web to find where the resource moved to (e.g. "AgensGraph official site", "AgensGraph GitHub")
 2. If you find a new, working URL (website, docs, or pricing page — not a raw API endpoint):
    a. Use fetch_page on the new URL to verify it actually works
    b. If the new URL works, call repair_url with the new URL, then call update_resource with is_alive = true
@@ -50,7 +50,7 @@ If fetch_page returns likely_broken, follow this sequence:
 ## Steps
 1. Look at the pre-fetched results provided in the first message
 2. If the page appears broken:
-   a. web_search for the resource name to find a new URL
+   a. lookup_web for the resource name to find a new URL
    b. If found: fetch_page the new URL → repair_url if it works → update_resource with is_alive = true
    c. If not found or new URL also broken: update_resource with is_alive = false
 3. Call update_resource with:
@@ -128,7 +128,7 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
 
         toolHandlers: toolHandlers(
             ['fetch_page', async (args) => fetchPage(args.url as string)],
-            ['web_search', async (args) => ({ results: await webSearch(args.query as string) })],
+            ['lookup_web', async (args) => ({ results: await webSearch(args.query as string) })],
             ['update_resource', async (args) => updateResource(db, resource, {
                 name: args.name as string | undefined,
                 description: args.description as string,
@@ -177,7 +177,7 @@ I already fetched the page. Here are the results:
 - Problems: ${fetchResult.problems?.join(', ') || 'none'}
 - Content preview: ${fetchResult.content.slice(0, 500)}
 
-The page appears broken. Try to find where this resource moved to using web_search, then repair_url if you find it. Call update_resource when done.`;
+The page appears broken. Try to find where this resource moved to using lookup_web, then repair_url if you find it. Call update_resource when done.`;
 
     await runAgent(config, [{ role: 'user', text: context }]);
 }

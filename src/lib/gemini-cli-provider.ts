@@ -159,7 +159,7 @@ function parseJson(text: string): Record<string, unknown> | null {
  * Handles cases where Gemini uses different naming than declared tools.
  */
 const TOOL_ALIASES: Record<string, string> = {
-    'google_web_search': 'web_search',
+    'google_web_search': 'lookup_web',
 };
 
 /**

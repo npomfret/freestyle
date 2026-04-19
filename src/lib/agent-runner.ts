@@ -73,9 +73,17 @@ export async function runAgent(
     const messages = [...initialMessages];
 
     for (let turn = 0; turn < config.maxTurns; turn++) {
+        alog.info('llm call', { turn, messageCount: messages.length });
+        const started = Date.now();
         const response = await provider.generate(messages, {
             systemInstruction: config.systemInstruction,
             tools: config.tools,
+        });
+        alog.info('llm response', {
+            turn,
+            elapsedMs: Date.now() - started,
+            textSnippet: response.text?.slice(0, 200),
+            toolCalls: response.functionCalls.map((fc) => fc.name),
         });
 
         if (response.text) {
@@ -97,6 +105,7 @@ export async function runAgent(
         if (response.functionCalls.length === 0) {
             if (config.onNoTools) {
                 const action = await config.onNoTools(response);
+                alog.info('no tool calls', { turn, action: action === 'break' ? 'break' : 'nudge' });
                 if (action === 'break') {
                     return { turns: turn + 1, terminated: 'no-tools' };
                 }

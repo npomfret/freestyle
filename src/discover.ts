@@ -152,7 +152,7 @@ async function discover(query: string, isUrl = false): Promise<void> {
             webSearchTool, checkSocialTool, checkReferencesTool, checkExistingTool,
             addResourceTool, fetchPageTool, queueItemsTool, getQueueTool,
         ],
-        maxTurns: 50,
+        maxTurns: 20,
 
         toolHandlers: toolHandlers(
             ['lookup_web', async (args) => webSearch(args.query as string)],

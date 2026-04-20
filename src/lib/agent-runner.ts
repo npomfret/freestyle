@@ -284,7 +284,8 @@ export async function runAgent(
 
         // Let the agent config inspect the full response first
         const verdict = config.onResponse(response, turn);
-        if (verdict === 'done') {
+        if (verdict === 'done' && response.functionCalls.length === 0) {
+            // Model signalled completion and there's nothing left to execute — exit now.
             return { turns: turn + 1, terminated: 'response' };
         }
         if (Array.isArray(verdict)) {
@@ -292,6 +293,10 @@ export async function runAgent(
             for (const msg of verdict) messages.push(msg);
             continue;
         }
+        // If verdict === 'done' but there are pending tool calls, execute them first
+        // and exit after. Otherwise completion signals in the same turn as add_resource
+        // calls cause those adds to be silently dropped.
+        const exitAfterTools = verdict === 'done';
 
         // No tool calls
         if (response.functionCalls.length === 0) {
@@ -377,6 +382,10 @@ export async function runAgent(
         }
 
         messages.push({ role: 'user', functionResponses });
+
+        if (exitAfterTools) {
+            return { turns: turn + 1, terminated: 'response' };
+        }
     }
 
     alog.warn('max turns reached', { maxTurns: config.maxTurns });

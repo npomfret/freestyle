@@ -40,6 +40,15 @@ const EXCLUDED_DOMAINS = [
     'findapis.com',
     'apilist.fun',
     'public-apis.io',
+    'publicapis.io',
+    'apivault.dev',
+    'apidog.com',
+    'apidata.apify.com',
+    'datarade.ai',
+    'freewebapi.com',
+    'freeapihub.com',
+    'mcpmarket.com',
+    'api.store',
     'vertexaisearch.cloud.google.com',
 ];
 

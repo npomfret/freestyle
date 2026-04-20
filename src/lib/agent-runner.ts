@@ -263,6 +263,9 @@ export async function runAgent(
         seenTurnSignatures: new Set<string>(),
     };
 
+    let consecutiveNudges = 0;
+    const MAX_CONSECUTIVE_NUDGES = 3;
+
     for (let turn = 0; turn < config.maxTurns; turn++) {
         executionState.seenTurnSignatures.clear();
         alog.info('llm call', { turn, messageCount: messages.length });
@@ -301,8 +304,17 @@ export async function runAgent(
         // No tool calls
         if (response.functionCalls.length === 0) {
             if (config.onNoTools) {
+                consecutiveNudges += 1;
+                if (consecutiveNudges > MAX_CONSECUTIVE_NUDGES) {
+                    alog.warn('wedge detected — too many consecutive no-tool responses', {
+                        turn,
+                        consecutiveNudges,
+                        text: response.text?.slice(0, 200),
+                    });
+                    return { turns: turn + 1, terminated: 'no-tools' };
+                }
                 const action = await config.onNoTools(response);
-                alog.info('no tool calls', { turn, action: action === 'break' ? 'break' : 'nudge' });
+                alog.info('no tool calls', { turn, action: action === 'break' ? 'break' : 'nudge', consecutiveNudges });
                 if (action === 'break') {
                     return { turns: turn + 1, terminated: 'no-tools' };
                 }
@@ -313,6 +325,9 @@ export async function runAgent(
             alog.warn('agent returned no action', { text: response.text });
             return { turns: turn + 1, terminated: 'no-tools' };
         }
+
+        // Reset consecutive nudge counter — the model made real tool calls.
+        consecutiveNudges = 0;
 
         // Push model response
         messages.push({

@@ -116,7 +116,7 @@ export const recheckUpdateTool: ToolDeclaration = {
             analysis: {
                 type: 'string',
                 description:
-                    'A 2-4 sentence analysis covering: what data/service this resource provides and in what format, how to access it (API key? open? rate limits?), what makes it notable, and any caveats.',
+                    'A 2-4 sentence analysis covering: what data/service this resource provides and in what format, access model (open-source licence / public-domain / free-tier / ≤$5k paid — include pricing or licence when visible), how to get started (API key? signup? rate limits?), what makes it notable, and any caveats.',
             },
         },
         required: ['description', 'is_alive', 'notes'],
@@ -176,7 +176,7 @@ export const repairUpdateTool: ToolDeclaration = {
 
 **Data & Format**: What data or functionality is available. Mention formats (JSON, CSV, GeoJSON, etc.), key endpoints or datasets, and the scope/coverage of the data.
 
-**Access**: How to get started — open access, API key required (free signup?), OAuth, rate limits, quotas. Mention the free tier specifics if applicable.
+**Access**: Licence (open-source name, public-domain, proprietary) and pricing tier (free, free-tier + paid, ≤$5k/year paid). How to get started — open access, API key required (free signup?), OAuth, rate limits, quotas. Quote actual prices and licence names when visible on the page.
 
 **Strengths**: What makes this resource stand out — unique data, high quality, good documentation, active community, government-backed, etc.
 
@@ -233,9 +233,9 @@ export const checkExistingTool: ToolDeclaration = {
 
 export const addResourceTool: ToolDeclaration = {
     name: 'add_resource',
-    description: 'Add a verified free or near-free resource to the catalog.',
-    whenToUse: 'Use only after you have opened the primary source, confirmed it is real, and checked that it is genuinely free or has a very generous free tier.',
-    whenNotToUse: 'Do not use for aggregators, tutorials, blog posts, or resources that are only nominally free.',
+    description: 'Add a verified accessible resource to the catalog.',
+    whenToUse: 'Use only after you have opened the primary source, confirmed it is real, and checked that it is open-source, public-domain, has a generous free tier, or is priced ≤ $5k/year for the full product.',
+    whenNotToUse: 'Do not use for aggregators, tutorials, blog posts, trial-only access, or products priced > $5k/year with no accessible tier.',
     returns: 'The inserted resource id or duplicate status.',
     timeoutMs: 15_000,
     maxCallsPerRun: 8,
@@ -270,7 +270,7 @@ export const addResourceTool: ToolDeclaration = {
             analysis: {
                 type: 'string',
                 description:
-                    'A 2-4 sentence analysis covering: what data/service it provides and in what format, how to access it (API key, open, rate limits), what makes it notable, and any caveats.',
+                    'A 2-4 sentence analysis covering: what data/service it provides and in what format, access model (open-source licence / public-domain / free-tier / ≤$5k paid — include pricing or licence when visible), how to get started (API key? signup? rate limits?), what makes it notable, and any caveats.',
             },
         },
         required: ['name', 'url', 'kinds', 'topics', 'description', 'analysis'],

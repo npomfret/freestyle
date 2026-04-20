@@ -37,8 +37,8 @@ const SYSTEM_INSTRUCTION = `You are a quality-check agent. Your job is to rechec
 
 If the fetch result has "likely_broken: true", mark is_alive = false. Do NOT override this by searching for the project elsewhere.
 
-## Important: APIs that require keys are valid
-Some APIs and datasets are free but require an API key or registration to access. These are valid resources. The URL we store should be the resource's website, documentation page, or pricing page — NOT a raw API endpoint. If a page loads and shows docs/pricing for a free API, it is alive even if the API itself requires a key.
+## Important: accessible resources are valid
+Open-source, public-domain, generous-free-tier, and affordably-priced (≤ $5k/year) resources are all valid — even if they require an API key, signup, or registration to access. The URL we store should be the resource's website, documentation page, or pricing page — NOT a raw API endpoint. If a page loads and shows docs/pricing for such a resource, it is alive even if the API itself requires a key.
 
 ## When the URL is broken: try to repair it
 If fetch_page returns likely_broken, follow this sequence:

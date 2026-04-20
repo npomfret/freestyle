@@ -32,7 +32,7 @@ You will receive a resource's current metadata and the fetched content of its UR
 - **notes**: What you changed and why, or "metadata confirmed accurate" if no changes needed.
 
 ## Important
-- APIs that require a free API key are valid resources — document the signup process in the Access section.
+- Open-source, public-domain, generous-free-tier, and affordably-priced (≤ $5k/year) resources are all valid — document the licence, access model (API key / signup / OAuth), and pricing tier in the Access section (include actual prices or licence names when visible on the page).
 - The URL is already confirmed alive — focus entirely on metadata quality.
 - Always call update_resource, even if the existing metadata looks correct (confirm and improve it).
 - Read the page content carefully. Extract specific details rather than paraphrasing generically.

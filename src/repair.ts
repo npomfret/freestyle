@@ -4,6 +4,7 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
+import { fetchPageToolResult } from './lib/fetch-page.js';
 import { log, serializeError } from './lib/logger.js';
 import { getNextRepairResource, getNextNoAnalysisResource, getNextNoDescriptionResource, getRepairResourceById } from './lib/resource-queries.js';
 import { fetchPageTool, repairUpdateTool, queueItemsTool } from './lib/tool-declarations.js';
@@ -35,6 +36,8 @@ You will receive a resource's current metadata and the fetched content of its UR
 - The URL is already confirmed alive — focus entirely on metadata quality.
 - Always call update_resource, even if the existing metadata looks correct (confirm and improve it).
 - Read the page content carefully. Extract specific details rather than paraphrasing generically.
+- When you rely on follow-up fetches, prefer evidence from those fetched pages over prior assumptions.
+- Tool results may include structured data and sources. If fetch_page returns source metadata, treat the fetched page content as the source of truth.
 
 ## List resources
 If the page is primarily a curated list or index of other resources — such as an organisation page, a link directory, a README whose main content is links to other tools/datasets, or any page that is a collection of pointers rather than a resource itself — call queue_items BEFORE update_resource to extract the individual resource URLs. Set depth=1 for each item (these are one level below the current resource). The system stops drilling at depth 3 automatically — no need to judge whether children are also lists.
@@ -74,7 +77,10 @@ async function repairOne(resource: ResourceRow): Promise<void> {
                 is_alive: true,
                 notes: args.notes as string,
             }, { skipLinkChecks: true })],
-            ['fetch_page', async (args) => fetchPage(args.url as string)],
+            ['fetch_page', async (args) => {
+                const url = args.url as string;
+                return fetchPageToolResult(url, await fetchPage(url));
+            }],
             ['queue_items', async (args) => {
                 const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
                 const items = rawItems.map((i) => ({

@@ -3,7 +3,9 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
+import { fetchPageToolResult } from './lib/fetch-page.js';
 import { webSearch, checkSocial, checkReferences } from './lib/search.js';
+import { toolError } from './lib/tool-runtime.js';
 import { log, serializeError } from './lib/logger.js';
 import {
     fetchPageTool, webSearchTool, checkExistingTool, addResourceTool,
@@ -89,6 +91,8 @@ For each candidate resource:
 3. Use check_social to see what Reddit, HackerNews, and Twitter say — look for red flags like reliability complaints, surprise pricing, or shutdowns. Growing interest is a positive signal.
 4. Look for: actual documentation, data samples, clear terms of use, active maintenance
 5. Only call add_resource after you're confident it's genuinely useful and free
+6. Prefer conclusions backed by opened primary-source pages and cited source URLs, not search snippets alone
+7. Tool results may include structured data and sources — use those fields when present instead of relying only on free-form summary text
 
 ## Classification
 - kinds: "api" (has HTTP endpoints), "dataset" (downloadable data), "service" (hosted tool), "code" (repo/library)
@@ -106,6 +110,10 @@ ${EXCLUDED_DOMAINS.join(', ')}
 3. If you find a list/directory (awesome list, dataset index, API catalog): fetch_page it, queue_items the individual resources (depth=0 for top-level finds), do NOT add_resource for the list itself
 4. When processing items from get_queue, pass depth = item.depth+1 in queue_items if those items are also lists
 5. Search from multiple angles — try different search terms, follow links from good resources
+
+## Tool result handling
+- lookup_web, check_references, and check_social can return source URLs alongside summary text. Read the cited URLs and prefer them over unsupported claims.
+- fetch_page returns the extracted page content plus source metadata. Use the fetched page content as the primary evidence for add_resource.
 
 ## How to search
 Search for the subject matter directly — e.g. "crystal structure database", "earthquake data portal", "ship tracking AIS" — NOT "free crystal structure APIs databases datasets".
@@ -137,17 +145,21 @@ async function discover(query: string, isUrl = false): Promise<void> {
         maxTurns: 50,
 
         toolHandlers: toolHandlers(
-            ['lookup_web', async (args) => ({ results: await webSearch(args.query as string) })],
-            ['check_social', async (args) => ({ social: await checkSocial(args.name as string) })],
-            ['check_references', async (args) => ({ references: await checkReferences(args.url as string) })],
+            ['lookup_web', async (args) => webSearch(args.query as string)],
+            ['check_social', async (args) => checkSocial(args.name as string)],
+            ['check_references', async (args) => checkReferences(args.url as string)],
             ['check_existing', async (args) => {
                 const url = args.url as string;
-                if (isExcludedUrl(url)) return { error: 'URL excluded: domain is in the blocklist' };
+                if (isExcludedUrl(url)) {
+                    return toolError('URL excluded: domain is in the blocklist', { code: 'excluded_url' });
+                }
                 return checkExisting(db, { url: Url(url) });
             }],
             ['add_resource', async (args) => {
                 const url = args.url as string;
-                if (isExcludedUrl(url)) return { error: 'URL excluded: domain is in the blocklist' };
+                if (isExcludedUrl(url)) {
+                    return toolError('URL excluded: domain is in the blocklist', { code: 'excluded_url' });
+                }
                 return addResource(db, {
                     name: args.name as string,
                     url: Url(url),
@@ -158,7 +170,10 @@ async function discover(query: string, isUrl = false): Promise<void> {
                     analysis: args.analysis as string | undefined,
                 });
             }],
-            ['fetch_page', async (args) => fetchPage(args.url as string)],
+            ['fetch_page', async (args) => {
+                const url = args.url as string;
+                return fetchPageToolResult(url, await fetchPage(url));
+            }],
             ['queue_items', async (args) => {
                 const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
                 const filtered = rawItems

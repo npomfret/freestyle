@@ -1,9 +1,18 @@
 import { stripHtml } from './fetch-page.js';
+import type { ToolResult } from './llm.js';
+import { toolError, toolOk } from './tool-runtime.js';
 
-interface SearchResult {
+export interface SearchResult {
     title: string;
     url: string;
     snippet: string;
+}
+
+export interface SearchToolData {
+    query: string;
+    results: SearchResult[];
+    summary?: string;
+    provider: 'duckduckgo' | 'gemini-google-search';
 }
 
 function decodeDuckDuckGoUrl(href: string): string {
@@ -39,7 +48,7 @@ function parseDuckDuckGoResults(html: string): SearchResult[] {
     return results;
 }
 
-async function fallbackSearch(query: string): Promise<string> {
+async function fallbackSearch(query: string): Promise<ToolResult<SearchToolData>> {
     const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
     const response = await fetch(url, {
         headers: { 'User-Agent': 'freestyle-agent/1.0' },
@@ -54,15 +63,35 @@ async function fallbackSearch(query: string): Promise<string> {
     const results = parseDuckDuckGoResults(html);
 
     if (results.length === 0) {
-        return `No web search results found for query: "${query}".`;
+        return toolOk({
+            query,
+            results,
+            summary: `No web search results found for query: "${query}".`,
+            provider: 'duckduckgo',
+        }, {
+            queries: [query],
+        });
     }
 
-    return results
-        .map((result) => `- [${result.title}](${result.url})${result.snippet ? ` - ${result.snippet}` : ''}`)
-        .join('\n');
+    return toolOk({
+        query,
+        results,
+        summary: results
+            .map((result) => `- [${result.title}](${result.url})${result.snippet ? ` - ${result.snippet}` : ''}`)
+            .join('\n'),
+        provider: 'duckduckgo',
+    }, {
+        queries: [query],
+        sources: results.map((result) => ({
+            url: result.url,
+            title: result.title,
+            snippet: result.snippet,
+            sourceType: 'search' as const,
+        })),
+    });
 }
 
-export async function webSearch(query: string): Promise<string> {
+export async function webSearch(query: string): Promise<ToolResult<SearchToolData>> {
     if (process.env.GEMINI_API_KEY) {
         const { webSearch: geminiWebSearch } = await import('./gemini-search.js');
         return geminiWebSearch(query);
@@ -71,11 +100,15 @@ export async function webSearch(query: string): Promise<string> {
     try {
         return await fallbackSearch(query);
     } catch (err) {
-        return `Web search failed: ${err}`;
+        return toolError<SearchToolData>(`Web search failed: ${err}`, {
+            code: 'web_search_failed',
+            retryable: true,
+            queries: [query],
+        });
     }
 }
 
-export async function checkSocial(name: string): Promise<string> {
+export async function checkSocial(name: string): Promise<ToolResult<SearchToolData>> {
     if (process.env.GEMINI_API_KEY) {
         const { checkSocial: geminiCheckSocial } = await import('./gemini-search.js');
         return geminiCheckSocial(name);
@@ -84,7 +117,7 @@ export async function checkSocial(name: string): Promise<string> {
     return webSearch(`"${name}" site:reddit.com OR site:news.ycombinator.com OR site:twitter.com OR site:x.com`);
 }
 
-export async function checkReferences(url: string): Promise<string> {
+export async function checkReferences(url: string): Promise<ToolResult<SearchToolData>> {
     if (process.env.GEMINI_API_KEY) {
         const { checkReferences: geminiCheckReferences } = await import('./gemini-search.js');
         return geminiCheckReferences(url);

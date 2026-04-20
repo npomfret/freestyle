@@ -1,7 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
+import type { ToolResult } from './llm.js';
 import { log } from './logger.js';
 import { withRetry } from './retry.js';
 import { pickGeminiModel } from './gemini-cli-quota.js';
+import { toolOk } from './tool-runtime.js';
 
 // ============================================================
 // Types
@@ -13,6 +15,7 @@ export interface FetchResult {
     redirectedTo?: string;
     problems?: string[];
     likely_broken?: boolean;
+    truncated?: boolean;
     tier: 'native' | 'gemini-url-context' | 'puppeteer';
 }
 
@@ -57,11 +60,14 @@ function looksLikeHtml(content: string): boolean {
     return /<[a-z][\s\S]*>/i.test(content.slice(0, 500));
 }
 
-function truncate(text: string): string {
+function truncate(text: string): { content: string; truncated: boolean } {
     if (text.length > MAX_CONTENT_LENGTH) {
-        return text.slice(0, MAX_CONTENT_LENGTH) + '\n...[truncated]';
+        return {
+            content: text.slice(0, MAX_CONTENT_LENGTH) + '\n...[truncated]',
+            truncated: true,
+        };
     }
-    return text;
+    return { content: text, truncated: false };
 }
 
 // ============================================================
@@ -150,9 +156,11 @@ export function analyzeContent(
         problems.push('domain appears parked');
     }
 
+    const truncated = truncate(text);
     const result: FetchResult = {
-        content: truncate(text),
+        content: truncated.content,
         statusCode: raw.statusCode,
+        truncated: truncated.truncated,
         tier,
     };
     if (redirected) result.redirectedTo = raw.finalUrl;
@@ -307,8 +315,17 @@ export async function fetchPage(
                     break;
             }
 
-            const result = skipAnalysis
-                ? { content: truncate(raw.isPlainText ? raw.text : stripHtml(raw.html)), statusCode: raw.statusCode, tier, ...(raw.finalUrl !== url ? { redirectedTo: raw.finalUrl } : {}) }
+            const result: FetchResult = skipAnalysis
+                ? (() => {
+                    const truncated = truncate(raw.isPlainText ? raw.text : stripHtml(raw.html));
+                    return {
+                        content: truncated.content,
+                        statusCode: raw.statusCode,
+                        truncated: truncated.truncated,
+                        tier,
+                        ...(raw.finalUrl !== url ? { redirectedTo: raw.finalUrl } : {}),
+                    };
+                })()
                 : analyzeContent(raw, url, tier);
 
             if (!shouldFallback(result)) {
@@ -373,4 +390,19 @@ export async function fetchPage(
         likely_broken: true,
         tier: tiers[tiers.length - 1] ?? 'native',
     };
+}
+
+export function fetchPageToolResult(url: string, result: FetchResult): ToolResult<FetchResult> {
+    return toolOk(result, {
+        sources: [{
+            url: result.redirectedTo ?? url,
+            title: result.redirectedTo ? `Fetched ${url} (redirected)` : `Fetched ${url}`,
+            snippet: result.content.slice(0, 240),
+            sourceType: result.tier === 'puppeteer' ? 'browser' : 'page',
+        }],
+        executionMeta: {
+            tier: result.tier,
+        },
+        truncated: result.truncated ?? false,
+    });
 }

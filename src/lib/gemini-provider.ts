@@ -5,6 +5,7 @@ import { createCache, deleteCache } from './gemini-cache.js';
 import { withRetry } from './retry.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration, ToolParameter } from './llm.js';
+import { renderToolDescription } from './tool-runtime.js';
 
 // ============================================================
 // Conversion helpers
@@ -24,6 +25,8 @@ function convertParamType(type: string): Type {
 function convertParam(param: ToolParameter): Record<string, unknown> {
     const result: Record<string, unknown> = { type: convertParamType(param.type) };
     if (param.description) result.description = param.description;
+    if (param.enum) result.enum = param.enum;
+    if (param.additionalProperties !== undefined) result.additionalProperties = param.additionalProperties;
     if (param.items) result.items = convertParam(param.items);
     if (param.properties) {
         result.properties = {};
@@ -38,7 +41,7 @@ function convertParam(param: ToolParameter): Record<string, unknown> {
 function convertTools(tools: ToolDeclaration[]): FunctionDeclaration[] {
     return tools.map((t) => ({
         name: t.name,
-        description: t.description,
+        description: renderToolDescription(t),
         parameters: convertParam(t.parameters),
     }));
 }

@@ -1,6 +1,7 @@
 import { getLLMProvider } from './llm.js';
-import type { LLMMessage, LLMResponse, ToolDeclaration, FunctionCall } from './llm.js';
+import type { LLMMessage, LLMProvider, LLMResponse, ToolDeclaration, FunctionCall, ToolResult } from './llm.js';
 import { log as rootLog } from './logger.js';
+import { normalizeToolResult, toolError, validateToolArgs } from './tool-runtime.js';
 
 // ============================================================
 // Agent configuration — each agent provides one of these
@@ -33,6 +34,8 @@ export interface AgentConfig {
 
     /** Override the global LLM_PROVIDER for this agent. */
     provider?: string;
+    /** Inject a provider directly, primarily for tests. */
+    providerInstance?: LLMProvider;
 
     /**
      * Called after each LLM response. Return 'done' to exit the loop,
@@ -45,7 +48,7 @@ export interface AgentConfig {
      * Called after each tool call executes. Return true to exit the loop
      * immediately (e.g. update_resource signals completion).
      */
-    onToolResult?(call: FunctionCall, result: unknown): boolean;
+    onToolResult?(call: FunctionCall, result: ToolResult): boolean;
 
     /**
      * Called when the LLM returns no function calls.
@@ -64,15 +67,204 @@ export interface AgentResult {
     terminated: 'tool' | 'response' | 'no-tools' | 'max-turns';
 }
 
+const DEFAULT_TOOL_TIMEOUT_MS = 20_000;
+
+function stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`);
+        return `{${entries.join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<T>((_, reject) => {
+                timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+}
+
+interface ExecutedToolCall {
+    call: FunctionCall;
+    result: ToolResult;
+    stop: boolean;
+}
+
+interface ToolExecutionState {
+    callCounts: Map<string, number>;
+    seenTurnSignatures: Set<string>;
+}
+
+async function executeToolCall(
+    config: AgentConfig,
+    declarationMap: Map<string, ToolDeclaration>,
+    state: ToolExecutionState,
+    fc: FunctionCall,
+    parallel: boolean,
+): Promise<ExecutedToolCall> {
+    const alog = rootLog.child({ agent: config.name });
+    const declaration = declarationMap.get(fc.name);
+    const handler = config.toolHandlers.get(fc.name);
+
+    alog.info('tool call', {
+        tool: fc.name,
+        args: fc.args,
+        parallelSafe: declaration?.parallelSafe ?? false,
+        parallel,
+    });
+
+    if (!handler) {
+        return {
+            call: fc,
+            result: normalizeToolResult(
+                toolError(`Unknown tool: ${fc.name}`, { code: 'unknown_tool' }),
+                declaration,
+                { toolName: fc.name, callId: fc.id, parallel },
+            ),
+            stop: false,
+        };
+    }
+
+    if (!declaration) {
+        return {
+            call: fc,
+            result: normalizeToolResult(
+                toolError(`Tool ${fc.name} is not declared for this agent`, { code: 'undeclared_tool' }),
+                undefined,
+                { toolName: fc.name, callId: fc.id, parallel },
+            ),
+            stop: false,
+        };
+    }
+
+    const signature = `${fc.name}:${stableStringify(fc.args)}`;
+    if (state.seenTurnSignatures.has(signature)) {
+        return {
+            call: fc,
+            result: normalizeToolResult(
+                toolError('Duplicate tool call suppressed', {
+                    code: 'duplicate_tool_call',
+                    details: { signature },
+                }),
+                declaration,
+                { toolName: fc.name, callId: fc.id, parallel },
+            ),
+            stop: false,
+        };
+    }
+
+    const currentCount = state.callCounts.get(fc.name) ?? 0;
+    if (declaration.maxCallsPerRun !== undefined && currentCount >= declaration.maxCallsPerRun) {
+        return {
+            call: fc,
+            result: normalizeToolResult(
+                toolError(`Tool ${fc.name} exceeded maxCallsPerRun (${declaration.maxCallsPerRun})`, {
+                    code: 'tool_call_limit_exceeded',
+                }),
+                declaration,
+                { toolName: fc.name, callId: fc.id, parallel },
+            ),
+            stop: false,
+        };
+    }
+
+    const validation = validateToolArgs(declaration, fc.args);
+    if (!validation.ok) {
+        return {
+            call: fc,
+            result: normalizeToolResult(
+                toolError('Tool arguments failed validation', {
+                    code: 'invalid_arguments',
+                    details: validation.errors,
+                }),
+                declaration,
+                { toolName: fc.name, callId: fc.id, parallel },
+            ),
+            stop: false,
+        };
+    }
+
+    state.seenTurnSignatures.add(signature);
+    state.callCounts.set(fc.name, currentCount + 1);
+
+    const started = Date.now();
+    try {
+        const rawResult = await withTimeout(
+            handler(fc.args),
+            declaration.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS,
+            fc.name,
+        );
+        const normalized = normalizeToolResult(rawResult, declaration, {
+            toolName: fc.name,
+            callId: fc.id,
+            durationMs: Date.now() - started,
+            parallel,
+        });
+
+        alog.info('tool result', {
+            tool: fc.name,
+            ok: normalized.ok,
+            durationMs: normalized.executionMeta?.durationMs,
+            sources: normalized.sources?.length ?? 0,
+            queries: normalized.queries?.length ?? 0,
+            truncated: normalized.truncated ?? false,
+        });
+
+        return {
+            call: fc,
+            result: normalized,
+            stop: config.onToolResult?.(fc, normalized) ?? false,
+        };
+    } catch (err) {
+        const normalized = normalizeToolResult(
+            toolError(`Tool execution failed: ${String(err)}`, {
+                code: 'tool_execution_failed',
+                retryable: true,
+            }),
+            declaration,
+            {
+                toolName: fc.name,
+                callId: fc.id,
+                durationMs: Date.now() - started,
+                parallel,
+            },
+        );
+        alog.warn('tool execution failed', { tool: fc.name, error: String(err) });
+        return {
+            call: fc,
+            result: normalized,
+            stop: false,
+        };
+    }
+}
+
 export async function runAgent(
     config: AgentConfig,
     initialMessages: LLMMessage[],
 ): Promise<AgentResult> {
-    const provider = await getLLMProvider(config.provider);
+    const provider = config.providerInstance ?? await getLLMProvider(config.provider);
     const alog = rootLog.child({ agent: config.name });
     const messages = [...initialMessages];
+    const declarationMap = new Map(config.tools.map((tool) => [tool.name, tool]));
+    const executionState: ToolExecutionState = {
+        callCounts: new Map<string, number>(),
+        seenTurnSignatures: new Set<string>(),
+    };
 
     for (let turn = 0; turn < config.maxTurns; turn++) {
+        executionState.seenTurnSignatures.clear();
         alog.info('llm call', { turn, messageCount: messages.length });
         const started = Date.now();
         const response = await provider.generate(messages, {
@@ -126,32 +318,62 @@ export async function runAgent(
 
         // Execute tools
         const functionResponses = [];
-        for (const fc of response.functionCalls) {
-            const handler = config.toolHandlers.get(fc.name);
-            if (!handler) {
-                alog.warn('unknown tool', { tool: fc.name });
-                functionResponses.push({
-                    name: fc.name,
-                    response: { error: `Unknown tool: ${fc.name}` },
-                    id: fc.id,
-                });
+        let index = 0;
+        while (index < response.functionCalls.length) {
+            const fc = response.functionCalls[index];
+            const declaration = declarationMap.get(fc.name);
+
+            if (declaration?.parallelSafe) {
+                const batch = [fc];
+                index++;
+                while (
+                    index < response.functionCalls.length &&
+                    declarationMap.get(response.functionCalls[index].name)?.parallelSafe
+                ) {
+                    batch.push(response.functionCalls[index]);
+                    index++;
+                }
+
+                const executed = await Promise.all(batch.map((call) => executeToolCall(
+                    config,
+                    declarationMap,
+                    executionState,
+                    call,
+                    true,
+                )));
+
+                for (const item of executed) {
+                    functionResponses.push({
+                        name: item.call.name,
+                        response: item.result,
+                        id: item.call.id,
+                    });
+
+                    if (item.stop) {
+                        return { turns: turn + 1, terminated: 'tool' };
+                    }
+                }
                 continue;
             }
 
-            alog.info('tool call', { tool: fc.name, args: fc.args });
-            const result = await handler(fc.args);
-            alog.debug('tool result', { tool: fc.name, result });
+            const executed = await executeToolCall(
+                config,
+                declarationMap,
+                executionState,
+                fc,
+                false,
+            );
 
             functionResponses.push({
-                name: fc.name,
-                response: result,
-                id: fc.id,
+                name: executed.call.name,
+                response: executed.result,
+                id: executed.call.id,
             });
 
-            // Check if this tool call signals completion
-            if (config.onToolResult?.(fc, result)) {
+            if (executed.stop) {
                 return { turns: turn + 1, terminated: 'tool' };
             }
+            index++;
         }
 
         messages.push({ role: 'user', functionResponses });

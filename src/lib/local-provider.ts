@@ -1,6 +1,7 @@
 import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions } from './llm.js';
+import { renderToolDescription } from './tool-runtime.js';
 
 // ============================================================
 // OpenAI-compatible API types
@@ -104,7 +105,7 @@ export class LocalProvider implements LLMProvider {
                 type: 'function',
                 function: {
                     name: t.name,
-                    description: t.description,
+                    description: renderToolDescription(t),
                     parameters: t.parameters,
                 },
             }));

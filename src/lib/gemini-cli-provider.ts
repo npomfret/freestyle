@@ -5,6 +5,7 @@ import { log } from './logger.js';
 import { modelFamily, fetchGeminiQuota } from './gemini-cli-quota.js';
 import type { GeminiQuotaSnapshot } from './gemini-cli-quota.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration } from './llm.js';
+import { renderToolDescription } from './tool-runtime.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -44,10 +45,11 @@ function describeJsonSchema(tools: ToolDeclaration[]): string {
         const fields = t.parameters.properties
             ? Object.entries(t.parameters.properties).map(([name, p]) => {
                 const req = t.parameters.required?.includes(name) ? ' (required)' : ' (optional)';
-                return `  - "${name}": ${p.type}${req} — ${p.description ?? ''}`;
+                const enumInfo = p.enum ? ` Allowed values: ${p.enum.join(', ')}.` : '';
+                return `  - "${name}": ${p.type}${req} — ${p.description ?? ''}${enumInfo}`;
             }).join('\n')
             : '';
-        return `Your response must be a JSON object with these fields:\n${fields}`;
+        return `Tool: ${renderToolDescription(t)}\nYour response must be a JSON object with these fields:\n${fields}`;
     }
 
     // Multiple tools: include an "action" field to distinguish
@@ -55,10 +57,11 @@ function describeJsonSchema(tools: ToolDeclaration[]): string {
         const fields = t.parameters.properties
             ? Object.entries(t.parameters.properties).map(([name, p]) => {
                 const req = t.parameters.required?.includes(name) ? ' (required)' : ' (optional)';
-                return `    - "${name}": ${p.type}${req} — ${p.description ?? ''}`;
+                const enumInfo = p.enum ? ` Allowed values: ${p.enum.join(', ')}.` : '';
+                return `    - "${name}": ${p.type}${req} — ${p.description ?? ''}${enumInfo}`;
             }).join('\n')
             : '';
-        return `When "${t.name}" (${t.description}):\n  {"action": "${t.name}", ...}\n  Fields:\n${fields}`;
+        return `When "${t.name}" (${renderToolDescription(t)}):\n  {"action": "${t.name}", ...}\n  Fields:\n${fields}`;
     });
 
     return `Your response must be a JSON object. Set the "action" field to indicate which response type, then include the relevant fields.\n\n${schemas.join('\n\n')}`;

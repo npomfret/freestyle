@@ -4,8 +4,10 @@ import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
+import { fetchPageToolResult } from './lib/fetch-page.js';
 import { webSearch } from './lib/search.js';
 import { log, serializeError } from './lib/logger.js';
+import { toolError } from './lib/tool-runtime.js';
 import { getNextRecheckResource, getNextSuspectResource, getResourceById, getResourceByUrl } from './lib/resource-queries.js';
 import { fetchPageTool, recheckUpdateTool, repairUrlTool, webSearchTool } from './lib/tool-declarations.js';
 import type { ResourceId } from './lib/types.js';
@@ -50,7 +52,7 @@ If fetch_page returns likely_broken, follow this sequence:
 ## Steps
 1. Look at the pre-fetched results provided in the first message
 2. If the page appears broken:
-   a. lookup_web for the resource name to find a new URL
+   a. lookup_web for the resource name to find a new URL and rely on the returned source URLs
    b. If found: fetch_page the new URL → repair_url if it works → update_resource with is_alive = true
    c. If not found or new URL also broken: update_resource with is_alive = false
 3. Call update_resource with:
@@ -127,8 +129,11 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
         maxTurns: 20,
 
         toolHandlers: toolHandlers(
-            ['fetch_page', async (args) => fetchPage(args.url as string)],
-            ['lookup_web', async (args) => ({ results: await webSearch(args.query as string) })],
+            ['fetch_page', async (args) => {
+                const url = args.url as string;
+                return fetchPageToolResult(url, await fetchPage(url));
+            }],
+            ['lookup_web', async (args) => webSearch(args.query as string)],
             ['update_resource', async (args) => updateResource(db, resource, {
                 name: args.name as string | undefined,
                 description: args.description as string,
@@ -145,7 +150,10 @@ async function recheckOne(resource: ResourceRow): Promise<void> {
                     'SELECT id FROM resources WHERE url = $1', [newUrl],
                 );
                 if (dupeRows.length > 0) {
-                    return { error: `URL already exists as resource ${dupeRows[0].id}`, url: newUrl };
+                    return toolError(`URL already exists as resource ${dupeRows[0].id}`, {
+                        code: 'duplicate_resource_url',
+                        details: { url: newUrl },
+                    });
                 }
                 const oldUrl = resource.url;
                 await db.query('UPDATE resources SET url = $1, updated_at = now() WHERE id = $2', [newUrl, resource.id]);

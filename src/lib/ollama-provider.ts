@@ -1,6 +1,7 @@
 import { requiredEnv } from './config.js';
 import { log } from './logger.js';
 import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions, ToolDeclaration, ToolParameter } from './llm.js';
+import { renderToolDescription } from './tool-runtime.js';
 
 
 // ============================================================
@@ -22,6 +23,8 @@ interface OllamaToolParams {
     items?: OllamaToolParams;
     required?: string[];
     description?: string;
+    enum?: string[];
+    additionalProperties?: boolean;
 }
 
 interface OllamaMessage {
@@ -50,6 +53,8 @@ function convertParam(param: ToolParameter): OllamaToolParams {
     const result: OllamaToolParams = { type: param.type };
     if (param.description) result.description = param.description;
     if (param.items) result.items = convertParam(param.items);
+    if (param.enum) result.enum = param.enum;
+    if (param.additionalProperties !== undefined) result.additionalProperties = param.additionalProperties;
     if (param.properties) {
         result.properties = {};
         for (const [key, value] of Object.entries(param.properties)) {
@@ -65,7 +70,7 @@ function convertTools(tools: ToolDeclaration[]): OllamaTool[] {
         type: 'function' as const,
         function: {
             name: t.name,
-            description: t.description,
+            description: renderToolDescription(t),
             parameters: convertParam(t.parameters),
         },
     }));

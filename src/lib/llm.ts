@@ -10,12 +10,61 @@ export interface ToolParameter {
     items?: ToolParameter;
     properties?: Record<string, ToolParameter>;
     required?: string[];
+    enum?: string[];
+    additionalProperties?: boolean;
+}
+
+export interface ToolExample {
+    description?: string;
+    args: Record<string, unknown>;
 }
 
 export interface ToolDeclaration {
     name: string;
     description: string;
     parameters: ToolParameter;
+    whenToUse?: string;
+    whenNotToUse?: string;
+    returns?: string;
+    notes?: string[];
+    examples?: ToolExample[];
+    parallelSafe?: boolean;
+    timeoutMs?: number;
+    maxCallsPerRun?: number;
+    maxResponseChars?: number;
+}
+
+export interface ToolSource {
+    url: string;
+    title?: string;
+    snippet?: string;
+    sourceType?: 'search' | 'page' | 'reference' | 'social' | 'grounding' | 'browser' | 'tool';
+}
+
+export interface ToolExecutionMeta {
+    toolName?: string;
+    callId?: string;
+    durationMs?: number;
+    provider?: string;
+    tier?: string;
+    parallel?: boolean;
+}
+
+export interface ToolError {
+    message: string;
+    code?: string;
+    retryable?: boolean;
+    details?: unknown;
+}
+
+export interface ToolResult<T = unknown> {
+    ok: boolean;
+    data?: T;
+    error?: ToolError;
+    sources?: ToolSource[];
+    queries?: string[];
+    truncated?: boolean;
+    executionMeta?: ToolExecutionMeta;
 }
 
 export interface FunctionCall {
@@ -26,7 +75,7 @@ export interface FunctionCall {
 
 export interface FunctionResponse {
     name: string;
-    response: unknown;
+    response: ToolResult;
     id?: string;
 }
 

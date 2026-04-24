@@ -66,12 +66,13 @@ echo "  commit: $sha  $subject"
 ssh "$DEPLOY_HOST" bash -se <<REMOTE
 set -euo pipefail
 cd "$DEPLOY_PATH"
+compose="docker compose -f docker-compose.production.yml --env-file .env.production"
 echo "▸ git pull --ff-only"
 git pull --ff-only
-echo "▸ npm run deploy:build"
-npm run deploy:build
-echo "▸ npm run deploy:up"
-npm run deploy:up
+echo "▸ build app image"
+\$compose build app
+echo "▸ recreate app container"
+\$compose up -d app
 REMOTE
 
 step "Health check ($DEPLOY_HEALTH_URL)"

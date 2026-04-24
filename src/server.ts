@@ -4,13 +4,22 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { resolve } from 'path';
 import { requiredEnv } from './lib/config.js';
+import {
+    browseResources,
+    getRandomResource,
+    getRecentResources,
+    getRelatedResources,
+    getResourceById,
+    isValidKind,
+    searchResources,
+    type PaginatedResources,
+    type ResourceRecord,
+} from './lib/catalog.js';
 import { createPool } from './lib/db.js';
-import { embed } from './lib/embeddings.js';
 import { log, serializeError } from './lib/logger.js';
-import type { ResourceId } from './lib/types.js';
+import { formatResourceAsMarkdown, formatResourcesAsMarkdown } from './lib/markdown.js';
 
 const PORT = Number(requiredEnv('PORT'));
-const VALID_KINDS = new Set(['api', 'dataset', 'service', 'code']);
 
 const app = express();
 
@@ -67,6 +76,28 @@ function clampInt(val: unknown, min: number, max: number, fallback: number): num
     const n = Number(val);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+function wantsMarkdown(req: Request): boolean {
+    if (req.query.format === 'markdown' || req.query.format === 'md') return true;
+    const accept = req.get('accept');
+    return typeof accept === 'string' && accept.includes('text/markdown');
+}
+
+function sendFormatted(
+    req: Request,
+    res: Response,
+    payload: ResourceRecord | ResourceRecord[] | PaginatedResources,
+): void {
+    if (!wantsMarkdown(req)) {
+        res.json(payload);
+        return;
+    }
+
+    const markdown = Array.isArray(payload) || 'items' in payload
+        ? formatResourcesAsMarkdown(payload)
+        : formatResourceAsMarkdown(payload);
+    res.type('text/markdown').send(markdown);
 }
 
 // ============================================================
@@ -132,16 +163,8 @@ app.get('/api/topics', async (_req: Request, res: Response) => {
 app.get('/api/recent', async (req: Request, res: Response) => {
     try {
         const limit = clampInt(req.query.limit, 1, 50, 20);
-        const { rows } = await db.query(
-            `SELECT r.id, r.name, r.url, r.created_at, r.updated_at
-     FROM resources r
-     WHERE NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
-     ORDER BY r.created_at DESC
-     LIMIT $1`,
-            [limit],
-        );
-        const enriched = await enrichResources(rows);
-        res.json(enriched);
+        const items = await getRecentResources(db, limit);
+        sendFormatted(req, res, items);
     } catch (err) {
         log.error('recent failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
@@ -164,87 +187,13 @@ app.get('/api/search', async (req: Request, res: Response) => {
             res.status(400).json({ error: 'q parameter required' });
             return;
         }
-        if (kind && !VALID_KINDS.has(kind)) {
+        if (kind && !isValidKind(kind)) {
             res.status(400).json({ error: `Invalid kind: ${kind}` });
             return;
         }
 
-        // Semantic search using local embedding model
-        try {
-            const embText = region ? `${q} ${region}` : q;
-            const vecs = await embed([embText]);
-            const vec = '[' + vecs[0].join(',') + ']';
-
-            let sql = `
-      SELECT r.id, r.name, r.url, r.updated_at,
-             1 - (r.embedding <=> $1::vector) AS similarity
-      FROM resources r
-      WHERE r.embedding IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))
-    `;
-            const params: unknown[] = [vec];
-            let paramIdx = 2;
-
-            if (topic) {
-                sql += ` AND EXISTS (SELECT 1 FROM resource_topics rt WHERE rt.resource_id = r.id AND rt.topic = $${paramIdx})`;
-                params.push(topic);
-                paramIdx++;
-            }
-            if (kind) {
-                sql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${paramIdx})`;
-                params.push(kind);
-                paramIdx++;
-            }
-            if (region) {
-                sql += ` AND EXISTS (SELECT 1 FROM resource_regions rr WHERE rr.resource_id = r.id AND rr.region = $${paramIdx})`;
-                params.push(region);
-                paramIdx++;
-            }
-
-            sql += ` ORDER BY r.embedding <=> $1::vector LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
-            params.push(limit + 1, offset);
-
-            const { rows } = await db.query(sql, params);
-            const hasMore = rows.length > limit;
-            const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
-            res.json({ items: enriched, hasMore, offset, limit });
-            return;
-        } catch {
-            // Fall through to text search
-        }
-
-        // Fallback: trigram + FTS (with same filters as semantic branch)
-        let fallbackSql = `SELECT r.id, r.name, r.url, r.updated_at,
-            GREATEST(similarity(r.name, $1), ts_rank(r.fts, plainto_tsquery('english', $1))) AS similarity
-     FROM resources r
-     WHERE (r.name % $1 OR r.fts @@ plainto_tsquery('english', $1))
-       AND NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead'))`;
-        const fallbackParams: unknown[] = [q];
-        let fbIdx = 2;
-
-        if (topic) {
-            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_topics rt WHERE rt.resource_id = r.id AND rt.topic = $${fbIdx})`;
-            fallbackParams.push(topic);
-            fbIdx++;
-        }
-        if (kind) {
-            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_kinds rk WHERE rk.resource_id = r.id AND rk.kind = $${fbIdx})`;
-            fallbackParams.push(kind);
-            fbIdx++;
-        }
-        if (region) {
-            fallbackSql += ` AND EXISTS (SELECT 1 FROM resource_regions rr WHERE rr.resource_id = r.id AND rr.region = $${fbIdx})`;
-            fallbackParams.push(region);
-            fbIdx++;
-        }
-
-        fallbackSql += ` ORDER BY similarity DESC LIMIT $${fbIdx} OFFSET $${fbIdx + 1}`;
-        fallbackParams.push(limit + 1, offset);
-
-        const { rows } = await db.query(fallbackSql, fallbackParams);
-        const hasMore = rows.length > limit;
-        const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
-        res.json({ items: enriched, hasMore, offset, limit });
+        const result = await searchResources(db, { q, topic, kind, region, limit, offset });
+        sendFormatted(req, res, result);
     } catch (err) {
         log.error('search failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
@@ -263,51 +212,13 @@ app.get('/api/resources', async (req: Request, res: Response) => {
 
         log.info('browse', { topic, kind, source, region, limit, offset });
 
-        if (kind && !VALID_KINDS.has(kind)) {
+        if (kind && !isValidKind(kind)) {
             res.status(400).json({ error: `Invalid kind: ${kind}` });
             return;
         }
 
-        let sql = 'SELECT r.id, r.name, r.url, r.updated_at FROM resources r';
-        const joins: string[] = [];
-        const wheres: string[] = ['NOT EXISTS (SELECT 1 FROM link_checks lc WHERE lc.resource_id = r.id AND lc.status IN (\'suspect\', \'dead\'))'];
-        const params: unknown[] = [];
-        let paramIdx = 1;
-
-        if (topic) {
-            joins.push(`JOIN resource_topics rt ON rt.resource_id = r.id`);
-            wheres.push(`rt.topic = $${paramIdx}`);
-            params.push(topic);
-            paramIdx++;
-        }
-        if (kind) {
-            joins.push(`JOIN resource_kinds rk ON rk.resource_id = r.id`);
-            wheres.push(`rk.kind = $${paramIdx}`);
-            params.push(kind);
-            paramIdx++;
-        }
-        if (source) {
-            joins.push(`JOIN resource_sources rs ON rs.resource_id = r.id`);
-            wheres.push(`rs.source = $${paramIdx}`);
-            params.push(source);
-            paramIdx++;
-        }
-        if (region) {
-            joins.push(`JOIN resource_regions rr ON rr.resource_id = r.id`);
-            wheres.push(`rr.region = $${paramIdx}`);
-            params.push(region);
-            paramIdx++;
-        }
-
-        if (joins.length) sql += ' ' + joins.join(' ');
-        if (wheres.length) sql += ' WHERE ' + wheres.join(' AND ');
-        sql += ` ORDER BY r.name LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
-        params.push(limit + 1, offset);
-
-        const { rows } = await db.query(sql, params);
-        const hasMore = rows.length > limit;
-        const enriched = await enrichResources(hasMore ? rows.slice(0, limit) : rows);
-        res.json({ items: enriched, hasMore, offset, limit });
+        const result = await browseResources(db, { topic, kind, source, region, limit, offset });
+        sendFormatted(req, res, result);
     } catch (err) {
         log.error('browse failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
@@ -322,16 +233,12 @@ app.get('/api/resources/:id', async (req: Request, res: Response) => {
             res.status(400).json({ error: 'Invalid resource id' });
             return;
         }
-        const { rows } = await db.query(
-            'SELECT r.id, r.name, r.url, r.created_at, r.updated_at FROM resources r WHERE r.id = $1',
-            [id],
-        );
-        if (!rows.length) {
+        const resource = await getResourceById(db, id);
+        if (!resource) {
             res.status(404).json({ error: 'Not found' });
             return;
         }
-        const enriched = await enrichResources(rows);
-        res.json(enriched[0]);
+        sendFormatted(req, res, resource);
     } catch (err) {
         log.error('resource detail failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
@@ -348,108 +255,44 @@ app.get('/api/resources/:id/related', async (req: Request, res: Response) => {
         }
         const limit = clampInt(req.query.limit, 1, 20, 5);
 
-        const { rows: target } = await db.query(
-            'SELECT embedding FROM resources WHERE id = $1',
-            [id],
-        );
-        if (!target.length) {
+        const related = await getRelatedResources(db, id, limit);
+        if (related === null) {
             res.status(404).json({ error: 'Not found' });
             return;
         }
-        if (!target[0].embedding) {
-            res.json([]);
-            return;
-        }
-
-        const { rows } = await db.query(`
-            SELECT r.id, r.name, r.url, r.created_at, r.updated_at,
-                   1 - (r.embedding <=> $1::vector) AS similarity
-            FROM resources r
-            WHERE r.id != $2 AND r.embedding IS NOT NULL
-              AND NOT EXISTS (
-                SELECT 1 FROM link_checks lc
-                WHERE lc.resource_id = r.id AND lc.status IN ('suspect', 'dead')
-              )
-            ORDER BY r.embedding <=> $1::vector
-            LIMIT $3
-        `, [target[0].embedding, id, limit]);
-
-        res.json(await enrichResources(rows));
+        sendFormatted(req, res, related);
     } catch (err) {
         log.error('related resources failed', serializeError(err));
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ============================================================
-// Helpers
-// ============================================================
+app.get('/api/random', async (req: Request, res: Response) => {
+    try {
+        const topic = typeof req.query.topic === 'string' ? req.query.topic : undefined;
+        const kind = typeof req.query.kind === 'string' ? req.query.kind : undefined;
+        const source = typeof req.query.source === 'string' ? req.query.source : undefined;
+        const region = typeof req.query.region === 'string' ? req.query.region : undefined;
 
-async function enrichResources(
-    rows: { id: ResourceId; name: string; url: string; created_at?: string; updated_at?: string; similarity?: number }[],
-) {
-    if (!rows.length) return [];
-    const ids = rows.map((r) => r.id);
+        log.info('random', { topic, kind, source, region });
 
-    const [kinds, topics, regions, sources, descs, analyses] = await Promise.all([
-        db.query('SELECT resource_id, kind FROM resource_kinds WHERE resource_id = ANY($1)', [ids]),
-        db.query('SELECT resource_id, topic FROM resource_topics WHERE resource_id = ANY($1)', [ids]),
-        db.query('SELECT resource_id, region FROM resource_regions WHERE resource_id = ANY($1)', [ids]),
-        db.query(
-            `SELECT rs.resource_id, rs.source AS name, p.repo_url AS url
-       FROM resource_sources rs
-       LEFT JOIN projects p ON p.name = rs.source
-       WHERE rs.resource_id = ANY($1)`,
-            [ids],
-        ),
-        db.query('SELECT resource_id, description FROM resource_descriptions WHERE resource_id = ANY($1)', [ids]),
-        db.query('SELECT resource_id, analysis FROM resource_analyses WHERE resource_id = ANY($1)', [ids]),
-    ]);
-
-    const kindMap = groupBy(kinds.rows, 'resource_id', 'kind');
-    const topicMap = groupBy(topics.rows, 'resource_id', 'topic');
-    const regionMap = groupBy(regions.rows, 'resource_id', 'region');
-    const descMap = groupBy(descs.rows, 'resource_id', 'description');
-
-    const analysisMap: Record<number, string> = {};
-    for (const row of analyses.rows) {
-        analysisMap[row.resource_id as number] = row.analysis as string;
-    }
-
-    const sourceObjMap: Record<number, { name: string; url: string | null }[]> = {};
-    for (const row of sources.rows) {
-        const key = row.resource_id as number;
-        if (!sourceObjMap[key]) sourceObjMap[key] = [];
-        const exists = sourceObjMap[key].some((s) => s.name === row.name);
-        if (!exists) {
-            sourceObjMap[key].push({ name: row.name as string, url: (row.url as string) ?? null });
+        if (kind && !isValidKind(kind)) {
+            res.status(400).json({ error: `Invalid kind: ${kind}` });
+            return;
         }
-    }
 
-    return rows.map((r) => ({
-        ...r,
-        kinds: [...new Set(kindMap[r.id] ?? [])],
-        topics: [...new Set(topicMap[r.id] ?? [])],
-        regions: [...new Set(regionMap[r.id] ?? [])],
-        sources: sourceObjMap[r.id] ?? [],
-        descriptions: [...new Set(descMap[r.id] ?? [])],
-        analysis: analysisMap[r.id] ?? null,
-    }));
-}
+        const resource = await getRandomResource(db, { topic, kind, source, region });
+        if (!resource) {
+            res.status(404).json({ error: 'No matching resource found' });
+            return;
+        }
 
-function groupBy(
-    rows: Record<string, unknown>[],
-    keyField: string,
-    valueField: string,
-): Record<number, string[]> {
-    const map: Record<number, string[]> = {};
-    for (const row of rows) {
-        const key = row[keyField] as number;
-        if (!map[key]) map[key] = [];
-        map[key].push(row[valueField] as string);
+        sendFormatted(req, res, resource);
+    } catch (err) {
+        log.error('random failed', serializeError(err));
+        res.status(500).json({ error: 'Internal server error' });
     }
-    return map;
-}
+});
 
 // ============================================================
 // Serve static frontend in production

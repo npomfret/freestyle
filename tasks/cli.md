@@ -1,34 +1,33 @@
 # CLI Tool
 
-Build a CLI (`src/cli.ts`) that exercises the REST API and outputs markdown by default, JSON with `--json`.
+The CLI lives in `src/search.ts` and runs via the existing `npm run search` script.
 
 ## Commands
 
-| Command | Endpoint | Description |
-|---------|----------|-------------|
-| `stats` | `GET /api/stats` | Database statistics as a markdown table |
-| `topics` | `GET /api/topics` | All topics with resource counts |
-| `recent` | `GET /api/recent` | Recently added resources |
-| `search <query>` | `GET /api/search` | Semantic search |
-| `browse` | `GET /api/resources` | Browse/filter resources |
-| `get <id>` | `GET /api/resources/:id` | Single resource detail |
-| `help` | — | Usage info |
+| Command | Description |
+|---------|-------------|
+| `help` | Show usage information |
+| `search <query>` | Search the catalog directly against the database |
+| `random` | Return one random matching resource from the database |
 
 ## Options
 
-- `--json` — JSON output instead of markdown
-- `--topic <topic>` — filter by topic (search, browse)
-- `--kind <kind>` — filter by kind: api, dataset, service, code (search, browse)
-- `--source <source>` — filter by source project (browse)
-- `--limit <n>` — max results
-- `--offset <n>` — pagination offset
+- `--kind <kind>` — filter by kind: api, dataset, service, code
+- `--topic <topic>` — filter by topic
+- `--region <region>` — filter by region
+- `--limit <n>` — max results for `search`
+- `--markdown` — markdown output instead of plain text
 
-## Environment
+## Examples
 
-- `FREESTYLE_API_URL` — API base URL (default: `http://localhost:${PORT ?? 3001}`)
+- `npm run search -- help`
+- `npm run search -- search "satellite imagery for agriculture" --limit 10`
+- `npm run search -- search "commodity data" --kind dataset --markdown`
+- `npm run search -- random --kind api`
+- `npm run search -- random --topic economics --markdown`
 
 ## Notes
 
-- Add `"cli": "tsx src/cli.ts"` to package.json scripts
-- Markdown output: tables for stats/topics, numbered lists for resources with name, URL, kinds, topics, similarity score, first description
-- No extra dependencies needed — uses native `fetch`
+- This CLI does not call the HTTP API; it queries Postgres directly through shared catalog logic.
+- The implementation reuses the same query and enrichment layer as the API routes.
+- There is no `src/cli.ts`, no `--json` flag, and no `FREESTYLE_API_URL` setting in the current implementation.

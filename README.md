@@ -122,7 +122,11 @@ See `.env.example` for a complete template.
 - `npm run server` starts the Express API and serves `web/dist` when it exists; examples: `PORT=4000 npm run server` or `PORT=4000 DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run server`
 - `npm run dev:web` starts the Vite frontend in `web/`; extra Vite args can be forwarded, for example `npm run dev:web -- --host 0.0.0.0 --port 4173`
 - `npm run build:web` builds the frontend for production
-- `npm run search -- "your query"` runs a CLI semantic search against the DB; example: `npm run search -- "satellite imagery for agriculture"`
+- API routes support optional markdown output with `?format=markdown`, `?format=md`, or `Accept: text/markdown`
+- `GET /api/random` returns one random resource; optional filters: `kind`, `topic`, `source`, `region`
+- `npm run search -- help` shows the CLI help text
+- `npm run search -- search "your query"` runs a CLI semantic search against the DB; example: `npm run search -- search "satellite imagery for agriculture" --limit 10`
+- `npm run search -- random` returns one random resource from the DB; example: `npm run search -- random --kind api --markdown`
 - `npm run discover` runs the AI-assisted discovery flow and adds verified resources; examples: `npm run discover -- "free biodiversity datasets"`, `npm run discover -- --process-queue`, or `npm run discover -- --loop` to run continuously with auto-selected topics
 - `npm run validity-check` checks resource URLs are still alive and attempts to repair broken ones; examples: `npm run validity-check -- 25`, `npm run validity-check -- --id 42`, `npm run validity-check -- --url https://example.com/api`
 - `npm run validity-check:suspect` runs validity-check on only resources currently marked as suspect

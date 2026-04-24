@@ -133,7 +133,7 @@ See `.env.example` for a complete template.
 - `LOCAL_LLM_URL` — URL of the local LLM server (used by both `local` and `ollama` providers)
 - `LOCAL_LLM_MODEL` — model name sent in requests; required for `ollama`, optional for `local` (MLX Studio ignores it — the port determines the model)
 - `GEMINI_API_KEY` — required for the `gemini` provider and for web search grounding in `discover`
-- `FREESTYLE_API_URL` — base URL the CLI (`npm run search`) hits; defaults to `http://localhost:${PORT ?? 3001}`
+- `FREESTYLE_API_URL` — base URL the CLI (`npm run search`) hits; defaults to the deployed server (`https://fsd.snowmonkey.co.uk`). Set to `http://localhost:3001` (or similar) when exercising a local dev server.
 ## Important Run Targets
 
 - `npm run embed` generates embeddings for resources and creates the vector index; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run embed`
@@ -146,7 +146,7 @@ See `.env.example` for a complete template.
 - `npm run search -- help` shows the CLI help text
 - `npm run search -- search "your query"` runs a semantic search against the running API; example: `npm run search -- search "satellite imagery for agriculture" --limit 10`
 - `npm run search -- random` returns one random resource from the running API; example: `npm run search -- random --kind api --markdown`
-- The CLI talks to the API, not the database. Start the server first (`npm run server`), or point `FREESTYLE_API_URL` at another instance (e.g. `FREESTYLE_API_URL=https://fsd.snowmonkey.co.uk npm run search -- random`).
+- The CLI hits the deployed server by default — no local setup required. Point `FREESTYLE_API_URL` at a local dev server if you want to test against uncommitted API changes (e.g. `FREESTYLE_API_URL=http://localhost:3001 npm run search -- random`).
 - `npm run discover` runs the AI-assisted discovery flow and adds verified resources; examples: `npm run discover -- "free biodiversity datasets"`, `npm run discover -- --process-queue`, or `npm run discover -- --loop` to run continuously with auto-selected topics
 - `npm run validity-check` checks resource URLs are still alive and attempts to repair broken ones; examples: `npm run validity-check -- 25`, `npm run validity-check -- --id 42`, `npm run validity-check -- --url https://example.com/api`
 - `npm run validity-check:suspect` runs validity-check on only resources currently marked as suspect

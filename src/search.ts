@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import type { PaginatedResources, ResourceRecord } from './lib/catalog.js';
 
-const API_URL = (process.env.FREESTYLE_API_URL ?? `http://localhost:${process.env.PORT ?? '3001'}`).replace(/\/$/, '');
+const API_URL = (process.env.FREESTYLE_API_URL ?? 'https://fsd.snowmonkey.co.uk').replace(/\/$/, '');
 
 function printHelp(): void {
     console.log(`Freestyle CLI
@@ -26,7 +26,7 @@ Options:
   --help              Alias for help
 
 Environment:
-  FREESTYLE_API_URL   API base URL (default: http://localhost:\${PORT ?? 3001})
+  FREESTYLE_API_URL   API base URL (default: https://fsd.snowmonkey.co.uk)
 `);
 }
 

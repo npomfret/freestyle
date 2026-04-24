@@ -68,7 +68,17 @@ while true; do
 
   # Pick the model with the most quota remaining each iteration (unless the caller forced MODEL).
   if [[ -z "${FORCED_MODEL:-}" ]]; then
-    MODEL="$(npm --prefix "$ROOT" run --silent gemini-quota -- --pick-model || echo 'gemini-2.5-flash-lite')"
+    set +e
+    MODEL="$(npm --prefix "$ROOT" run --silent gemini-quota -- --pick-model)"
+    pick_rc=$?
+    set -e
+    if [[ $pick_rc -eq 2 ]]; then
+      echo "[$(date +%H:%M:%S)] all models below 5% — sleeping 1 hour" >&2
+      sleep 3600
+      continue
+    elif [[ $pick_rc -ne 0 ]]; then
+      MODEL='gemini-2.5-flash-lite'
+    fi
   fi
 
   echo "[$ts] iteration $iter — model=$MODEL — log=$log"

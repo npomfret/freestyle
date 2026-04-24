@@ -13,18 +13,24 @@ try {
     const snapshot = await fetchGeminiQuota();
 
     if (isPickModel) {
-        const best = [...snapshot.families]
-            .filter((f) => f.family in FAMILY_TO_MODEL)
-            .sort((a, b) => b.remainingPercent - a.remainingPercent)[0];
-        const model = best ? FAMILY_TO_MODEL[best.family] : 'gemini-2.5-flash-lite';
+        const MIN_PCT = 5;
+        const eligible = [...snapshot.families]
+            .filter((f) => f.family in FAMILY_TO_MODEL && f.remainingPercent >= MIN_PCT)
+            .sort((a, b) => b.remainingPercent - a.remainingPercent);
 
         // Quota summary → stderr so the shell can capture just the model name from stdout
         const parts = snapshot.families
             .filter((f) => f.family in FAMILY_TO_MODEL)
             .map((f) => `${f.family}=${f.remainingPercent}%`)
             .join('  ');
-        process.stderr.write(`quota: ${parts}  → ${model}\n`);
 
+        if (eligible.length === 0) {
+            process.stderr.write(`quota: ${parts}  → no capacity\n`);
+            process.exit(2);
+        }
+
+        const model = FAMILY_TO_MODEL[eligible[0].family];
+        process.stderr.write(`quota: ${parts}  → ${model}\n`);
         console.log(model);
         process.exit(0);
     }

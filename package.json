@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "db:tunnel": "./scripts/db-tunnel.sh",
+    "deploy": "./scripts/deploy.sh",
     "deploy:build": "docker compose -f docker-compose.production.yml --env-file .env.production build app",
     "deploy:db": "docker compose -f docker-compose.production.yml --env-file .env.production up -d db",
     "deploy:up": "docker compose -f docker-compose.production.yml --env-file .env.production up -d app",

@@ -44,12 +44,25 @@ Production deploys are intended for `fsd.snowmonkey.co.uk` using Docker Compose 
 - Initial data should be copied from the local Postgres with `pg_dump` and restored into the server DB before starting the app.
 - Ongoing local writes to the remote DB should use an SSH tunnel to the loopback-bound Postgres port, not a public DB port.
 
-Minimal production commands:
+### Deploy from your laptop
 
-- `npm run deploy:build` builds the production app image
-- `npm run deploy:db` starts the production database
-- `npm run deploy:up` starts the production app
-- `npm run deploy:logs` tails app logs
+`npm run deploy` orchestrates the whole thing locally:
+
+1. **Pre-flight**: working tree clean, on the deploy branch, in sync with `upstream/<branch>`, `npm run compile` passes.
+2. **Remote**: SSHes to the server, runs `git pull --ff-only && npm run deploy:build && npm run deploy:up` in `/opt/freestyle`.
+3. **Verify**: polls `/health` until it responds or times out.
+
+Any step failing aborts the deploy before the next one runs, so a bad commit or a type error never reaches the server.
+
+Overridable via env vars when you need to deploy to a different target or branch:
+
+- `DEPLOY_HOST` — default `root@fsd.snowmonkey.co.uk`
+- `DEPLOY_PATH` — default `/opt/freestyle`
+- `DEPLOY_BRANCH` — default `main`
+- `DEPLOY_HEALTH_URL` — default `http://127.0.0.1:3001/health` (curled from the server)
+- `HEALTH_ATTEMPTS` — default `10`
+
+The individual steps (`deploy:build`, `deploy:db`, `deploy:up`, `deploy:logs`) still exist for when you want to run them manually on the server — they all shell out to `docker compose -f docker-compose.production.yml --env-file .env.production`.
 
 ### Remote DB tunnel
 

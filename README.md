@@ -10,13 +10,15 @@ Freestyle is a system for finding, recording, analysing, and maintaining a datab
 
 ## Local Setup
 
+The canonical database runs on the server (`fsd.snowmonkey.co.uk`). Day-to-day local development points at that server over an SSH tunnel — see [Remote DB tunnel](#remote-db-tunnel) below. **The tunnel must be running in a separate terminal before you start the backend or any DB-backed script (`npm run server`, `embed`, `discover`, `validity-check`, `repair`, `add-url`); nothing that talks to the database will work without it.** The CLI (`npm run search`) is the exception — it talks to the running API, not the database, so it only needs the server up. A local Docker Postgres is supported but rarely used; reach for it only for offline work or destructive experiments you don't want touching the real data.
+
 1. Install dependencies in both app roots:
    - `npm install`
    - `cd web && npm install`
 2. Copy `.env.example` to `.env` and fill in your keys
-3. Point `DATABASE_URL` at an existing Postgres database
+3. Start the SSH tunnel to the server DB with `npm run db:tunnel` in a separate terminal and leave it running, then point `DATABASE_URL` at it (see [Remote DB tunnel](#remote-db-tunnel)). The server and the pipeline scripts all assume the tunnel is already up. Only fall back to a local Postgres if you explicitly need one.
 4. Set up an LLM provider (see LLM Providers below)
-5. Generate embeddings:
+5. Generate embeddings (only when working against a local DB; the server DB already has them):
    - `npm run embed`
 6. Start the backend:
    - `npm run server`
@@ -29,7 +31,8 @@ Defaults:
 
 - API server: `http://localhost:3001`
 - Frontend dev server: Vite default on `http://localhost:5173`
-- Database URL: `postgresql://freestyle:freestyle@localhost:5433/freestyle`
+- Database URL (server via tunnel): `postgresql://freestyle:<server-password>@127.0.0.1:5543/freestyle`
+- Database URL (local Docker, rarely used): `postgresql://freestyle:freestyle@localhost:5433/freestyle`
 
 ## Deployment
 
@@ -48,7 +51,9 @@ Minimal production commands:
 - `npm run deploy:up` starts the production app
 - `npm run deploy:logs` tails app logs
 
-Remote DB tunnel:
+### Remote DB tunnel
+
+This is the normal way to run the app locally — the database lives on the server, not on your machine.
 
 - `npm run db:tunnel` opens an SSH tunnel from local `localhost:5543` to the server Postgres on `fsd.snowmonkey.co.uk`
 - Leave that terminal open while running local scripts against the remote database
@@ -115,6 +120,7 @@ See `.env.example` for a complete template.
 - `LOCAL_LLM_URL` — URL of the local LLM server (used by both `local` and `ollama` providers)
 - `LOCAL_LLM_MODEL` — model name sent in requests; required for `ollama`, optional for `local` (MLX Studio ignores it — the port determines the model)
 - `GEMINI_API_KEY` — required for the `gemini` provider and for web search grounding in `discover`
+- `FREESTYLE_API_URL` — base URL the CLI (`npm run search`) hits; defaults to `http://localhost:${PORT ?? 3001}`
 ## Important Run Targets
 
 - `npm run embed` generates embeddings for resources and creates the vector index; optional env override example: `DATABASE_URL=postgresql://user:pass@localhost:5432/freestyle npm run embed`
@@ -125,8 +131,9 @@ See `.env.example` for a complete template.
 - API routes support optional markdown output with `?format=markdown`, `?format=md`, or `Accept: text/markdown`
 - `GET /api/random` returns one random resource; optional filters: `kind`, `topic`, `source`, `region`
 - `npm run search -- help` shows the CLI help text
-- `npm run search -- search "your query"` runs a CLI semantic search against the DB; example: `npm run search -- search "satellite imagery for agriculture" --limit 10`
-- `npm run search -- random` returns one random resource from the DB; example: `npm run search -- random --kind api --markdown`
+- `npm run search -- search "your query"` runs a semantic search against the running API; example: `npm run search -- search "satellite imagery for agriculture" --limit 10`
+- `npm run search -- random` returns one random resource from the running API; example: `npm run search -- random --kind api --markdown`
+- The CLI talks to the API, not the database. Start the server first (`npm run server`), or point `FREESTYLE_API_URL` at another instance (e.g. `FREESTYLE_API_URL=https://fsd.snowmonkey.co.uk npm run search -- random`).
 - `npm run discover` runs the AI-assisted discovery flow and adds verified resources; examples: `npm run discover -- "free biodiversity datasets"`, `npm run discover -- --process-queue`, or `npm run discover -- --loop` to run continuously with auto-selected topics
 - `npm run validity-check` checks resource URLs are still alive and attempts to repair broken ones; examples: `npm run validity-check -- 25`, `npm run validity-check -- --id 42`, `npm run validity-check -- --url https://example.com/api`
 - `npm run validity-check:suspect` runs validity-check on only resources currently marked as suspect

@@ -21,7 +21,7 @@
     "repair:no-description": "tsx src/repair.ts --mode no-description",
     "add-url": "tsx src/discover.ts",
     "compile": "tsc --noEmit && cd web && tsc --noEmit",
-    "server": "tsx src/server.ts",
+    "server": "NODE_OPTIONS=\"-r dotenv/config\" tsx src/server.ts",
     "dev": "tsx src/dev.ts",
     "dev:web": "cd web && npm run dev",
     "build:web": "cd web && npm run build",

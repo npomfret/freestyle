@@ -17,7 +17,9 @@ Then you will
 
 Datasets don't need to be 100% free. But they must have a free tier, and the full cost must not exceed $5000 per year.
 
-One angle to always consider is: is there a use for a bespoke neural network in the project. We have the skills. But - an AI angle is not mandatory!
+One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to buidl models. Similarly agentic LLM based approaches are possible.
+
+But: an AI angle is not mandatory - do not get hung up on this idea.
 
 Consider existing competition, potential customers, basic marketing strategies, how it could scale etc
 

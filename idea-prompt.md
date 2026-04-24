@@ -14,10 +14,11 @@ Then you will
  * use googlesearch to do your own research
  * Check the quality of any suggested datasets, our db might be out of date... they must be suitable
  * consider which geographic region(s) the project might be suitable for
+ * consider budget - dev time is free, but we have a very small budget
 
 Datasets don't need to be 100% free. But they must have a free tier, and the full cost must not exceed $5000 per year.
 
-One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to buidl models. Similarly agentic LLM based approaches are possible.
+One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to build custom / novel models. Similarly agentic LLM based approaches are possible, but these can have a significant cost.
 
 But: an AI angle is not mandatory - do not get hung up on this idea.
 

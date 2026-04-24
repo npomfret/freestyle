@@ -21,8 +21,10 @@ cd "$ROOT"
 
 PROMPT_FILE="$ROOT/idea-prompt.md"
 LOG_DIR="$ROOT/tmp/logs/idea-loop"
-MODEL="${MODEL:-gemini-2.5-flash-lite}"
 SLEEP_SECS="${SLEEP_SECS:-5}"
+# If the caller explicitly set MODEL, honour it every iteration; otherwise re-pick each loop.
+FORCED_MODEL="${MODEL:-}"
+MODEL="${FORCED_MODEL:-gemini-2.5-flash-lite}"
 
 usage() {
   sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
@@ -63,6 +65,11 @@ while true; do
   iter=$((iter + 1))
   ts="$(date +%Y%m%d-%H%M%S)"
   log="$LOG_DIR/run-$ts.log"
+
+  # Pick the model with the most quota remaining each iteration (unless the caller forced MODEL).
+  if [[ -z "${FORCED_MODEL:-}" ]]; then
+    MODEL="$(npm --prefix "$ROOT" run --silent gemini-quota -- --pick-model || echo 'gemini-2.5-flash-lite')"
+  fi
 
   echo "[$ts] iteration $iter — model=$MODEL — log=$log"
 

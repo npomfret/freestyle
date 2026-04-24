@@ -1,9 +1,33 @@
 import { fetchGeminiQuota, GeminiQuotaError } from './lib/gemini-cli-quota.js';
 
 const isJson = process.argv.includes('--json');
+const isPickModel = process.argv.includes('--pick-model');
+
+const FAMILY_TO_MODEL: Record<string, string> = {
+    'flash-lite': 'gemini-2.5-flash-lite',
+    'flash': 'gemini-2.5-flash',
+    'pro': 'gemini-2.5-pro',
+};
 
 try {
     const snapshot = await fetchGeminiQuota();
+
+    if (isPickModel) {
+        const best = [...snapshot.families]
+            .filter((f) => f.family in FAMILY_TO_MODEL)
+            .sort((a, b) => b.remainingPercent - a.remainingPercent)[0];
+        const model = best ? FAMILY_TO_MODEL[best.family] : 'gemini-2.5-flash-lite';
+
+        // Quota summary → stderr so the shell can capture just the model name from stdout
+        const parts = snapshot.families
+            .filter((f) => f.family in FAMILY_TO_MODEL)
+            .map((f) => `${f.family}=${f.remainingPercent}%`)
+            .join('  ');
+        process.stderr.write(`quota: ${parts}  → ${model}\n`);
+
+        console.log(model);
+        process.exit(0);
+    }
 
     if (isJson) {
         console.log(JSON.stringify(snapshot, null, 2));

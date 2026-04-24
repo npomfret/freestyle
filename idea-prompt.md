@@ -1,6 +1,6 @@
 Read @README.md and make sure you understand how to use the cli to exercise our api.
 
-Your task is to generate a business idea for a software product / website / service / app etc.
+Your task is to generate a business idea for a software (only) product / website / service / app / model.
 
  * They don't need to be original ideas.  Sometimes being much better and much cheaper than an existing product is a valid approach.
  * Having said that: highly saturated markets are difficult to break into.
@@ -23,4 +23,4 @@ Consider existing competition, potential customers, basic marketing strategies e
 
 If you hit a dead end, just discard and start again.
 
-If you have a reasonable idea about a potential business, stop and present it in a markdown file in the @ideas directory. Provide links to the datasets and APIs involved.
+If you have a reasonable idea about a potential business, stop and present it in a markdown file in the @ideas directory. Provide links to the datasets and APIs involved and estimate costs.

@@ -5,7 +5,7 @@ import { log } from './logger.js';
 const DATABASE_URL = process.env.DATABASE_URL
     ?? 'postgresql://freestyle:freestyle@localhost:5433/freestyle';
 
-log.info('DATABASE_URL being used:', DATABASE_URL);
+log.info('DATABASE_URL being used', { url: DATABASE_URL });
 
 /** Connection pool for long-running processes (server, agents). */
 export function createPool(): pg.Pool {

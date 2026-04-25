@@ -64,7 +64,11 @@ if [[ "$behind" != "0" ]]; then
 fi
 ok "in sync with upstream/$DEPLOY_BRANCH"
 
-npm run compile >/dev/null
+if ! compile_out="$(npm run compile 2>&1)"; then
+    err "type-check (npm run compile) failed:"
+    printf '%s\n' "$compile_out" >&2
+    exit 1
+fi
 ok "type-check (npm run compile) passed"
 
 sha_full="$(git rev-parse HEAD)"

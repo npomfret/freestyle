@@ -94,7 +94,7 @@ Bring the current branch up to date from a single upstream ref **without creatin
     - MODE=strict:
         - If lockfiles changed, surface the exact install command and ask before running it.
         - Run targeted validation for impacted areas first (closest tests/typechecks). Run broader checks only if targeted checks pass or are unavailable.
-        - Route compile/build confidence through `/build-verify` and prefer canonical build commands such as `npm run build` over ad-hoc raw `tsc`.
+        - Prefer canonical build/check commands from `CLAUDE.md` over ad-hoc raw `tsc`.
     - If we auto‑stashed, `git stash pop` and resolve trivial aftershocks similarly.
     - Suggest `git push --force-with-lease` if branch was previously pushed.
 

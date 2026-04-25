@@ -1,16 +1,57 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(sed:*)",
+      "Bash(ssh root@fsd.snowmonkey.co.uk:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run compile:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(npm run dev:web:*)",
+      "Bash(npm run server:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
       "WebSearch",
       "WebFetch",
-      "Bash(curl:*)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -I http://localhost:*)"
+    ],
+    "deny": [
+      "Bash(git reset --hard:*)",
+      "Bash(git checkout --:*)",
+      "Bash(rm -rf:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(npm run migrate:*)",
+      "Bash(npm run discover:*)",
+      "Bash(npm run add-url:*)",
+      "Bash(npm run repair:*)",
+      "Bash(npm run validity-check:*)",
+      "Bash(npm run embed:*)",
+      "Bash(npm run re-embed:*)",
       "Bash(psql:*)",
-      "Bash(chmod:*)",
-      "Bash(ls:*)",
-      "Bash(npm install:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npx tsx:*)"
+      "Bash(docker compose -f docker-compose.production.yml:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/run-format-from-root.sh"
+          }
+        ]
+      }
     ]
   }
 }

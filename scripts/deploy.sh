@@ -122,8 +122,8 @@ if [[ -z "\$built_id" ]]; then
 fi
 echo "  ✓ image id: \$built_id"
 
-# Also tag as :latest so manual `npm run deploy:up` (which has no
-# APP_IMAGE_TAG) uses the current image rather than a stale one.
+# Also tag as :latest so manual deploy:up scripts (which have no
+# APP_IMAGE_TAG) use the current image rather than a stale one.
 docker tag "freestyle-app:$sha" freestyle-app:latest
 echo "  ✓ also tagged freestyle-app:latest"
 

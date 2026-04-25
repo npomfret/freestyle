@@ -58,29 +58,39 @@ ok "in sync with upstream/$DEPLOY_BRANCH"
 npm run compile >/dev/null
 ok "type-check (npm run compile) passed"
 
-sha="$(git rev-parse --short HEAD)"
+sha="$(git rev-parse HEAD)"
+short_sha="$(git rev-parse --short HEAD)"
 subject="$(git log -1 --pretty=%s)"
-step "Deploying $sha to $DEPLOY_HOST:$DEPLOY_PATH"
-echo "  commit: $sha  $subject"
+step "Deploying $short_sha to $DEPLOY_HOST:$DEPLOY_PATH"
+echo "  commit: $short_sha  $subject"
 
 ssh "$DEPLOY_HOST" bash -se <<REMOTE
 set -euo pipefail
 cd "$DEPLOY_PATH"
 compose="docker compose -f docker-compose.production.yml --env-file .env.production"
+expected_sha="$sha"
 echo "▸ git pull --ff-only"
 git pull --ff-only
-echo "▸ build app image"
-\$compose build app
+server_sha="\$(git rev-parse HEAD)"
+if [[ "\$server_sha" != "\$expected_sha" ]]; then
+    echo "✗ server checkout sha \$server_sha != deployed sha \$expected_sha" >&2
+    echo "  the server pulled a different commit than expected — investigate" >&2
+    exit 1
+fi
+echo "  ✓ server at \$(git rev-parse --short HEAD)"
+echo "▸ build app image (GIT_SHA=\$expected_sha)"
+\$compose build --build-arg "GIT_SHA=\$expected_sha" app
 echo "▸ recreate app container"
-\$compose up -d app
+\$compose up -d --force-recreate app
 REMOTE
 
 step "Health check ($DEPLOY_HEALTH_URL)"
+healthy=0
 for ((i = 1; i <= HEALTH_ATTEMPTS; i++)); do
     if ssh "$DEPLOY_HOST" "curl -fsS '$DEPLOY_HEALTH_URL'" >/dev/null 2>&1; then
         ok "healthy"
-        step "Deploy complete ($sha)"
-        exit 0
+        healthy=1
+        break
     fi
     if (( i < HEALTH_ATTEMPTS )); then
         warn "attempt $i/$HEALTH_ATTEMPTS not ready, retrying in 2s..."
@@ -88,6 +98,32 @@ for ((i = 1; i <= HEALTH_ATTEMPTS; i++)); do
     fi
 done
 
-err "health check failed after $HEALTH_ATTEMPTS attempts"
-err "tail server logs: ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && npm run deploy:logs'"
-exit 1
+if (( healthy == 0 )); then
+    err "health check failed after $HEALTH_ATTEMPTS attempts"
+    err "tail server logs: ssh $DEPLOY_HOST 'cd $DEPLOY_PATH && npm run deploy:logs'"
+    exit 1
+fi
+
+step "Verify served bundle matches built image"
+verify_out="$(ssh "$DEPLOY_HOST" bash -se <<'REMOTE'
+set -euo pipefail
+built="$(docker exec freestyle-app sh -c 'ls /app/web/dist/assets/index-*.js' 2>/dev/null | head -1 | sed -n 's|.*/\(index-[^.]*\.js\)|\1|p')"
+served="$(curl -fsS http://127.0.0.1:3001/ | grep -o '/assets/index-[^"]*\.js' | head -1)"
+echo "built=$built"
+echo "served=$served"
+REMOTE
+)"
+built_asset="$(echo "$verify_out" | sed -n 's/^built=//p')"
+served_asset="$(echo "$verify_out" | sed -n 's/^served=//p')"
+
+if [[ -z "$built_asset" || -z "$served_asset" ]]; then
+    warn "could not verify served bundle (built='$built_asset' served='$served_asset')"
+elif [[ "$served_asset" != "/assets/$built_asset" ]]; then
+    err "served bundle ($served_asset) does not match built asset (/assets/$built_asset)"
+    err "the container is serving a stale build — check docker logs and image"
+    exit 1
+else
+    ok "served bundle is $served_asset"
+fi
+
+step "Deploy complete ($short_sha)"

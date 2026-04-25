@@ -8,6 +8,9 @@ COPY web/package.json web/package-lock.json ./web/
 RUN npm ci
 RUN npm --prefix web ci
 
+ARG GIT_SHA=unknown
+RUN echo "building web for $GIT_SHA"
+
 COPY web ./web
 
 RUN npm run build:web

@@ -22,7 +22,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: freestyle-app
+      args:
+        GIT_SHA: ${APP_IMAGE_TAG:-latest}
+    image: freestyle-app:${APP_IMAGE_TAG:-latest}
     container_name: freestyle-app
     restart: unless-stopped
     depends_on:

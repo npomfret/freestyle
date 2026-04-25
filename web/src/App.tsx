@@ -84,7 +84,8 @@ function App() {
             )}
 
             <header>
-                <h1>Freestyle Catalog</h1>
+                <h1>FSD</h1>
+                <div className='subtitle'>free stuff database</div>
                 {stats && (
                     <div className='stats'>
                         <span>{stats.resources.toLocaleString()} resources</span>

@@ -12,4 +12,6 @@ then grade them on:
  - can a MVP be built in a reasonable timescale?
  - finally... is there realistic chances of success
 
+Do not write any code. Do not create any files.
+
 once you are done, delete the worst until there are only 20 remaining

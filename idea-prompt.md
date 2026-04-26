@@ -20,7 +20,7 @@ Datasets don't need to be 100% free. But they must have a free tier, and the ful
 
 One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to build custom / novel models. Similarly agentic LLM based approaches are possible, but these can have a significant cost.
 
-But: an AI angle is not mandatory - do not get hung up on this idea.
+But: an AI angle is not mandatory, or even desirable - do not get hung up on this.
 
 Consider existing competition, potential customers, basic marketing strategies, how it could scale etc
 
@@ -30,3 +30,5 @@ If you have a reasonable idea about a potential business, stop:
  - present it in a markdown file in the @ideas directory
  - provide links to the datasets and APIs involved
  - provide estimate costs
+
+Do not write any code. Do not create any files.

@@ -34,6 +34,29 @@ each signal present and convincingly addressed in the writeup = 1 point. vague o
 
 **hard filter**: any idea scoring ≤ 4/8 is a strong deletion candidate regardless of how it scores elsewhere. a high commercial-potential score does not rescue an idea that can't pass achievability.
 
+## self-driving growth (operator has near-zero time for manual work)
+
+the operator has close to zero time for manual lead-gen and marketing — no cold outreach, no sales calls, no hand-curated content campaigns, no conference circuit. **strongly prefer ideas where customer acquisition can be automated** so the product grows largely on its own once seeded.
+
+reward these signals:
+
+- **programmatic SEO**: data-driven landing pages that index naturally (one page per ticker, per location, per error code, per dataset, per slug…)
+- **marketplace-native distribution**: discoverable in an existing app store / extension store / package registry where users find it themselves — Chrome Web Store, Shopify app store, GitHub Marketplace, npm, MSP partner channels, browser extension stores
+- **API-as-product**: developers discover via Google search for "<problem> API" and self-onboard from docs
+- **embed / share loops**: every use produces a public artefact (badge, widget, public report, share link) that links back
+- **open-source / freemium top of funnel**: a free tier or open-source tool that funnels naturally toward paid features
+- **integrations on platforms with existing audiences** (Stripe app, Slack app, Zapier connector) where the host platform surfaces the product
+
+penalise these signals:
+
+- "we'll do content marketing / SEO" with no concrete programmatic mechanism
+- requires building an owned audience from scratch (newsletter, podcast, blog) before sales
+- requires named-account outbound, BDR motion, sales calls, RFPs
+- onboarding needs a demo call or hand-holding for every customer
+- partnerships are the GTM ("we'll partner with X, Y, Z, then…")
+
+when scoring axis 5 (GTM), weight automated-acquisition signals heavily. an idea with no plausible self-driving-growth path should be downgraded sharply regardless of how attractive its market looks.
+
 ## grand-vision detector — auto-downgrade signals
 
 downgrade hard for any of these:

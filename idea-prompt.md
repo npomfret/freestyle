@@ -22,6 +22,10 @@ One angle to consider is: is there a use for a bespoke neural network in the pro
 
 But: an AI angle is not mandatory, or even desirable - do not get hung up on this.
 
+The strongest ideas are **wedge-shaped**: a small achievable MVP that, if the wedge lands, opens up months or years of follow-on work — adjacent features, deeper integrations, premium tiers, neighbouring customer segments. Start narrow, but pick a niche with a big mountain behind it. An idea with a hard ceiling (one feature, no clear extension path) is weaker than one whose first step is small but whose roadmap goes a long way if it gets traction. Sketch the follow-on path briefly in the writeup so the growth shape is visible.
+
+Be ruthless about the competitive landscape: if there is **already a very low-cost or free, widely-used solution** that does most of what you're proposing, drop the idea and start again. "Slightly better" is not a wedge against a cheap incumbent everyone already uses; nobody switches for marginal gains. The opening only exists when the incumbent is expensive, niche-blind, or absent — not when it's free, ubiquitous, and good enough.
+
 Consider existing competition, potential customers, basic marketing strategies, how it could scale etc
 
 If you hit a dead end, just discard and start again.

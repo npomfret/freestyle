@@ -1,4 +1,4 @@
-read the business ideas in @ideas/
+read the business ideas in the local ideas directory
 
 if there are very similar and/or overlapping ideas: merge, combine and remove duplication
 

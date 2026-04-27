@@ -27,7 +27,7 @@ Consider existing competition, potential customers, basic marketing strategies, 
 If you hit a dead end, just discard and start again.
 
 If you have a reasonable idea about a potential business, stop:
- - present it in a markdown file in the @ideas directory
+ - present it in a markdown file in the local ideas directory
  - provide links to the datasets and APIs involved
  - provide estimate costs
 

@@ -1,6 +1,6 @@
 Read @README.md and make sure you understand how to use the cli to exercise our api.
 
-Your task is to generate a business idea for a software (only) product / website / service / app / model.
+Your task is to generate a business idea for a software (only) product / website / service / app / ml model.
 
  * They don't need to be original ideas.  Sometimes being much better and much cheaper than an existing product is a valid approach.
  * Having said that: highly saturated markets are difficult to break into.
@@ -18,7 +18,7 @@ Then you will
 
 Datasets don't need to be 100% free. But they must have a free tier, and the full cost must not exceed $5000 per year.
 
-One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to build custom / novel models. Similarly agentic LLM based approaches are possible, but these can have a significant cost.
+One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to build custom / novel models, but the budget only stretches to training on **relatively small datasets** — anything that needs large-scale training compute, GPU clusters, or massive labelled corpora is out of scope. Fine-tuning small open-source models or training compact bespoke models on a few hundred thousand examples is fine; building a foundation model is not. Similarly agentic LLM based approaches are possible, but these can have a significant cost.
 
 But: an AI angle is not mandatory, or even desirable - do not get hung up on this.
 

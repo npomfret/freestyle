@@ -47,6 +47,10 @@ downgrade hard for any of these:
 - sales motion required (BDRs, enterprise procurement, RFPs, custom contracts)
 - built around training a custom ML model on data the team can't acquire cheaply
 
+## boring is good
+
+reward unglamorous, mundane, well-defined ideas — invoice reconciliation, niche compliance reports, scheduling for an obscure trade, data clean-up for a specific tool, lookup tables for a small profession. they're overlooked because they're not fun to pitch, which means weak competition, identifiable buyers, and clear willingness-to-pay. when two ideas have similar achievability scores, prefer the boring one. do not down-rank an idea for being unsexy; do down-rank an idea for being flashy with no clear buyer.
+
 ## small-dataset constraint
 
 penalise ideas whose viability depends on training models on **large datasets**. we have the skills to build custom models but the budget only stretches to training on relatively small datasets — anything that needs GPU clusters, massive labelled corpora, or foundation-model-scale training is out. fine-tuning small open-source models or training compact bespoke models on a few thousand examples is fine.
@@ -55,7 +59,7 @@ penalise ideas whose viability depends on training models on **large datasets**.
 
 don't waste compute on obvious top-tier or obvious bottom-tier ideas. concentrate the extra checks on the borderline middle.
 
-- **verify the headline dataset / API** with one `web_fetch` of its docs URL — still alive, free tier still meaningful, and the licence permits commercial use. if a key dataset has gone paid-only above the budget or is non-commercial, downgrade aggressively.
+- **verify the headline dataset / API** with one `web_fetch` of its docs URL — still alive, free tier still meaningful, the licence permits commercial use, **and the source is actively maintained**. apply a heavy discount when the dataset / API shows staleness signals: last update years ago, dormant GitHub repo, dead maintainers, deprecated endpoints, docs that haven't moved in 3+ years. a stale data source is a hidden time-bomb. if a key dataset has gone paid-only above the budget, is non-commercial, or is dormant, downgrade aggressively.
 - **competition sweep** with one `google_web_search` for the wedge name. if a free OSS tool or built-in OS / browser feature already owns the niche, downgrade.
 - **catalog cross-check** with `npm run search -- search "<keywords>"` to spot stronger or replacement resources the original author missed.
 

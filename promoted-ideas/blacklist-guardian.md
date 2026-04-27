@@ -15,7 +15,8 @@ This can work as an automated lead-generation engine because the outreach is bas
 
 Best first verticals:
 
-*   Dentists, clinics, estate agents, accountants, recruiters, hotels, ecommerce shops, trades companies, and B2B service firms.
+*   Dentists, clinics, law firms/legal practices, estate agents, accountants, recruiters, hotels, ecommerce shops, trades companies, and B2B service firms.
+*   Prioritise profitable, non-technical businesses where email failure can block high-value enquiries, appointments, contracts, invoices, or client communications.
 *   Businesses where missed emails have obvious revenue impact.
 *   Incorporated businesses with public generic contact routes, avoiding sole traders where consent/compliance is less clear.
 

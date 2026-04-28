@@ -1,12 +1,6 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    normalizeModels,
-    groupIntoFamilies,
-    modelFamily,
-    tierToPlan,
-    extractEmail,
-} from './gemini-cli-quota.js';
+import { describe, it } from 'node:test';
+import { extractBundledOAuthCreds, extractEmail, extractUnbundledOAuthCreds, groupIntoFamilies, modelFamily, normalizeModels, tierToPlan } from './gemini-cli-quota.js';
 
 // ============================================================
 // normalizeModels
@@ -38,8 +32,8 @@ describe('normalizeModels', () => {
     it('handles buckets with missing modelId or fraction', () => {
         const raw = [
             { modelId: 'gemini-2.5-pro', remainingFraction: 1.0 },
-            { remainingFraction: 0.5 },        // no modelId
-            { modelId: 'gemini-2.5-flash' },    // no fraction
+            { remainingFraction: 0.5 }, // no modelId
+            { modelId: 'gemini-2.5-flash' }, // no fraction
         ];
         const result = normalizeModels(raw);
         assert.equal(result.length, 1);
@@ -191,5 +185,84 @@ describe('extractEmail', () => {
     it('returns null when email claim is absent', () => {
         const token = makeIdToken({ sub: '12345' });
         assert.equal(extractEmail(token), null);
+    });
+});
+
+// ============================================================
+// extractUnbundledOAuthCreds — gemini-cli-core source layout
+// ============================================================
+
+describe('extractUnbundledOAuthCreds', () => {
+    it('extracts client_id and client_secret from named const declarations', () => {
+        const content = `
+            'use strict';
+            const OAUTH_CLIENT_ID = '12345-abcdef.apps.googleusercontent.com';
+            const OAUTH_CLIENT_SECRET = 'GOCSPX-aBcDeFgHiJkL';
+            module.exports = { OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET };
+        `;
+        assert.deepEqual(extractUnbundledOAuthCreds(content), {
+            clientId: '12345-abcdef.apps.googleusercontent.com',
+            clientSecret: 'GOCSPX-aBcDeFgHiJkL',
+        });
+    });
+
+    it('handles double-quoted literals', () => {
+        const content = `
+            const OAUTH_CLIENT_ID = "12345-x.apps.googleusercontent.com";
+            const OAUTH_CLIENT_SECRET = "GOCSPX-secret";
+        `;
+        assert.deepEqual(extractUnbundledOAuthCreds(content), {
+            clientId: '12345-x.apps.googleusercontent.com',
+            clientSecret: 'GOCSPX-secret',
+        });
+    });
+
+    it('returns null when either constant is missing', () => {
+        assert.equal(
+            extractUnbundledOAuthCreds(`const OAUTH_CLIENT_ID = '12-x.apps.googleusercontent.com';`),
+            null,
+        );
+        assert.equal(extractUnbundledOAuthCreds(`const OAUTH_CLIENT_SECRET = 'GOCSPX-y';`), null);
+    });
+
+    it('returns null when content is unrelated', () => {
+        assert.equal(extractUnbundledOAuthCreds('module.exports = {};'), null);
+    });
+});
+
+// ============================================================
+// extractBundledOAuthCreds — esbuild bundle (mangled names, intact strings)
+// ============================================================
+
+describe('extractBundledOAuthCreds', () => {
+    it('extracts the lone id+secret pair from a bundled chunk', () => {
+        const chunk = `var q1="12345-abc.apps.googleusercontent.com",q2="GOCSPX-aBcDeFg";`;
+        assert.deepEqual(extractBundledOAuthCreds(chunk), {
+            clientId: '12345-abc.apps.googleusercontent.com',
+            clientSecret: 'GOCSPX-aBcDeFg',
+        });
+    });
+
+    it('picks the pair with smallest textual distance when several ids are present', () => {
+        // Two client_ids in the file; the one paired with the secret is the
+        // adjacent declaration. The other is an unrelated OAuth client (e.g.
+        // for telemetry) that lives elsewhere in the chunk.
+        const chunk = `var farId="11111-far.apps.googleusercontent.com";`
+            + `${'x'.repeat(2000)}`
+            + `var nearId="22222-near.apps.googleusercontent.com",`
+            + `nearSecret="GOCSPX-correct_pair";`;
+        assert.deepEqual(extractBundledOAuthCreds(chunk), {
+            clientId: '22222-near.apps.googleusercontent.com',
+            clientSecret: 'GOCSPX-correct_pair',
+        });
+    });
+
+    it('returns null when either pattern is absent', () => {
+        assert.equal(
+            extractBundledOAuthCreds(`var q1="12345-abc.apps.googleusercontent.com";`),
+            null,
+        );
+        assert.equal(extractBundledOAuthCreds(`var q1="GOCSPX-secret";`), null);
+        assert.equal(extractBundledOAuthCreds('console.log("hello");'), null);
     });
 });

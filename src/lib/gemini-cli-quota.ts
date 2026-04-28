@@ -1,9 +1,9 @@
-import { readFile, writeFile } from 'fs/promises';
 import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { readdir, readFile, writeFile } from 'fs/promises';
 import { realpath } from 'fs/promises';
-import { dirname, join } from 'path';
 import { homedir } from 'os';
+import { dirname, join } from 'path';
+import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
@@ -76,7 +76,7 @@ interface RawBucket {
 // ============================================================
 
 let cachedOAuth2JsPath: string | null = null;
-let cachedClientCreds: { clientId: string; clientSecret: string } | null = null;
+let cachedClientCreds: { clientId: string; clientSecret: string; } | null = null;
 
 // ============================================================
 // Step 1 — Auth mode validation
@@ -186,10 +186,8 @@ export async function findGeminiOAuth2Js(): Promise<string> {
     const binDir = dirname(realGeminiPath);
     const baseDir = dirname(binDir);
 
-    const oauthSubpath =
-        'node_modules/@google/gemini-cli/node_modules/@google/gemini-cli-core/dist/src/code_assist/oauth2.js';
-    const nixShareSubpath =
-        'share/gemini-cli/node_modules/@google/gemini-cli-core/dist/src/code_assist/oauth2.js';
+    const oauthSubpath = 'node_modules/@google/gemini-cli/node_modules/@google/gemini-cli-core/dist/src/code_assist/oauth2.js';
+    const nixShareSubpath = 'share/gemini-cli/node_modules/@google/gemini-cli-core/dist/src/code_assist/oauth2.js';
     const oauthFile = 'dist/src/code_assist/oauth2.js';
 
     const candidates = [
@@ -226,22 +224,150 @@ export async function findGeminiOAuth2Js(): Promise<string> {
 
 export async function extractOAuthClientCreds(
     oauth2JsPath: string,
-): Promise<{ clientId: string; clientSecret: string }> {
+): Promise<{ clientId: string; clientSecret: string; }> {
     if (cachedClientCreds) return cachedClientCreds;
 
     const content = await readFile(oauth2JsPath, 'utf8');
+    const creds = extractUnbundledOAuthCreds(content);
 
-    const clientIdMatch = content.match(/OAUTH_CLIENT_ID\s*=\s*['"]([^'"]+)['"]\s*;/);
-    const secretMatch = content.match(/OAUTH_CLIENT_SECRET\s*=\s*['"]([^'"]+)['"]\s*;/);
-
-    if (!clientIdMatch || !secretMatch) {
+    if (!creds) {
         throw new GeminiQuotaError(
             'Could not extract OAuth client credentials from Gemini CLI.',
             'OAUTH_MISSING',
         );
     }
 
-    cachedClientCreds = { clientId: clientIdMatch[1], clientSecret: secretMatch[1] };
+    cachedClientCreds = creds;
+    return cachedClientCreds;
+}
+
+// ============================================================
+// Step 4b — Pure extractors (unit-testable)
+// ============================================================
+
+/**
+ * Match the literal-named constants from the unbundled `gemini-cli-core` source:
+ *   const OAUTH_CLIENT_ID = '...';
+ *   const OAUTH_CLIENT_SECRET = '...';
+ */
+export function extractUnbundledOAuthCreds(
+    content: string,
+): { clientId: string; clientSecret: string; } | null {
+    const idMatch = content.match(/OAUTH_CLIENT_ID\s*=\s*['"]([^'"]+)['"]\s*;/);
+    const secretMatch = content.match(/OAUTH_CLIENT_SECRET\s*=\s*['"]([^'"]+)['"]\s*;/);
+    if (!idMatch || !secretMatch) return null;
+    return { clientId: idMatch[1], clientSecret: secretMatch[1] };
+}
+
+/**
+ * Bundled (esbuild) layout mangles the variable names but preserves the string
+ * literals. Match the values themselves: Google OAuth client IDs end in
+ * `.apps.googleusercontent.com` and CLI client secrets start with `GOCSPX-`.
+ *
+ * A bundle can hold several OAuth clients (e.g. interactive-login vs code-assist
+ * vs telemetry), so we can't just take the first match. Instead we pair every
+ * client_id with every client_secret in the same file by textual distance:
+ * esbuild keeps `const OAUTH_CLIENT_ID = ...; const OAUTH_CLIENT_SECRET = ...;`
+ * adjacent, so the pair with minimum offset distance is the matching pair.
+ */
+export function extractBundledOAuthCreds(
+    content: string,
+): { clientId: string; clientSecret: string; } | null {
+    const idRe = /[0-9]+-[a-zA-Z0-9]+\.apps\.googleusercontent\.com/g;
+    const secretRe = /GOCSPX-[a-zA-Z0-9_-]+/g;
+
+    const ids: { value: string; pos: number; }[] = [];
+    const secrets: { value: string; pos: number; }[] = [];
+    for (const m of content.matchAll(idRe)) ids.push({ value: m[0], pos: m.index ?? 0 });
+    for (const m of content.matchAll(secretRe)) secrets.push({ value: m[0], pos: m.index ?? 0 });
+
+    if (ids.length === 0 || secrets.length === 0) return null;
+
+    let best: { id: string; secret: string; distance: number; } | null = null;
+    for (const id of ids) {
+        for (const secret of secrets) {
+            const distance = Math.abs(id.pos - secret.pos);
+            if (!best || distance < best.distance) {
+                best = { id: id.value, secret: secret.value, distance };
+            }
+        }
+    }
+
+    return best ? { clientId: best.id, clientSecret: best.secret } : null;
+}
+
+// ============================================================
+// Step 4c — Bundle-directory scan (npm bundled layout)
+// ============================================================
+
+async function findOAuthClientCredsInBundle(): Promise<{
+    clientId: string;
+    clientSecret: string;
+}> {
+    let geminiPath: string;
+    try {
+        const { stdout } = await execFileAsync('which', ['gemini']);
+        geminiPath = stdout.trim();
+    } catch {
+        throw new GeminiQuotaError('Gemini CLI not found on PATH.', 'OAUTH_MISSING');
+    }
+
+    let realGeminiPath = geminiPath;
+    try {
+        realGeminiPath = await realpath(geminiPath);
+    } catch {
+        // fall through with original path
+    }
+
+    // For the npm bundled layout, the binary itself sits in the bundle directory
+    // (e.g. .../@google/gemini-cli/bundle/gemini.js), and the chunks live alongside it.
+    const bundleDir = dirname(realGeminiPath);
+
+    let entries: string[];
+    try {
+        entries = await readdir(bundleDir);
+    } catch {
+        throw new GeminiQuotaError('Could not read Gemini CLI bundle directory.', 'OAUTH_MISSING');
+    }
+
+    for (const name of entries) {
+        if (!name.endsWith('.js')) continue;
+        let content: string;
+        try {
+            content = await readFile(join(bundleDir, name), 'utf8');
+        } catch {
+            continue;
+        }
+        const creds = extractBundledOAuthCreds(content);
+        if (creds) return creds;
+    }
+
+    throw new GeminiQuotaError(
+        'Could not extract OAuth client credentials from Gemini CLI bundle.',
+        'OAUTH_MISSING',
+    );
+}
+
+// ============================================================
+// Step 4d — Unified finder: unbundled first, bundled fallback
+// ============================================================
+
+export async function findOAuthClientCreds(): Promise<{
+    clientId: string;
+    clientSecret: string;
+}> {
+    if (cachedClientCreds) return cachedClientCreds;
+
+    // Try the unbundled layouts first (Homebrew, Nix, unbundled npm).
+    try {
+        const oauth2JsPath = await findGeminiOAuth2Js();
+        return await extractOAuthClientCreds(oauth2JsPath);
+    } catch (err) {
+        if (!(err instanceof GeminiQuotaError) || err.code !== 'OAUTH_MISSING') throw err;
+    }
+
+    // Fall back to scanning the bundled npm layout.
+    cachedClientCreds = await findOAuthClientCredsInBundle();
     return cachedClientCreds;
 }
 
@@ -257,8 +383,7 @@ export async function refreshAccessToken(creds: OAuthCreds): Promise<OAuthCreds>
         );
     }
 
-    const oauth2JsPath = await findGeminiOAuth2Js();
-    const { clientId, clientSecret } = await extractOAuthClientCreds(oauth2JsPath);
+    const { clientId, clientSecret } = await findOAuthClientCreds();
 
     const body = new URLSearchParams({
         client_id: clientId,
@@ -288,7 +413,7 @@ export async function refreshAccessToken(creds: OAuthCreds): Promise<OAuthCreds>
     }
 
     const expiresIn = (json['expires_in'] as number | undefined) ?? 3600;
-    const newExpiry = (Date.now() + expiresIn * 1000);
+    const newExpiry = Date.now() + expiresIn * 1000;
 
     const updated: OAuthCreds = {
         access_token: newAccessToken,
@@ -335,7 +460,7 @@ export async function ensureFreshToken(): Promise<string> {
 
 export async function loadCodeAssist(
     token: string,
-): Promise<{ projectId: string | null; tier: string | null }> {
+): Promise<{ projectId: string | null; tier: string | null; }> {
     try {
         const response = await fetch(
             'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist',
@@ -447,7 +572,7 @@ export async function fetchQuotaBuckets(
 // ============================================================
 
 export function normalizeModels(raw: RawBucket[]): GeminiQuotaBucket[] {
-    const map = new Map<string, { fraction: number; resetTime: string | null }>();
+    const map = new Map<string, { fraction: number; resetTime: string | null; }>();
 
     for (const bucket of raw) {
         if (!bucket.modelId || bucket.remainingFraction === undefined) continue;
@@ -460,7 +585,8 @@ export function normalizeModels(raw: RawBucket[]): GeminiQuotaBucket[] {
         }
     }
 
-    return Array.from(map.entries())
+    return Array
+        .from(map.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([modelId, { fraction, resetTime }]) => ({
             modelId,
@@ -489,7 +615,7 @@ export function modelFamily(modelId: string): GeminiQuotaFamily['family'] {
 export function groupIntoFamilies(models: GeminiQuotaBucket[]): GeminiQuotaFamily[] {
     const familyMap = new Map<
         GeminiQuotaFamily['family'],
-        { minPercent: number; earliestReset: string | null; models: GeminiQuotaBucket[] }
+        { minPercent: number; earliestReset: string | null; models: GeminiQuotaBucket[]; }
     >();
 
     for (const model of models) {

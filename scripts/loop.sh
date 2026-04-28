@@ -11,7 +11,8 @@
 #   scripts/loop.sh 5               # at most 5 iterations
 #   THRESHOLD=40 scripts/loop.sh    # backlog size that triggers a purge
 #   SLEEP_SECS=30 scripts/loop.sh   # sleep between productive iterations
-#   IDLE_SLEEP_SECS=3600 scripts/loop.sh  # sleep when there's no quota to use
+#   IDLE_SLEEP_SECS=3600 scripts/loop.sh  # sleep when quota is genuinely exhausted
+#   ERROR_RETRY_SECS=60 scripts/loop.sh   # sleep when the quota fetch itself fails
 #   SANDBOX=1 scripts/loop.sh       # run shell tools inside gemini's sandbox
 #                                   # (will likely break `npm run search` —
 #                                   # the sandbox image lacks your node/nvm)
@@ -29,6 +30,7 @@ PURGE_PROMPT="$ROOT/purge-prompt.md"
 LOG_DIR="$ROOT/tmp/logs/loop"
 SLEEP_SECS="${SLEEP_SECS:-30}"
 IDLE_SLEEP_SECS="${IDLE_SLEEP_SECS:-3600}"
+ERROR_RETRY_SECS="${ERROR_RETRY_SECS:-60}"
 THRESHOLD="${THRESHOLD:-40}"
 
 usage() {
@@ -63,18 +65,19 @@ command -v jq     >/dev/null || { echo "jq not on PATH"        >&2; exit 1; }
 mkdir -p "$LOG_DIR"
 
 count_ideas() {
-  find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' '
+  find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' '
 }
 
-# Pick the highest-remaining model with quota, optionally filtering by family.
-# Stdout: model id (e.g. gemini-2.5-pro). Exit 2 if nothing qualifies.
-#   $1 — comma-separated families to exclude (e.g. "pro")
-#   $2 — comma-separated families to require (e.g. "pro"); empty = any
-pick_model() {
-  local exclude="${1:-}"
-  local require="${2:-}"
-  local snapshot
-  snapshot="$(npm --prefix "$ROOT" run --silent gemini-quota -- --json 2>/dev/null)" || return 1
+# Pick the highest-remaining model from a quota snapshot, optionally filtering by family.
+# Prints model id (e.g. gemini-2.5-pro) on stdout, or nothing if no family qualifies.
+# stderr from jq (if any) flows through unredirected.
+#   $1 — quota snapshot JSON
+#   $2 — comma-separated families to exclude (e.g. "pro")
+#   $3 — comma-separated families to require (e.g. "pro"); empty = any
+pick_model_from() {
+  local snapshot="$1"
+  local exclude="$2"
+  local require="$3"
   jq -r \
     --arg exclude "$exclude" \
     --arg require "$require" \
@@ -122,26 +125,42 @@ while true; do
 
   n="$(count_ideas)"
 
+  # Fetch the quota snapshot once for this iteration.
+  # gemini-quota's stderr flows straight through — errors are visible immediately.
+  set +e
+  snapshot="$(npm --prefix "$ROOT" run --silent gemini-quota -- --json)"
+  fetch_rc=$?
+  set -e
+
+  if [[ $fetch_rc -ne 0 || -z "$snapshot" ]]; then
+    echo "[$ts] iteration $iter — quota fetch failed (rc=$fetch_rc) — retrying in ${ERROR_RETRY_SECS}s" >&2
+    if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
+    sleep "$ERROR_RETRY_SECS"
+    continue
+  fi
+
   ACTION=""
   MODEL=""
 
   # Prefer purge when the backlog is over threshold and pro is available.
   if [[ "$n" -gt "$THRESHOLD" ]]; then
-    MODEL="$(pick_model "" "pro" || true)"
+    MODEL="$(pick_model_from "$snapshot" "" "pro")"
     [[ -n "$MODEL" ]] && ACTION="purge"
   fi
 
   # Otherwise generate with the highest-remaining non-pro family.
   if [[ -z "$ACTION" ]]; then
-    MODEL="$(pick_model "pro" "" || true)"
+    MODEL="$(pick_model_from "$snapshot" "pro" "")"
     [[ -n "$MODEL" ]] && ACTION="generate"
   fi
 
   if [[ -z "$ACTION" ]]; then
+    # Quota is genuinely exhausted — print the snapshot summary so you can see why.
+    summary="$(jq -r '.families | map("\(.family)=\(.remainingPercent)%") | join("  ")' <<<"$snapshot")"
     if [[ "$n" -gt "$THRESHOLD" ]]; then
-      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD but no usable quota — sleeping ${IDLE_SLEEP_SECS}s" >&2
+      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD but no usable quota ($summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     else
-      echo "[$ts] iteration $iter — no usable quota in any family — sleeping ${IDLE_SLEEP_SECS}s" >&2
+      echo "[$ts] iteration $iter — no usable quota in any family ($summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     fi
     if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
     sleep "$IDLE_SLEEP_SECS"

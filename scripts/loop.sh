@@ -13,6 +13,7 @@
 #   SLEEP_SECS=30 scripts/loop.sh   # sleep between productive iterations
 #   IDLE_SLEEP_SECS=3600 scripts/loop.sh  # sleep when quota is genuinely exhausted
 #   ERROR_RETRY_SECS=60 scripts/loop.sh   # sleep when the quota fetch itself fails
+#   MAX_RUN_SECS=1800 scripts/loop.sh     # hard cap on a single gemini invocation
 #   SANDBOX=1 scripts/loop.sh       # run shell tools inside gemini's sandbox
 #                                   # (will likely break `npm run search` —
 #                                   # the sandbox image lacks your node/nvm)
@@ -31,6 +32,7 @@ LOG_DIR="$ROOT/tmp/logs/loop"
 SLEEP_SECS="${SLEEP_SECS:-30}"
 IDLE_SLEEP_SECS="${IDLE_SLEEP_SECS:-3600}"
 ERROR_RETRY_SECS="${ERROR_RETRY_SECS:-60}"
+MAX_RUN_SECS="${MAX_RUN_SECS:-1800}"
 THRESHOLD="${THRESHOLD:-40}"
 
 usage() {
@@ -103,15 +105,28 @@ run_gemini() {
   local model="$1"
   local prompt_file="$2"
   local log="$3"
+
+  # Detach stdin from the parent TTY: the bundled gemini CLI installs a keypress
+  # handler on stdin even in -p mode, and a stray byte from the inherited terminal
+  # can fire it mid-request, abort the call, and leave the Node process hanging in
+  # raw mode. </dev/null closes that vector.
+  #
+  # MAX_RUN_SECS caps the whole invocation as a belt-and-braces against any other
+  # cause of hangs. SIGTERM first, then SIGKILL ten seconds later if it ignores it.
+  local timeout_prefix=()
+  if command -v timeout >/dev/null 2>&1; then
+    timeout_prefix=(timeout --kill-after=10s "${MAX_RUN_SECS}s")
+  fi
+
   set +e
-  gemini \
+  "${timeout_prefix[@]+"${timeout_prefix[@]}"}" gemini \
     --approval-mode=yolo \
     --skip-trust \
     ${SANDBOX_FLAG[@]+"${SANDBOX_FLAG[@]}"} \
     --output-format text \
     -m "$model" \
     -p "$(cat "$prompt_file")" \
-    >"$log" 2>&1
+    </dev/null >"$log" 2>&1
   local rc=$?
   set -e
   return $rc

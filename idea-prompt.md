@@ -5,6 +5,9 @@ Your task is to generate a business idea for a software (only) product / website
  * They don't need to be original ideas.  Sometimes being much better and much cheaper than an existing product is a valid approach.
  * Having said that: highly saturated markets are difficult to break into.
  * It can be trivial (just a few days work) or highly complex (several months work).
+ * it must not be at risk of being completely replaceable by a state of the art llm
+ * data sources must be free (or cheap) and maintained
+ * undercutting existing businesses is a perfectly valid strategy - our costs are VERY low
 
 You will use our database via the CLI to pick 3 random items from the db. You will pick one that you consider to "look interesting".
 

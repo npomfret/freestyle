@@ -1,16 +1,13 @@
-import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
 import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
+import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { fetchPageToolResult } from './lib/fetch-page.js';
-import { webSearch, checkSocial, checkReferences } from './lib/search.js';
-import { toolError } from './lib/tool-runtime.js';
 import { log, serializeError } from './lib/logger.js';
-import {
-    fetchPageTool, webSearchTool, checkExistingTool, addResourceTool,
-    checkSocialTool, checkReferencesTool, queueItemsTool, getQueueTool,
-} from './lib/tool-declarations.js';
+import { checkReferences, checkSocial, webSearch } from './lib/search.js';
+import { addResourceTool, checkExistingTool, checkReferencesTool, checkSocialTool, fetchPageTool, getQueueTool, queueItemsTool, webSearchTool } from './lib/tool-declarations.js';
+import { toolError } from './lib/tool-runtime.js';
 import { Kind, Region, SourceName, Topic, TOPICS, Url } from './lib/types.js';
 
 const TOPIC_LIST = TOPICS.join(', ');
@@ -64,20 +61,23 @@ function isExcludedUrl(url: string): boolean {
 const SYSTEM_INSTRUCTION = `You are a research agent that finds accessible APIs, datasets, services, and code on the internet and adds them to our catalog database.
 
 ## What we're looking for
-Resources a small team can actually use without enterprise procurement. Any of these qualify:
+We catalog only zero-cost and very-low-cost resources — things an individual or small team can run continuously without procurement or budget approval. Any of these qualify:
 - **Open-source** — MIT/Apache/GPL libraries, self-hostable services, repos that ARE the product
 - **Public-domain / open data** — government portals, academic releases, CC0/CC-BY datasets
 - **Generous free tier** — usable for real work without paying (e.g. NASA APIs, OpenWeatherMap free tier, Open-Meteo)
-- **Affordable paid** — the full product is priced ≤ $5,000/year (not just a free tier gated behind an enterprise upsell)
+- **Very low cost** — genuinely cheap paid tier (up to about $300/month for the full product, or an equivalent one-off purchase). Quote the exact price and link the pricing page in the analysis.
 
-Free-tier and paid resources that require an API key or signup are still valid — capture the access model in the analysis.
+Free-tier and very-low-cost resources that require an API key or signup are still valid — capture the access model in the analysis.
 
 ## URL guidelines
 The URL we store should be the resource's main website, documentation page, or pricing page — NOT a raw API endpoint. We want the page a developer would visit to learn about and sign up for the resource.
 
+## Cost documentation
+Whenever the resource has any cost — paid plan, free tier with a paid upgrade path, or non-trivial licence — the analysis MUST state the actual price and include a direct link to the official pricing or licence page. Never write "paid" or "see pricing" without a concrete number and a URL. If the resource is fully free or open-source, name the licence; if you cannot locate a pricing or licence page, treat the resource as not catalog-ready.
+
 ## What to SKIP — be ruthless
-- Priced > $5,000/year for the full product, or free/pro tiers gated behind "contact sales"
-- Trial-only access with no ongoing free or affordable tier
+- No accessible free tier and no clearly cheap paid tier — including products gated behind "contact sales", enterprise SaaS, or paid plans well above ~$300/month for the full product
+- Trial-only access with no ongoing free or very-low-cost tier
 - Free tier so restrictive it's useless (e.g. < 100 requests/day or a single demo query)
 - Aggregator sites and directories (Kaggle, RapidAPI, ProgrammableWeb, etc.) — we want PRIMARY sources
 - Blog posts, tutorials, courses, Wikipedia articles
@@ -100,7 +100,7 @@ For each candidate resource:
 2. Use check_references to see who links to it — a resource referenced by government sites, universities, or major projects is much more credible than one nobody links to
 3. Use check_social to see what Reddit, HackerNews, and Twitter say — look for red flags like reliability complaints, surprise pricing, or shutdowns. Growing interest is a positive signal.
 4. Look for: actual documentation, data samples, clear terms of use, active maintenance, stated licence or pricing
-5. Only call add_resource after you're confident it's genuinely useful and accessible (open-source, public-domain, generous free tier, or ≤ $5k/year)
+5. Only call add_resource after you're confident it's genuinely useful and accessible (open-source, public-domain, generous free tier, or very low cost) — and you have either confirmed it is free or located the official pricing page
 6. Prefer conclusions backed by opened primary-source pages and cited source URLs, not search snippets alone
 7. Tool results may include structured data and sources — use those fields when present instead of relying only on free-form summary text
 
@@ -109,7 +109,7 @@ For each candidate resource:
 - topics: assign 1-4 from: ${TOPIC_LIST}
 - regions: geographic areas the resource covers — use continent (e.g. "Europe"), continent/country (e.g. "North America/United States"), sub-region (e.g. "EU", "Middle East"), or "Global". Leave empty if not geographically specific.
 - description: one clear sentence about what it provides and why it's useful
-- analysis: 2-4 sentences covering what data/service it provides and in what format, access model (open-source licence / public-domain / free-tier / ≤$5k paid — include pricing or licence when visible), how to get started (API key? signup? rate limits?), what makes it notable, and any caveats
+- analysis: 2-4 sentences covering what data/service it provides and in what format; access model (open-source licence / public-domain / free tier / very-low-cost paid); the actual cost — free, free-tier limits, or specific price — AND a direct link to the official pricing or licence page whenever any cost or non-trivial licence applies (e.g. \`Pricing: https://example.com/pricing — free up to 1k req/day, $5/month above\`); how to get started (API key? signup? rate limits?); what makes it notable; and any caveats
 
 ## Excluded domains (skip these automatically)
 ${EXCLUDED_DOMAINS.join(', ')}
@@ -149,8 +149,14 @@ async function discover(query: string, isUrl = false): Promise<void> {
         name: 'discover',
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [
-            webSearchTool, checkSocialTool, checkReferencesTool, checkExistingTool,
-            addResourceTool, fetchPageTool, queueItemsTool, getQueueTool,
+            webSearchTool,
+            checkSocialTool,
+            checkReferencesTool,
+            checkExistingTool,
+            addResourceTool,
+            fetchPageTool,
+            queueItemsTool,
+            getQueueTool,
         ],
         maxTurns: 20,
 
@@ -185,7 +191,7 @@ async function discover(query: string, isUrl = false): Promise<void> {
                 return fetchPageToolResult(url, await fetchPage(url));
             }],
             ['queue_items', async (args) => {
-                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
+                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number; }[]; }).items;
                 const filtered = rawItems
                     .filter((i) => i.url && !isExcludedUrl(i.url))
                     .map((i) => ({ url: Url(i.url), label: i.label, source: SourceName(i.source), depth: i.depth ?? 0 }));
@@ -193,7 +199,7 @@ async function discover(query: string, isUrl = false): Promise<void> {
                 const result = await queueItems(db, { items: filtered });
                 return { ...result, excludedByBlocklist: excluded };
             }],
-            ['get_queue', async (args) => getQueue(db, args as { limit: number })],
+            ['get_queue', async (args) => getQueue(db, args as { limit: number; })],
         ),
 
         onResponse: (response) => {

@@ -1,14 +1,14 @@
-import { fetchPage, updateResource, queueItems } from './lib/agent-tools.js';
-import type { ResourceRow } from './lib/agent-tools.js';
 import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
+import { fetchPage, queueItems, updateResource } from './lib/agent-tools.js';
+import type { ResourceRow } from './lib/agent-tools.js';
 import { closeBrowser } from './lib/browser.js';
 import { createPool } from './lib/db.js';
 import { fetchPageToolResult } from './lib/fetch-page.js';
 import { log, serializeError } from './lib/logger.js';
-import { getNextRepairResource, getNextNoAnalysisResource, getNextNoDescriptionResource, getRepairResourceById } from './lib/resource-queries.js';
-import { fetchPageTool, repairUpdateTool, queueItemsTool } from './lib/tool-declarations.js';
-import { TOPICS, Url, SourceName } from './lib/types.js';
+import { getNextNoAnalysisResource, getNextNoDescriptionResource, getNextRepairResource, getRepairResourceById } from './lib/resource-queries.js';
+import { fetchPageTool, queueItemsTool, repairUpdateTool } from './lib/tool-declarations.js';
+import { SourceName, TOPICS, Url } from './lib/types.js';
 
 const TOPIC_LIST = TOPICS.join(', ');
 
@@ -32,7 +32,7 @@ You will receive a resource's current metadata and the fetched content of its UR
 - **notes**: What you changed and why, or "metadata confirmed accurate" if no changes needed.
 
 ## Important
-- Open-source, public-domain, generous-free-tier, and affordably-priced (≤ $5k/year) resources are all valid — document the licence, access model (API key / signup / OAuth), and pricing tier in the Access section (include actual prices or licence names when visible on the page).
+- We catalog only zero-cost and very-low-cost resources: open-source, public-domain, generous free tier, or genuinely cheap paid (up to about $300/month for the full product, or an equivalent one-off purchase). Document the licence, access model (API key / signup / OAuth), and the actual pricing in the Access section. **Whenever any cost or non-trivial licence applies, include a direct link to the official pricing or licence page** (e.g. \`Pricing: https://example.com/pricing\`). Quote actual prices and licence names when visible on the page.
 - The URL is already confirmed alive — focus entirely on metadata quality.
 - Always call update_resource, even if the existing metadata looks correct (confirm and improve it).
 - Read the page content carefully. Extract specific details rather than paraphrasing generically.
@@ -68,21 +68,22 @@ async function repairOne(resource: ResourceRow): Promise<void> {
         maxTurns: 10,
 
         toolHandlers: toolHandlers(
-            ['update_resource', async (args) => updateResource(db, resource, {
-                name: args.name as string | undefined,
-                description: args.description as string,
-                topics: args.topics as string[] | undefined,
-                regions: args.regions as string[] | undefined,
-                analysis: args.analysis as string | undefined,
-                is_alive: true,
-                notes: args.notes as string,
-            }, { skipLinkChecks: true })],
+            ['update_resource', async (args) =>
+                updateResource(db, resource, {
+                    name: args.name as string | undefined,
+                    description: args.description as string,
+                    topics: args.topics as string[] | undefined,
+                    regions: args.regions as string[] | undefined,
+                    analysis: args.analysis as string | undefined,
+                    is_alive: true,
+                    notes: args.notes as string,
+                }, { skipLinkChecks: true })],
             ['fetch_page', async (args) => {
                 const url = args.url as string;
                 return fetchPageToolResult(url, await fetchPage(url));
             }],
             ['queue_items', async (args) => {
-                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number }[] }).items;
+                const rawItems = (args as { items: { url: string; label: string; source: string; depth?: number; }[]; }).items;
                 const items = rawItems.map((i) => ({
                     url: Url(i.url),
                     label: i.label ?? '',
@@ -130,8 +131,8 @@ async function main(): Promise<void> {
     const getNextResource = mode === 'no-analysis'
         ? () => getNextNoAnalysisResource(db)
         : mode === 'no-description'
-            ? () => getNextNoDescriptionResource(db)
-            : () => getNextRepairResource(db);
+        ? () => getNextNoDescriptionResource(db)
+        : () => getNextRepairResource(db);
 
     try {
         if (singleId != null && Number.isInteger(singleId) && singleId > 0) {

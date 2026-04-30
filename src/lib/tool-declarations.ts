@@ -87,8 +87,7 @@ export const recheckUpdateTool: ToolDeclaration = {
         properties: {
             name: {
                 type: 'string',
-                description:
-                    'The correct, human-readable name for this resource. Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
+                description: 'The correct, human-readable name for this resource. Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
             },
             description: {
                 type: 'string',
@@ -150,8 +149,7 @@ export const repairUpdateTool: ToolDeclaration = {
         properties: {
             name: {
                 type: 'string',
-                description:
-                    'The correct, human-readable name for this resource. Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
+                description: 'The correct, human-readable name for this resource. Fix it if the current name is wrong, garbled, or just an emoji/symbol.',
             },
             description: {
                 type: 'string',
@@ -169,14 +167,13 @@ export const repairUpdateTool: ToolDeclaration = {
             },
             analysis: {
                 type: 'string',
-                description:
-                    `A detailed write-up in markdown format. Use this structure:
+                description: `A detailed write-up in markdown format. Use this structure:
 
 **Overview**: What this resource is, who provides it, and what problem it solves. 2-3 sentences.
 
 **Data & Format**: What data or functionality is available. Mention formats (JSON, CSV, GeoJSON, etc.), key endpoints or datasets, and the scope/coverage of the data.
 
-**Access**: Licence (open-source name, public-domain, proprietary) and pricing tier (free, free-tier + paid, ≤$5k/year paid). How to get started — open access, API key required (free signup?), OAuth, rate limits, quotas. Quote actual prices and licence names when visible on the page.
+**Access**: Licence (open-source name, public-domain, proprietary) and pricing tier (free, free tier + paid, very-low-cost paid). State the actual cost — free, free-tier limits, or specific price. **Whenever any cost or non-trivial licence applies, include a direct link to the official pricing or licence page** (e.g. \`Pricing: https://example.com/pricing\`). How to get started — open access, API key required (free signup?), OAuth, rate limits, quotas. Quote actual prices and licence names when visible on the page.
 
 **Strengths**: What makes this resource stand out — unique data, high quality, good documentation, active community, government-backed, etc.
 
@@ -234,8 +231,10 @@ export const checkExistingTool: ToolDeclaration = {
 export const addResourceTool: ToolDeclaration = {
     name: 'add_resource',
     description: 'Add a verified accessible resource to the catalog.',
-    whenToUse: 'Use only after you have opened the primary source, confirmed it is real, and checked that it is open-source, public-domain, has a generous free tier, or is priced ≤ $5k/year for the full product.',
-    whenNotToUse: 'Do not use for aggregators, tutorials, blog posts, trial-only access, or products priced > $5k/year with no accessible tier.',
+    whenToUse:
+        'Use only after you have opened the primary source, confirmed it is real, and checked that it is open-source, public-domain, has a generous free tier, or is very low cost (up to ~$300/month for the full product, or an equivalent one-off purchase). When any cost applies, you must have located the official pricing page so it can be linked from the analysis.',
+    whenNotToUse:
+        'Do not use for aggregators, tutorials, blog posts, trial-only access, or products without a clearly cheap tier (enterprise SaaS, "contact sales" pricing, or paid plans well above ~$300/month).',
     returns: 'The inserted resource id or duplicate status.',
     timeoutMs: 15_000,
     maxCallsPerRun: 8,
@@ -270,7 +269,7 @@ export const addResourceTool: ToolDeclaration = {
             analysis: {
                 type: 'string',
                 description:
-                    'A 2-4 sentence analysis covering: what data/service it provides and in what format, access model (open-source licence / public-domain / free-tier / ≤$5k paid — include pricing or licence when visible), how to get started (API key? signup? rate limits?), what makes it notable, and any caveats.',
+                    'A 2-4 sentence analysis covering: what data/service it provides and in what format; access model (open-source licence / public-domain / free tier / very-low-cost paid); the actual cost — free, free-tier limits, or specific price — AND a direct link to the official pricing or licence page whenever any cost or non-trivial licence applies (e.g. "Pricing: https://example.com/pricing — free up to 1k req/day, $5/month above"); how to get started (API key? signup? rate limits?); what makes it notable; and any caveats.',
             },
         },
         required: ['name', 'url', 'kinds', 'topics', 'description', 'analysis'],
@@ -279,8 +278,7 @@ export const addResourceTool: ToolDeclaration = {
 
 export const checkSocialTool: ToolDeclaration = {
     name: 'check_social',
-    description:
-        'Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying.',
+    description: 'Check Reddit, HackerNews, Twitter/X for discussions about a resource. Returns sentiment, recency, and whether interest is growing or dying.',
     whenToUse: 'Use when social proof or warning signals could affect whether a resource is worth cataloging.',
     whenNotToUse: 'Do not use as the primary verification source for whether a resource exists or is free.',
     returns: 'Grounded social-search summary plus cited URLs when available.',
@@ -303,8 +301,7 @@ export const checkSocialTool: ToolDeclaration = {
 
 export const checkReferencesTool: ToolDeclaration = {
     name: 'check_references',
-    description:
-        'Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible.',
+    description: 'Search for pages that link to or mention a specific URL. A resource referenced by government sites, universities, or major projects is more credible.',
     whenToUse: 'Use when you want credibility evidence around a candidate resource.',
     whenNotToUse: 'Do not use instead of opening the resource itself.',
     returns: 'Grounded backlink/reference summary plus cited URLs when available.',

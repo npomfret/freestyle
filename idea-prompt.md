@@ -1,6 +1,11 @@
 Read @README.md and make sure you understand how to use the cli to exercise our api.
 
-Your task is to generate a business idea for a software (only) product / website / service / app / ml model.
+Your task is to generate a business idea for a software (only) product. ic could be any of
+
+ - a new dataset that has commercial value, potentially combined with a predictive ML model
+ - b2b / b2c website or saas platform
+ - mobile app
+ - other...
 
  * They don't need to be original ideas.  Sometimes being much better and much cheaper than an existing product is a valid approach.
  * Having said that: highly saturated markets are difficult to break into.

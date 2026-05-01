@@ -78,6 +78,10 @@ reward unglamorous, mundane, well-defined ideas — invoice reconciliation, nich
 
 penalise ideas whose viability depends on training models on **large datasets**. we have the skills to build custom models but the budget only stretches to training on relatively small datasets — anything that needs GPU clusters, massive labelled corpora, or foundation-model-scale training is out. fine-tuning small open-source models or training compact bespoke models on a few thousand examples is fine.
 
+##  Pure data is good
+
+Ideas that involve creating datasets, leveraging datasets in a uniqie or creative way, state of the art knowledge bases, etc are very suited to the developer.
+
 ## light additional research (borderlines only, #15–#30)
 
 don't waste compute on obvious top-tier or obvious bottom-tier ideas. concentrate the extra checks on the borderline middle.

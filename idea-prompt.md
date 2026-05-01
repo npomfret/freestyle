@@ -3,6 +3,7 @@ Read @README.md and make sure you understand how to use the cli to exercise our 
 Your task is to generate a business idea for a software (only) product. ic could be any of
 
  - a new dataset that has commercial value, potentially combined with a predictive ML model
+ - pure data solutions ie state of the art knowledge bases leveraging existing datasts, hybrid data sets etc potentially with some predictive models and/or llm integration
  - b2b / b2c website or saas platform
  - mobile app
  - other...

@@ -38,6 +38,8 @@ Be ruthless about the competitive landscape: if there is **already a very low-co
 
 **Boring is good.** Unglamorous, mundane, well-defined problems — invoice reconciliation, niche compliance reports, scheduling for an obscure trade, data clean-up for a specific tool, lookup tables for a small profession — are routinely overlooked because they're not fun to pitch. They often have weak competition for that exact reason, a clearly identifiable buyer, and obvious willingness-to-pay. Don't over-index on novelty: a dull problem with a real buyer beats a flashy idea with no one to sell it to. Lean toward boring.
 
+Also consider **pre-diligence products**: low-cost screening tools that find obvious red flags before the user spends real money on formal due diligence, expert review, legal advice, surveys, consultants, or enterprise software. The product should produce a cited report, checklist, scorecard, or evidence pack. It must be framed as triage/preflight, not final professional advice. Good candidates use public or cheap maintained datasets to help users decide whether a property, supplier, site, business, material, or opportunity is worth deeper investigation.
+
 Consider existing competition, potential customers, basic marketing strategies, how it could scale etc
 
 If you hit a dead end, just discard and start again.

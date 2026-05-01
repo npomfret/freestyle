@@ -62,6 +62,37 @@ downgrade hard for any of these:
 
 reward unglamorous, mundane, well-defined ideas — invoice reconciliation, niche compliance reports, scheduling for an obscure trade, data clean-up for a specific tool, lookup tables for a small profession. they're overlooked because they're not fun to pitch, which means weak competition, identifiable buyers, and clear willingness-to-pay. when two ideas have similar achievability scores, prefer the boring one. do not down-rank an idea for being unsexy; do down-rank an idea for being flashy with no clear buyer.
 
+## pre-diligence products are good
+
+reward **pre-diligence** tools: cheap, fast, self-serve products that find obvious red flags before the user spends real money on formal due diligence, expert review, surveys, legal advice, engineering work, procurement, or enterprise software.
+
+these products do not replace the professional step. they help the buyer decide whether an asset, site, supplier, property, counterparty, permit, or opportunity is worth deeper investigation.
+
+good examples:
+
+- property flood / crime / seismic / water-quality pre-screening before a buyer pays for surveys or legal work
+- solar roof suitability pre-screening before an installer sends a salesperson or surveyor
+- EUDR supplier-plot preflight before a full compliance platform or consultant review
+- construction material carbon/cost substitution memo before a paid LCA or quantity-surveyor review
+- food hygiene portfolio monitoring before a landlord, operator, or consultant investigates a tenant/site
+- niche compliance readiness packet before a business pays a lawyer or specialist consultant
+
+reward these signals:
+
+- the output is a cited report, checklist, scorecard, evidence pack, or red-flag memo
+- the product is explicitly framed as screening / triage / preflight, not final advice
+- the next expensive due-diligence step is obvious and already paid for in the market
+- public or cheap maintained data can reveal enough red flags to be useful
+- the user can self-serve without calls, custom onboarding, or manual analysis
+- every report creates programmatic SEO or shareable artefacts
+
+penalise:
+
+- claims that replace legal, engineering, survey, medical, safety, or compliance judgment
+- black-box scores with no citations or explainable inputs
+- red-flag products where false positives would destroy trust or false negatives create unacceptable liability
+- products where the user has no clear expensive next step to avoid or prioritize
+
 ## pure data is good
 
 ideas that involve creating datasets, leveraging datasets in a unique or creative way, state-of-the-art knowledge bases, etc are well suited to the developer.

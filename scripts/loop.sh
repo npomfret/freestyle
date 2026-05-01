@@ -116,7 +116,7 @@ count_ideas() {
 count_unreviewed_ideas() {
   local out
   out="$(find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
-    | xargs -0 grep -L '<!-- codex-reviewed:' 2>/dev/null || true)"
+    | xargs -0 grep -L -e '<!-- codex-reviewed:' -e '<!-- reviewed:' 2>/dev/null || true)"
   if [[ -z "$out" ]]; then
     echo 0
   else
@@ -127,7 +127,7 @@ count_unreviewed_ideas() {
 # Print the path of the first un-reviewed idea file (or empty string if none).
 first_unreviewed_idea() {
   find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
-    | xargs -0 grep -L '<!-- codex-reviewed:' 2>/dev/null \
+    | xargs -0 grep -L -e '<!-- codex-reviewed:' -e '<!-- reviewed:' 2>/dev/null \
     | head -n 1 \
     || true
 }
@@ -260,26 +260,47 @@ while true; do
   [[ "$codex_rc" -eq 0 ]] && CODEX_AVAILABLE=1
   log_loop "iter=$iter codex quota rc=$codex_rc available=$CODEX_AVAILABLE unreviewed=$unreviewed"
 
+  PRO_MODEL="$(pick_model_from "$snapshot" "" "pro")"
+  NON_PRO_MODEL="$(pick_model_from "$snapshot" "pro" "")"
+
   ACTION=""
   MODEL=""
+  ENHANCE_RUNNER=""
 
   # 1. Purge takes priority when the backlog is over threshold AND pro is available.
-  if [[ "$n" -gt "$THRESHOLD" ]]; then
-    MODEL="$(pick_model_from "$snapshot" "" "pro")"
-    [[ -n "$MODEL" ]] && ACTION="purge"
+  #    Pro is reserved for purge first; only if purge isn't triggered does enhance get pro.
+  if [[ "$n" -gt "$THRESHOLD" && -n "$PRO_MODEL" ]]; then
+    ACTION="purge"
+    MODEL="$PRO_MODEL"
   fi
 
-  # 2. Codex enhance: if there are un-reviewed ideas and codex has capacity.
-  #    Codex is more expensive and rarer than gemini-flash-lite, so per-idea polish
-  #    is high-leverage; we'd rather spend codex than yet another generate.
-  if [[ -z "$ACTION" && "$CODEX_AVAILABLE" -eq 1 && "$unreviewed" -gt 0 ]]; then
-    ACTION="enhance"
+  # 2. Enhance — share the per-idea polish evenly between codex and gemini-pro.
+  #    Both are "advanced" reviewers; strict alternation balances quota burn across them
+  #    so neither gets exhausted while the other sits idle. State persists in
+  #    tmp/last-enhancer; if the preferred runner has no capacity this iteration, fall
+  #    through to whichever does.
+  if [[ -z "$ACTION" && "$unreviewed" -gt 0 ]]; then
+    ENHANCER_STATE="$ROOT/tmp/last-enhancer"
+    last_enhancer=""
+    [[ -f "$ENHANCER_STATE" ]] && last_enhancer="$(cat "$ENHANCER_STATE" 2>/dev/null || true)"
+    preferred="codex"
+    [[ "$last_enhancer" == "codex" ]] && preferred="pro"
+
+    if [[ "$preferred" == "pro" && -n "$PRO_MODEL" ]]; then
+      ACTION="enhance"; ENHANCE_RUNNER="pro"; MODEL="$PRO_MODEL"
+    elif [[ "$preferred" == "codex" && "$CODEX_AVAILABLE" -eq 1 ]]; then
+      ACTION="enhance"; ENHANCE_RUNNER="codex"
+    elif [[ "$CODEX_AVAILABLE" -eq 1 ]]; then
+      ACTION="enhance"; ENHANCE_RUNNER="codex"
+    elif [[ -n "$PRO_MODEL" ]]; then
+      ACTION="enhance"; ENHANCE_RUNNER="pro"; MODEL="$PRO_MODEL"
+    fi
   fi
 
   # 3. Generate with the highest-remaining non-pro gemini family.
-  if [[ -z "$ACTION" ]]; then
-    MODEL="$(pick_model_from "$snapshot" "pro" "")"
-    [[ -n "$MODEL" ]] && ACTION="generate"
+  if [[ -z "$ACTION" && -n "$NON_PRO_MODEL" ]]; then
+    ACTION="generate"
+    MODEL="$NON_PRO_MODEL"
   fi
 
   if [[ -z "$ACTION" ]]; then
@@ -303,16 +324,21 @@ while true; do
   esac
 
   if [[ "$ACTION" == "enhance" ]]; then
-    echo "[$ts] iteration $iter — $ACTION ($unreviewed/$n unreviewed) with codex — log=$log"
+    runner_label="$ENHANCE_RUNNER"
+    [[ "$ENHANCE_RUNNER" == "pro" ]] && runner_label="$MODEL"
+    echo "[$ts] iteration $iter — $ACTION ($unreviewed/$n unreviewed) with $runner_label — log=$log"
   else
     echo "[$ts] iteration $iter — $ACTION ($n ideas) with $MODEL — log=$log"
   fi
 
   LOOP_STAGE="$ACTION-running"
   set +e
-  if [[ "$ACTION" == "enhance" ]]; then
-    log_loop "iter=$iter calling codex ($ACTION unreviewed=$unreviewed log=$log)"
+  if [[ "$ACTION" == "enhance" && "$ENHANCE_RUNNER" == "codex" ]]; then
+    log_loop "iter=$iter calling codex (enhance unreviewed=$unreviewed log=$log)"
     run_codex "$PROMPT_FILE" "$log"
+  elif [[ "$ACTION" == "enhance" ]]; then
+    log_loop "iter=$iter calling gemini-pro (enhance model=$MODEL unreviewed=$unreviewed log=$log)"
+    run_gemini "$MODEL" "$PROMPT_FILE" "$log"
   else
     log_loop "iter=$iter calling gemini ($ACTION model=$MODEL n=$n log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"
@@ -332,6 +358,14 @@ while true; do
     fi
   else
     echo "[$(date +%H:%M:%S)] iteration $iter $ACTION failed (exit $rc; $n → $after) — see $log" >&2
+  fi
+
+  # Persist enhance alternation regardless of success: a failing run still
+  # shifts the next iteration to the other runner, so persistent failures get
+  # round-robin'd out instead of pinning the loop to one model.
+  if [[ "$ACTION" == "enhance" ]]; then
+    mkdir -p "$ROOT/tmp"
+    echo "$ENHANCE_RUNNER" > "$ROOT/tmp/last-enhancer"
   fi
 
   if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then

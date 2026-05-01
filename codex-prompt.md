@@ -12,7 +12,7 @@ your job is to **review and enhance one business idea** in the local `ideas/` di
 
 ## pick a target
 
-list `ideas/*.md`. pick the **first file** whose body does not contain the marker `<!-- codex-reviewed:`. if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
+list `ideas/*.md`. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
 
 work on **exactly one** file per invocation. don't touch any others.
 
@@ -45,7 +45,7 @@ if the idea is fundamentally broken (dead dataset with no alternative, free incu
 at the very bottom of the file, append a single line:
 
 ```
-<!-- codex-reviewed: YYYY-MM-DD -->
+<!-- reviewed: YYYY-MM-DD -->
 ```
 
 (today's date.) this is how the loop knows the file has been reviewed and won't pick it again.

@@ -27,6 +27,7 @@
     "build:web": "cd web && npm run build",
     "format": "node scripts/format.js",
     "gemini-quota": "tsx src/gemini-quota.ts",
+    "codex-quota": "tsx src/codex-quota.ts",
     "loop": "./scripts/loop.sh",
     "test": "node --import tsx/esm --test 'src/**/*.test.ts'"
   },

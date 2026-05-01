@@ -28,6 +28,7 @@ cd "$ROOT"
 IDEAS_DIR="$ROOT/ideas"
 IDEA_PROMPT="$ROOT/idea-prompt.md"
 PURGE_PROMPT="$ROOT/purge-prompt.md"
+CODEX_PROMPT="$ROOT/codex-prompt.md"
 LOG_DIR="$ROOT/tmp/logs/loop"
 SLEEP_SECS="${SLEEP_SECS:-30}"
 IDLE_SLEEP_SECS="${IDLE_SLEEP_SECS:-3600}"
@@ -60,14 +61,75 @@ fi
 
 [[ -f "$IDEA_PROMPT"  ]] || { echo "missing $IDEA_PROMPT"  >&2; exit 1; }
 [[ -f "$PURGE_PROMPT" ]] || { echo "missing $PURGE_PROMPT" >&2; exit 1; }
+[[ -f "$CODEX_PROMPT" ]] || { echo "missing $CODEX_PROMPT" >&2; exit 1; }
 [[ -d "$IDEAS_DIR"    ]] || { echo "missing $IDEAS_DIR"    >&2; exit 1; }
 command -v gemini >/dev/null || { echo "gemini CLI not on PATH" >&2; exit 1; }
+command -v codex  >/dev/null || { echo "codex CLI not on PATH" >&2; exit 1; }
 command -v jq     >/dev/null || { echo "jq not on PATH"        >&2; exit 1; }
 
 mkdir -p "$LOG_DIR"
 
+# --- diagnostic lifecycle logging -------------------------------------------
+# Track where the loop is so an EXIT trap can show why it stopped.
+# All diagnostic lines go to stderr with a [loop pid=PID] prefix so they're
+# easy to grep and won't be confused with regular iteration output.
+LOOP_STAGE="starting"
+LOOP_ITER=0
+log_loop() { echo "[loop pid=$$ $(date +%H:%M:%S)] $*" >&2; }
+
+on_exit() {
+  local rc=$?
+  log_loop "EXIT trap fired — exit_code=$rc iter=$LOOP_ITER stage='$LOOP_STAGE'"
+}
+on_signal() {
+  local sig="$1"
+  log_loop "SIGNAL $sig received — iter=$LOOP_ITER stage='$LOOP_STAGE'"
+  exit 130
+}
+trap on_exit EXIT
+trap 'on_signal INT'  INT
+trap 'on_signal TERM' TERM
+trap 'on_signal HUP'  HUP
+
+log_loop "starting loop (pid=$$ MAX_ITERS=$MAX_ITERS SLEEP_SECS=$SLEEP_SECS IDLE_SLEEP_SECS=$IDLE_SLEEP_SECS THRESHOLD=$THRESHOLD MAX_RUN_SECS=$MAX_RUN_SECS)"
+# ----------------------------------------------------------------------------
+
+# One-time startup snapshot: print human-readable quota for every provider so
+# you can see at a glance what capacity the loop is starting with. Failures
+# are non-fatal — the loop will retry per-iteration anyway.
+{
+  echo "=== gemini quota ==="
+  npm --prefix "$ROOT" run --silent gemini-quota || echo "(gemini quota fetch failed)"
+  echo
+  echo "=== codex quota ==="
+  npm --prefix "$ROOT" run --silent codex-quota || echo "(codex quota fetch failed)"
+  echo "===================="
+} >&2
+
 count_ideas() {
   find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' '
+}
+
+# Count idea files that have not yet been reviewed by codex (no marker comment).
+# Pipefail-safe: grep -L can exit non-zero in edge cases (e.g. xargs propagates
+# a per-file grep status), so we tolerate that with `|| true` and let wc decide.
+count_unreviewed_ideas() {
+  local out
+  out="$(find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
+    | xargs -0 grep -L '<!-- codex-reviewed:' 2>/dev/null || true)"
+  if [[ -z "$out" ]]; then
+    echo 0
+  else
+    printf '%s\n' "$out" | wc -l | tr -d ' '
+  fi
+}
+
+# Print the path of the first un-reviewed idea file (or empty string if none).
+first_unreviewed_idea() {
+  find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
+    | xargs -0 grep -L '<!-- codex-reviewed:' 2>/dev/null \
+    | head -n 1 \
+    || true
 }
 
 # Pick the highest-remaining model from a quota snapshot, optionally filtering by family.
@@ -132,50 +194,102 @@ run_gemini() {
   return $rc
 }
 
+run_codex() {
+  local prompt_file="$1"
+  local log="$2"
+
+  # Same TTY/timeout precautions as run_gemini. codex exec is the headless mode.
+  # --full-auto = workspace-write sandbox + auto-approve commands.
+  # --skip-git-repo-check because the loop runs anywhere; codex defaults to refusing
+  # outside a git repo, but this repo is already a git repo, so it's a no-op safety net.
+  local timeout_prefix=()
+  if command -v timeout >/dev/null 2>&1; then
+    timeout_prefix=(timeout --kill-after=10s "${MAX_RUN_SECS}s")
+  fi
+
+  set +e
+  "${timeout_prefix[@]+"${timeout_prefix[@]}"}" codex exec \
+    --full-auto \
+    --skip-git-repo-check \
+    --color never \
+    -C "$ROOT" \
+    "$(cat "$prompt_file")" \
+    </dev/null >"$log" 2>&1
+  local rc=$?
+  set -e
+  return $rc
+}
+
 iter=0
 while true; do
   iter=$((iter + 1))
+  LOOP_ITER=$iter
+  LOOP_STAGE="iter-start"
   ts="$(date +%Y%m%d-%H%M%S)"
   log="$LOG_DIR/run-$ts.log"
 
   n="$(count_ideas)"
+  unreviewed="$(count_unreviewed_ideas)"
 
-  # Fetch the quota snapshot once for this iteration.
+  # Fetch the gemini quota snapshot once for this iteration.
   # gemini-quota's stderr flows straight through — errors are visible immediately.
+  LOOP_STAGE="quota-fetch (gemini)"
   set +e
   snapshot="$(npm --prefix "$ROOT" run --silent gemini-quota -- --json)"
   fetch_rc=$?
   set -e
+  log_loop "iter=$iter gemini quota fetch rc=$fetch_rc snapshot_bytes=${#snapshot}"
 
   if [[ $fetch_rc -ne 0 || -z "$snapshot" ]]; then
-    echo "[$ts] iteration $iter — quota fetch failed (rc=$fetch_rc) — retrying in ${ERROR_RETRY_SECS}s" >&2
+    echo "[$ts] iteration $iter — gemini quota fetch failed (rc=$fetch_rc) — retrying in ${ERROR_RETRY_SECS}s" >&2
     if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
     sleep "$ERROR_RETRY_SECS"
     continue
   fi
 
+  # Probe codex availability. Don't fail the iteration if codex is down — just skip enhance.
+  # CODEX_MIN_REMAINING gates how much window headroom we demand before spending codex
+  # quota on an enhance pass. Default 50 keeps a healthy reserve for interactive use.
+  CODEX_MIN_REMAINING="${CODEX_MIN_REMAINING:-50}"
+  LOOP_STAGE="quota-fetch (codex)"
+  set +e
+  npm --prefix "$ROOT" run --silent codex-quota -- --available "--min-remaining=$CODEX_MIN_REMAINING" >/dev/null
+  codex_rc=$?
+  set -e
+  CODEX_AVAILABLE=0
+  [[ "$codex_rc" -eq 0 ]] && CODEX_AVAILABLE=1
+  log_loop "iter=$iter codex quota rc=$codex_rc available=$CODEX_AVAILABLE unreviewed=$unreviewed"
+
   ACTION=""
   MODEL=""
 
-  # Prefer purge when the backlog is over threshold and pro is available.
+  # 1. Purge takes priority when the backlog is over threshold AND pro is available.
   if [[ "$n" -gt "$THRESHOLD" ]]; then
     MODEL="$(pick_model_from "$snapshot" "" "pro")"
     [[ -n "$MODEL" ]] && ACTION="purge"
   fi
 
-  # Otherwise generate with the highest-remaining non-pro family.
+  # 2. Codex enhance: if there are un-reviewed ideas and codex has capacity.
+  #    Codex is more expensive and rarer than gemini-flash-lite, so per-idea polish
+  #    is high-leverage; we'd rather spend codex than yet another generate.
+  if [[ -z "$ACTION" && "$CODEX_AVAILABLE" -eq 1 && "$unreviewed" -gt 0 ]]; then
+    ACTION="enhance"
+  fi
+
+  # 3. Generate with the highest-remaining non-pro gemini family.
   if [[ -z "$ACTION" ]]; then
     MODEL="$(pick_model_from "$snapshot" "pro" "")"
     [[ -n "$MODEL" ]] && ACTION="generate"
   fi
 
   if [[ -z "$ACTION" ]]; then
-    # Quota is genuinely exhausted — print the snapshot summary so you can see why.
+    # Nothing to do. Print a summary so the reason is visible.
     summary="$(jq -r '.families | map("\(.family)=\(.remainingPercent)%") | join("  ")' <<<"$snapshot")"
+    codex_summary="codex=$([[ "$CODEX_AVAILABLE" -eq 1 ]] && echo available || echo unavailable) unreviewed=$unreviewed"
     if [[ "$n" -gt "$THRESHOLD" ]]; then
-      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD but no usable quota ($summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
+      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD but no usable quota (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     else
-      echo "[$ts] iteration $iter — no usable quota in any family ($summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
+      echo "[$ts] iteration $iter — nothing to do (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     fi
     if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
     sleep "$IDLE_SLEEP_SECS"
@@ -183,23 +297,51 @@ while true; do
   fi
 
   PROMPT_FILE="$IDEA_PROMPT"
-  [[ "$ACTION" == "purge" ]] && PROMPT_FILE="$PURGE_PROMPT"
+  case "$ACTION" in
+    purge)   PROMPT_FILE="$PURGE_PROMPT" ;;
+    enhance) PROMPT_FILE="$CODEX_PROMPT" ;;
+  esac
 
-  echo "[$ts] iteration $iter — $ACTION ($n ideas) with $MODEL — log=$log"
+  if [[ "$ACTION" == "enhance" ]]; then
+    echo "[$ts] iteration $iter — $ACTION ($unreviewed/$n unreviewed) with codex — log=$log"
+  else
+    echo "[$ts] iteration $iter — $ACTION ($n ideas) with $MODEL — log=$log"
+  fi
 
+  LOOP_STAGE="$ACTION-running"
   set +e
-  run_gemini "$MODEL" "$PROMPT_FILE" "$log"
+  if [[ "$ACTION" == "enhance" ]]; then
+    log_loop "iter=$iter calling codex ($ACTION unreviewed=$unreviewed log=$log)"
+    run_codex "$PROMPT_FILE" "$log"
+  else
+    log_loop "iter=$iter calling gemini ($ACTION model=$MODEL n=$n log=$log)"
+    run_gemini "$MODEL" "$PROMPT_FILE" "$log"
+  fi
   rc=$?
   set -e
+  LOOP_STAGE="$ACTION-returned (rc=$rc)"
+  log_loop "iter=$iter $ACTION returned rc=$rc"
 
   after="$(count_ideas)"
+  after_unreviewed="$(count_unreviewed_ideas)"
   if [[ $rc -eq 0 ]]; then
-    echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; $n → $after)"
+    if [[ "$ACTION" == "enhance" ]]; then
+      echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; unreviewed $unreviewed → $after_unreviewed)"
+    else
+      echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; $n → $after)"
+    fi
   else
     echo "[$(date +%H:%M:%S)] iteration $iter $ACTION failed (exit $rc; $n → $after) — see $log" >&2
   fi
 
-  if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
+  if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then
+    log_loop "iter=$iter reached MAX_ITERS=$MAX_ITERS — breaking"
+    break
+  fi
 
+  LOOP_STAGE="sleep-$SLEEP_SECS"
+  log_loop "iter=$iter sleeping ${SLEEP_SECS}s before iter=$((iter+1))"
   sleep "$SLEEP_SECS"
+  log_loop "iter=$iter sleep done"
 done
+log_loop "while-loop exited normally"

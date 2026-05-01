@@ -163,6 +163,14 @@ pick_model_from() {
     ' <<<"$snapshot"
 }
 
+# Run an external CLI, returning its exit status as our own.
+#
+# IMPORTANT: do not toggle `set -e`/`set +e` inside this function. `set -e` is
+# shell-global, not function-scoped — flipping it back on before `return $rc`
+# clobbers the caller's `set +e` and causes the script to exit the moment the
+# CLI returns non-zero, before the caller can capture `$?`. The caller already
+# wraps the call in `set +e ... rc=$? ... set -e`; we just need to let the last
+# command's exit status propagate naturally.
 run_gemini() {
   local model="$1"
   local prompt_file="$2"
@@ -180,7 +188,6 @@ run_gemini() {
     timeout_prefix=(timeout --kill-after=10s "${MAX_RUN_SECS}s")
   fi
 
-  set +e
   "${timeout_prefix[@]+"${timeout_prefix[@]}"}" gemini \
     --approval-mode=yolo \
     --skip-trust \
@@ -189,9 +196,6 @@ run_gemini() {
     -m "$model" \
     -p "$(cat "$prompt_file")" \
     </dev/null >"$log" 2>&1
-  local rc=$?
-  set -e
-  return $rc
 }
 
 run_codex() {
@@ -207,7 +211,6 @@ run_codex() {
     timeout_prefix=(timeout --kill-after=10s "${MAX_RUN_SECS}s")
   fi
 
-  set +e
   "${timeout_prefix[@]+"${timeout_prefix[@]}"}" codex exec \
     --full-auto \
     --skip-git-repo-check \
@@ -215,9 +218,6 @@ run_codex() {
     -C "$ROOT" \
     "$(cat "$prompt_file")" \
     </dev/null >"$log" 2>&1
-  local rc=$?
-  set -e
-  return $rc
 }
 
 iter=0

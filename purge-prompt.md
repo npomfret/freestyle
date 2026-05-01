@@ -1,11 +1,8 @@
-read the business ideas in the local ideas directory
+read @rubric.md first. it defines what makes an idea good vs bad. this prompt builds on it.
+
+read all the business ideas in the local `ideas/` directory.
 
 your job is to leave **at most 20** *achievable* ideas behind — fewer if quality is thin. don't pad to 20 just because the slot exists.
-
-the discriminator is **achievable** vs **grand**:
-
-- **achievable** = a solo dev or 2-person team can ship and sell something a real user pays for in 4–12 weeks, on free public data, via an existing distribution surface.
-- **grand** = TAM-rich vision, multi-stakeholder coordination, brand-new buyer category, regulatory blocker, two-sided cold-start, or anything that needs sales / procurement / partnerships to launch.
 
 if there are very similar and/or overlapping ideas: merge, combine and remove duplication. the absorbed file gets deleted; the survivor gets a short `## Merged Scope (from <other-file.md>)` appendix. that appendix is the **only** permitted edit to surviving idea files.
 
@@ -15,82 +12,19 @@ if there are very similar and/or overlapping ideas: merge, combine and remove du
 - ease of implementation, ease of mvp
 - very low budget — do they leverage free or extremely low cost datasets and apis?
 - revenue sources (ads, subscriptions, pay-per-use etc)
-- is there a clear go-to-market strategy
+- is there a clear go-to-market strategy — weight automated-acquisition signals heavily (see `rubric.md` self-driving growth section)
 - can a MVP be built in a reasonable timescale?
-- realistic chances of success — score this against the **achievability checklist** below, not vibes
+- realistic chances of success — score this against the **achievability checklist** in `rubric.md`, not vibes
 
-## achievability checklist (drives axis 7; also a hard filter)
-
-each signal present and convincingly addressed in the writeup = 1 point. vague or missing = 0. total /8.
-
-1. a solo dev or 2-person team can ship a saleable v1 in 4–12 weeks
-2. the MVP is **one concrete feature**, not a platform / ecosystem / marketplace
-3. the first 10 customers are nameable today (specific subreddit, Shopify category, conference attendee list, MSP partner network — not "SMBs", "marketers", "developers")
-4. free public APIs / data tiers are sufficient for the first **paying** tier, not just the demo
-5. an existing paid product or category proves willingness-to-pay — the idea isn't inventing a new budget line
-6. the product delivers value to a single user with no other users present (no two-sided cold-start)
-7. no regulatory / compliance / certification / mass data-labelling blocker before the first dollar
-8. distribution rides on an existing surface (Shopify app store, Chrome Web Store, GitHub Action, npm, MSP partner, niche community), not a new audience to build
-
-**hard filter**: any idea scoring ≤ 4/8 is a strong deletion candidate regardless of how it scores elsewhere. a high commercial-potential score does not rescue an idea that can't pass achievability.
-
-## self-driving growth (operator has near-zero time for manual work)
-
-the operator has close to zero time for manual lead-gen and marketing — no cold outreach, no sales calls, no hand-curated content campaigns, no conference circuit. **strongly prefer ideas where customer acquisition can be automated** so the product grows largely on its own once seeded.
-
-reward these signals:
-
-- **programmatic SEO**: data-driven landing pages that index naturally (one page per ticker, per location, per error code, per dataset, per slug…)
-- **marketplace-native distribution**: discoverable in an existing app store / extension store / package registry where users find it themselves — Chrome Web Store, Shopify app store, GitHub Marketplace, npm, MSP partner channels, browser extension stores
-- **API-as-product**: developers discover via Google search for "<problem> API" and self-onboard from docs
-- **embed / share loops**: every use produces a public artefact (badge, widget, public report, share link) that links back
-- **open-source / freemium top of funnel**: a free tier or open-source tool that funnels naturally toward paid features
-- **integrations on platforms with existing audiences** (Stripe app, Slack app, Zapier connector) where the host platform surfaces the product
-
-penalise these signals:
-
-- "we'll do content marketing / SEO" with no concrete programmatic mechanism
-- requires building an owned audience from scratch (newsletter, podcast, blog) before sales
-- requires named-account outbound, BDR motion, sales calls, RFPs
-- onboarding needs a demo call or hand-holding for every customer
-- partnerships are the GTM ("we'll partner with X, Y, Z, then…")
-
-when scoring axis 5 (GTM), weight automated-acquisition signals heavily. an idea with no plausible self-driving-growth path should be downgraded sharply regardless of how attractive its market looks.
-
-## grand-vision detector — auto-downgrade signals
-
-downgrade hard for any of these:
-
-- pitch language signalling scope creep: "platform", "ecosystem", "OS for X", "marketplace", "operating system for Y", "all-in-one suite"
-- two-sided / network-effects product (both supply and demand have to be unlocked cold)
-- multi-stakeholder coordination required to launch ("we partner with X, Y, Z, then…")
-- replaces an entrenched incumbent head-on rather than carving a sub-niche
-- brand-new buyer category — nothing comparable is paid for today
-- requires data-licensing deals to function (the data isn't free or self-serve)
-- sales motion required (BDRs, enterprise procurement, RFPs, custom contracts)
-- built around training a custom ML model on data the team can't acquire cheaply
-
-## boring is good
-
-reward unglamorous, mundane, well-defined ideas — invoice reconciliation, niche compliance reports, scheduling for an obscure trade, data clean-up for a specific tool, lookup tables for a small profession. they're overlooked because they're not fun to pitch, which means weak competition, identifiable buyers, and clear willingness-to-pay. when two ideas have similar achievability scores, prefer the boring one. do not down-rank an idea for being unsexy; do down-rank an idea for being flashy with no clear buyer.
-
-## small-dataset constraint
-
-penalise ideas whose viability depends on training models on **large datasets**. we have the skills to build custom models but the budget only stretches to training on relatively small datasets — anything that needs GPU clusters, massive labelled corpora, or foundation-model-scale training is out. fine-tuning small open-source models or training compact bespoke models on a few thousand examples is fine.
-
-##  Pure data is good
-
-Ideas that involve creating datasets, leveraging datasets in a uniqie or creative way, state of the art knowledge bases, etc are very suited to the developer.
+**hard filter**: any idea scoring ≤ 4/8 on the achievability checklist is a strong deletion candidate regardless of how it scores elsewhere. a high commercial-potential score does not rescue an idea that can't pass achievability.
 
 ## light additional research (borderlines only, #15–#30)
 
 don't waste compute on obvious top-tier or obvious bottom-tier ideas. concentrate the extra checks on the borderline middle.
 
-- **verify the headline dataset / API** with one `web_fetch` of its docs URL — still alive, free tier still meaningful, the licence permits commercial use, **and the source is actively maintained**. apply a heavy discount when the dataset / API shows staleness signals: last update years ago, dormant GitHub repo, dead maintainers, deprecated endpoints, docs that haven't moved in 3+ years. a stale data source is a hidden time-bomb. if a key dataset has gone paid-only above the budget, is non-commercial, or is dormant, downgrade aggressively.
-- **competition sweep** with one `google_web_search` for the wedge name. if a free OSS tool or built-in OS / browser feature already owns the niche, downgrade.
+- **verify the headline dataset / API** with one `web_fetch` of its docs URL — still alive, free tier still meaningful, the licence permits commercial use, **and the source is actively maintained** (see `rubric.md` staleness discount).
+- **competition sweep** with one `google_web_search` for the wedge name. if a free OSS tool or built-in OS / browser feature already owns the niche, downgrade (see `rubric.md` cheap-incumbent disqualifier).
 - **catalog cross-check** with `npm run search -- search "<keywords>"` to spot stronger or replacement resources the original author missed.
-
-the catalog CLI is read-only. **do not** run `npm run server`, `npm run db:tunnel`, `discover`, `repair`, `validity-check`, `add-url`, `embed`, or any DB-mutating script. do not read or write `.env` files.
 
 ## adversarial pass (top ~25 only)
 
@@ -121,5 +55,4 @@ confirm the final count and print, for each survivor: rank, total score, achieva
 - do **not** modify the surviving idea files except to add a `## Merged Scope` appendix when consolidating duplicates.
 - do **not** touch any subdirectories.
 - do **not** create any files outside `ideas/`.
-- do **not** write any code.
 - if the directory already has ≤ 20 files when you start, exit cleanly with a brief note — no deletions needed.

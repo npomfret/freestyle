@@ -1,3 +1,9 @@
+## Hard rule
+
+The **only** filesystem writes you may make are: deleting `.md` files in `ideas/`, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` in `ideas/` when consolidating duplicates. Nothing else — no new files (no `RANKINGS.md`), no edits outside `ideas/`, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
+
+---
+
 read @rubric.md first. it defines what makes an idea good vs bad. this prompt builds on it.
 
 read all the business ideas in the local `ideas/` directory.
@@ -49,10 +55,4 @@ delete the lowest-scoring files until **at most 20** `*.md` files remain in `ide
 
 confirm the final count and print, for each survivor: rank, total score, achievability /8, grand-vision flags, kill-objection verdict.
 
-## constraints
-
-- do **not** write a `RANKINGS.md` or any aggregate report file. print the ranking and reasoning to stdout for the run log; do not persist it to the repo.
-- do **not** modify the surviving idea files except to add a `## Merged Scope` appendix when consolidating duplicates.
-- do **not** touch any subdirectories.
-- do **not** create any files outside `ideas/`.
-- if the directory already has ≤ 20 files when you start, exit cleanly with a brief note — no deletions needed.
+if the directory already has ≤ 20 files when you start, exit cleanly with a brief note — no deletions needed.

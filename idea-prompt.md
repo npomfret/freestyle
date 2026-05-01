@@ -1,3 +1,9 @@
+## Hard rule
+
+The **only** filesystem write you may make is creating one new `.md` file inside `ideas/`. Do not modify, create, delete, or rename any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles. Your job is to write the markdown, not implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+
+---
+
 Read @README.md and make sure you understand how to use the cli to exercise our api.
 
 Your task is to generate a business idea for a software (only) product. ic could be any of
@@ -48,5 +54,3 @@ If you have a reasonable idea about a potential business, stop:
  - present it in a markdown file in the local ideas directory
  - provide links to the datasets and APIs involved
  - provide estimate costs
-
-Do not write any code. Do not create any files.

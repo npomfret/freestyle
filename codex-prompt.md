@@ -1,3 +1,9 @@
+## Hard rule
+
+The **only** filesystem write you may make is editing the **one** existing `.md` file in `ideas/` that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+
+---
+
 read @rubric.md first. it defines what makes an idea good vs bad. this prompt builds on it.
 
 read @README.md so you understand the catalog CLI (`npm run search`) — that's how you query the dataset/API catalog. it talks to the deployed API by default, no local setup needed.
@@ -33,13 +39,6 @@ specifically:
 - **fix the dataset/API links if they're wrong or dead** — replace with maintained alternatives where you can.
 
 if the idea is fundamentally broken (dead dataset with no alternative, free incumbent owning the entire niche, requires data the team can't get) — **don't pretend to fix it**. write a short `## Verdict` section saying so plainly. the next purge run will catch it.
-
-do **not**:
-
-- delete the file
-- create new files
-- merge multiple files
-- edit other files in `ideas/`
 
 ## marker
 

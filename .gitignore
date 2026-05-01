@@ -9,3 +9,4 @@ tmp
 .aider*
 .DS_Store
 ideas
+.claude/scheduled_tasks.lock

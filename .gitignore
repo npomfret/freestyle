@@ -10,3 +10,4 @@ tmp
 .DS_Store
 ideas
 .claude/scheduled_tasks.lock
+.gitnexus

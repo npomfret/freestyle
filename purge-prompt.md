@@ -1,6 +1,6 @@
 ## Hard rule
 
-The **only** filesystem writes you may make are: deleting `.md` files in the ideas directory, and either appending a `<!-- purged: YYYY-MM-DD (score=N/70) -->` marker line at the bottom of a surviving `.md` or appending a single `## Merged Scope (from <other-file.md>)` section when consolidating duplicates. Nothing else — no new files (no `RANKINGS.md`), no edits outside the ideas directory, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem writes you may make are: deleting `.md` files in the ideas directory, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` when consolidating duplicates. Nothing else — no new files, no edits outside the ideas directory, no non-`.md` edits, no source code, no project scaffolding. **Do not write any marker comments.** Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
@@ -10,15 +10,11 @@ read `rubric.md` first. it defines what makes an idea good vs bad. this prompt b
 
 ## scope
 
-look at every `.md` file in the ideas directory.
+read every `.md` file in the ideas directory and grade it. there is no per-file "already purged" memory — every purge run re-evaluates every idea. that's deliberate: ideas the previous run let through under a looser bar should fall to today's bar; ideas neighbouring a stronger newcomer should be re-judged in that context.
 
-your job is to **vet the unpurged ideas** — those whose body does NOT contain a `<!-- purged:` marker. surviving ideas get the marker added so future purge runs skip them.
+if the directory is empty, exit cleanly with a one-line note.
 
-**do not** re-grade ideas that already have a `<!-- purged:` marker. they've been vetted. (the only time you may touch a purged file is to append a `## Merged Scope` appendix when absorbing a duplicate fresh idea into it.)
-
-if there are zero unpurged ideas, exit cleanly with a one-line note.
-
-## grade each unpurged idea on these 7 axes (/10 each, /70 total)
+## grade each idea on these 7 axes (/10 each, /70 total)
 
 - commercial potential (market size, competition, potential scale etc)
 - ease of implementation, ease of mvp
@@ -28,9 +24,9 @@ if there are zero unpurged ideas, exit cleanly with a one-line note.
 - can a MVP be built in a reasonable timescale?
 - realistic chances of success — score this against the **achievability checklist** in `rubric.md`, not vibes
 
-## adversarial pass (every unpurged idea)
+## adversarial pass (every idea)
 
-before you decide on each unpurged idea, write the **single strongest one-sentence kill objection** a sceptical investor would raise. examples:
+before you decide on each idea, write the **single strongest one-sentence kill objection** a sceptical investor would raise. examples:
 
 - "Cloudflare already does this for free"
 - "the free tier rate-limits below what one paying customer would consume"
@@ -43,13 +39,13 @@ then assign **exactly one** of these three verdicts — no other phrasings, no i
 - **acknowledged but weakly answered** — the writeup mentions the issue but the response is hand-wavy, generic, or aspirational. subtract 6 from the 7-axis total.
 - **not addressed at all** — the writeup does not mention the issue, or the objection is fundamentally unanswerable (e.g. the cited dataset's licence forbids the product). subtract 12, or fatal-drop if unanswerable.
 
-apply the penalty to the 7-axis total **before** deciding pass/fail. the score you print and write into the marker line is the **post-penalty** score.
+apply the penalty to the 7-axis total **before** deciding pass/fail. the score you print to stdout is the **post-penalty** score.
 
 print the kill objection and verdict to stdout per idea.
 
 ## quality bar (delete if any of these fails)
 
-an unpurged idea is **deleted** if **any** of these are true:
+an idea is **deleted** if **any** of these are true:
 
 - achievability ≤ 5/8 (the `rubric.md` checklist), OR
 - 7-axis total **after adversarial penalty** < 45/70, OR
@@ -58,13 +54,7 @@ an unpurged idea is **deleted** if **any** of these are true:
 
 be ruthless. a "good" idea has a high achievability score, clears the 45/70 bar, AND survives its strongest objection cleanly. mediocre ideas with weakly-answered objections do not pass — there are always more candidates being generated.
 
-otherwise the idea **survives**: append a single line at the bottom of the file:
-
-```
-<!-- purged: YYYY-MM-DD (score=N/70) -->
-```
-
-(today's date; N is the integer 7-axis total after any adversarial penalty.)
+surviving ideas are **left untouched** — do not edit them, do not append a marker, do not write a comment. the file content stays exactly as it was.
 
 **there is no quota.** keep all surviving ideas, however many. if 60 ideas survive the bar, leave 60. do not pad and do not over-cull.
 
@@ -78,11 +68,11 @@ don't waste compute on obvious passes or obvious deletes. concentrate research o
 
 ## merge near-duplicates
 
-if an unpurged idea describes substantially the same product as another idea (purged or unpurged), merge: pick the stronger writeup as the survivor, copy in the weaker one's best points, delete the absorbed file, and add a short `## Merged Scope (from <other-file.md>)` appendix to the survivor. if the survivor is already purged, that appendix is the **only** edit allowed to it (don't re-grade or re-mark it).
+if two ideas describe substantially the same product, merge: pick the stronger writeup as the survivor, copy in the weaker one's best points, delete the absorbed file, and add a short `## Merged Scope (from <other-file.md>)` appendix to the survivor. that appendix is the only edit allowed to a surviving file.
 
 ## output
 
-for each unpurged idea print one line:
+for each idea print one line:
 
 ```
 ideas/foo.md  43/70  (achievability 6/8)  pass

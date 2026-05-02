@@ -2,11 +2,17 @@
 # Pipeline driver: generate ideas, triage them, enhance them, purge them.
 # Each iteration picks one action by priority:
 #   1) purge   if reviewed > THRESHOLD          and pro or codex available
-#   2) triage  if 1-raw count ≥ TRIAGE_THRESHOLD and any non-pro available
+#   2) triage  if 1-raw count ≥ TRIAGE_THRESHOLD and pro or codex available
 #   3) enhance if any 2-triaged ideas           and pro or codex available
 #   4) generate                                  with cheapest non-pro family
 #                  (throttled when total > THRESHOLD and no purge runner free)
 #   5) sleep
+#
+# Model routing:
+#   generate            → flash / flash-lite (cheap; volume work)
+#   triage / enhance    → pro or codex, alternating via tmp/last-advanced
+#                         (flash judgment too unreliable for these stages)
+#   purge               → pro preferred, codex fallback (multi-file grading)
 #
 # Pipeline state lives on the file system — `ls ideas/` shows the workflow:
 #   ideas/1-raw/        ← fresh from generate, awaiting triage
@@ -18,7 +24,9 @@
 # Usage:
 #   scripts/loop.sh                       # loop forever
 #   scripts/loop.sh 5                     # at most 5 iterations
-#   THRESHOLD=40 scripts/loop.sh          # 3-reviewed count that fires purge;
+#   THRESHOLD=25 scripts/loop.sh          # 3-reviewed count that fires purge
+#                                         # (purge enforces the same number as a hard
+#                                         # cap, culling the worst-scoring overflow);
 #                                         # also caps total before generate self-throttles
 #   TRIAGE_THRESHOLD=5 scripts/loop.sh    # 1-raw count required to fire a triage
 #   SLEEP_SECS=30 scripts/loop.sh         # sleep between productive iterations
@@ -49,7 +57,7 @@ SLEEP_SECS="${SLEEP_SECS:-30}"
 IDLE_SLEEP_SECS="${IDLE_SLEEP_SECS:-3600}"
 ERROR_RETRY_SECS="${ERROR_RETRY_SECS:-60}"
 MAX_RUN_SECS="${MAX_RUN_SECS:-1800}"
-THRESHOLD="${THRESHOLD:-40}"
+THRESHOLD="${THRESHOLD:-25}"
 # Triage runs once at least this many fresh (un-triaged, un-reviewed) ideas pile up.
 # Triage is a batch operation, so running it on 1–2 files is silly; let some accumulate.
 TRIAGE_THRESHOLD="${TRIAGE_THRESHOLD:-5}"
@@ -277,11 +285,11 @@ while true; do
   log_loop "iter=$iter codex quota rc=$codex_rc available=$CODEX_AVAILABLE raw=$raw triaged=$triaged reviewed=$reviewed"
 
   PRO_MODEL="$(pick_model_from "$snapshot" "" "pro")"
-  FLASH_MODEL="$(pick_model_from "$snapshot" "" "flash")"
   NON_PRO_MODEL="$(pick_model_from "$snapshot" "pro" "")"
 
   ACTION=""
   MODEL=""
+  TRIAGE_RUNNER=""
   ENHANCE_RUNNER=""
   PURGE_RUNNER=""
 
@@ -301,33 +309,37 @@ while true; do
     fi
   fi
 
-  # 2. Triage — cheap batch cull of obviously-broken fresh ideas in 1-raw/, before
-  #    any advanced-model quota gets spent enhancing them. Prefers flash (better
-  #    judgment than flash-lite) but falls back to whatever non-pro is available.
+  # Triage and enhance both want an advanced runner (gemini-pro or codex).
+  # Flash isn't reliable enough for the achievability judgment in triage, and
+  # the cheap models definitely can't enrich. They share an alternation state
+  # file (tmp/last-advanced) so pro and codex burn evenly across both stages
+  # rather than one getting exhausted while the other sits idle.
+  ADVANCED_STATE="$ROOT/tmp/last-advanced"
+  last_advanced=""
+  [[ -f "$ADVANCED_STATE" ]] && last_advanced="$(cat "$ADVANCED_STATE" 2>/dev/null || true)"
+  preferred_advanced="codex"
+  [[ "$last_advanced" == "codex" ]] && preferred_advanced="pro"
+
+  # 2. Triage — cull obviously-broken fresh ideas in 1-raw/. Uses pro or codex
+  #    (alternating with enhance via the shared state above).
   if [[ -z "$ACTION" && "$raw" -ge "$TRIAGE_THRESHOLD" ]]; then
-    triage_model="$FLASH_MODEL"
-    [[ -z "$triage_model" ]] && triage_model="$NON_PRO_MODEL"
-    if [[ -n "$triage_model" ]]; then
-      ACTION="triage"
-      MODEL="$triage_model"
+    if [[ "$preferred_advanced" == "pro" && -n "$PRO_MODEL" ]]; then
+      ACTION="triage"; TRIAGE_RUNNER="pro"; MODEL="$PRO_MODEL"
+    elif [[ "$preferred_advanced" == "codex" && "$CODEX_AVAILABLE" -eq 1 ]]; then
+      ACTION="triage"; TRIAGE_RUNNER="codex"
+    elif [[ "$CODEX_AVAILABLE" -eq 1 ]]; then
+      ACTION="triage"; TRIAGE_RUNNER="codex"
+    elif [[ -n "$PRO_MODEL" ]]; then
+      ACTION="triage"; TRIAGE_RUNNER="pro"; MODEL="$PRO_MODEL"
     fi
   fi
 
   # 3. Enhance — pick a file from 2-triaged/ and enrich it, then move it to
-  #    3-reviewed/. Share work evenly between codex and gemini-pro; strict
-  #    alternation via tmp/last-enhancer balances quota burn across them so
-  #    neither gets exhausted while the other sits idle. If the preferred
-  #    runner has no capacity this iteration, fall through to whichever does.
+  #    3-reviewed/. Same pro/codex alternation as triage.
   if [[ -z "$ACTION" && "$triaged" -gt 0 ]]; then
-    ENHANCER_STATE="$ROOT/tmp/last-enhancer"
-    last_enhancer=""
-    [[ -f "$ENHANCER_STATE" ]] && last_enhancer="$(cat "$ENHANCER_STATE" 2>/dev/null || true)"
-    preferred="codex"
-    [[ "$last_enhancer" == "codex" ]] && preferred="pro"
-
-    if [[ "$preferred" == "pro" && -n "$PRO_MODEL" ]]; then
+    if [[ "$preferred_advanced" == "pro" && -n "$PRO_MODEL" ]]; then
       ACTION="enhance"; ENHANCE_RUNNER="pro"; MODEL="$PRO_MODEL"
-    elif [[ "$preferred" == "codex" && "$CODEX_AVAILABLE" -eq 1 ]]; then
+    elif [[ "$preferred_advanced" == "codex" && "$CODEX_AVAILABLE" -eq 1 ]]; then
       ACTION="enhance"; ENHANCE_RUNNER="codex"
     elif [[ "$CODEX_AVAILABLE" -eq 1 ]]; then
       ACTION="enhance"; ENHANCE_RUNNER="codex"
@@ -379,7 +391,9 @@ while true; do
     [[ "$PURGE_RUNNER" == "pro" ]] && runner_label="$MODEL"
     echo "[$ts] iteration $iter — $ACTION ($reviewed/$n reviewed) with $runner_label — log=$log"
   elif [[ "$ACTION" == "triage" ]]; then
-    echo "[$ts] iteration $iter — $ACTION ($raw/$n raw) with $MODEL — log=$log"
+    runner_label="$TRIAGE_RUNNER"
+    [[ "$TRIAGE_RUNNER" == "pro" ]] && runner_label="$MODEL"
+    echo "[$ts] iteration $iter — $ACTION ($raw/$n raw) with $runner_label — log=$log"
   else
     echo "[$ts] iteration $iter — $ACTION ($n ideas) with $MODEL — log=$log"
   fi
@@ -391,6 +405,12 @@ while true; do
     run_codex "$PROMPT_FILE" "$log"
   elif [[ "$ACTION" == "enhance" ]]; then
     log_loop "iter=$iter calling gemini-pro (enhance model=$MODEL triaged=$triaged log=$log)"
+    run_gemini "$MODEL" "$PROMPT_FILE" "$log"
+  elif [[ "$ACTION" == "triage" && "$TRIAGE_RUNNER" == "codex" ]]; then
+    log_loop "iter=$iter calling codex (triage raw=$raw log=$log)"
+    run_codex "$PROMPT_FILE" "$log"
+  elif [[ "$ACTION" == "triage" ]]; then
+    log_loop "iter=$iter calling gemini-pro (triage model=$MODEL raw=$raw log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"
   elif [[ "$ACTION" == "purge" && "$PURGE_RUNNER" == "codex" ]]; then
     log_loop "iter=$iter calling codex (purge reviewed=$reviewed log=$log)"
@@ -422,12 +442,16 @@ while true; do
     echo "[$(date +%H:%M:%S)] iteration $iter $ACTION failed (exit $rc; $n → $after) — see $log" >&2
   fi
 
-  # Persist enhance alternation regardless of success: a failing run still
-  # shifts the next iteration to the other runner, so persistent failures get
-  # round-robin'd out instead of pinning the loop to one model.
-  if [[ "$ACTION" == "enhance" ]]; then
+  # Persist advanced-runner alternation regardless of success: a failing run
+  # still shifts the next iteration to the other runner, so persistent
+  # failures get round-robin'd out instead of pinning the loop to one model.
+  # Triage and enhance share the same state file (purge has its own pro-first
+  # preference and doesn't participate in the alternation).
+  if [[ "$ACTION" == "enhance" || "$ACTION" == "triage" ]]; then
     mkdir -p "$ROOT/tmp"
-    echo "$ENHANCE_RUNNER" > "$ROOT/tmp/last-enhancer"
+    runner_used="$ENHANCE_RUNNER"
+    [[ "$ACTION" == "triage" ]] && runner_used="$TRIAGE_RUNNER"
+    echo "$runner_used" > "$ROOT/tmp/last-advanced"
   fi
 
   if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then

@@ -56,7 +56,11 @@ be ruthless. a "good" idea has a high achievability score, clears the 45/70 bar,
 
 surviving ideas are **left untouched** — do not edit them, do not append a marker, do not write a comment. the file content stays exactly as it was.
 
-**there is no quota.** keep all surviving ideas, however many. if 60 ideas survive the bar, leave 60. do not pad and do not over-cull.
+## hard cap: 25 ideas maximum
+
+after applying the quality bar above and the merge-near-duplicates step below, `ideas/3-reviewed/` must contain **at most 25 files** when you exit. if more than 25 ideas survive the quality bar and the merge step, sort the survivors by post-penalty 7-axis total descending (ties broken by achievability /8 descending, then by filename ascending) and **delete** every survivor ranked **lower than 25th**. these capacity-cull deletes are in addition to the quality-bar deletes — print them on a separate line in the output so the human reader can see which ideas got pushed off the bottom of the cap rather than failing the bar outright.
+
+do not under-cull (leave 26 because "they're all good") and do not over-cull (delete more than needed to reach 25). the cap is hard.
 
 ## light additional research (borderlines only)
 
@@ -78,6 +82,7 @@ for each idea print one line:
 ideas/3-reviewed/foo.md  43/70  (achievability 6/8)  pass
 ideas/3-reviewed/bar.md  28/70  (achievability 3/8)  delete
 ideas/3-reviewed/baz.md  37/70  (achievability 5/8)  merged into ideas/3-reviewed/quux.md
+ideas/3-reviewed/qux.md  46/70  (achievability 6/8)  cap-cull (rank 27 of 30)
 ```
 
-then a final tally: `vetted: V   passed: P   deleted: D   merged: M`.
+then a final tally: `vetted: V   passed: P   deleted: D   merged: M   cap-culled: C   final: F (≤ 25)`.

@@ -9,7 +9,9 @@ Nothing else — no new files, no edits to file contents, no edits outside `idea
 
 ---
 
-read @rubric.md, focusing on the **achievability checklist (8 signals)** section. you'll grade each candidate against those 8 signals and nothing else.
+**paths**: depending on how you were invoked, your working directory is either the repo root (then targets are `./ideas/1-raw/` and `./ideas/2-triaged/`, the rubric is `./rubric.md`) or the `ideas/` directory itself (then targets are `1-raw/` and `2-triaged/`, the rubric is `../rubric.md`). figure out which and use the right paths consistently.
+
+read `rubric.md`, focusing on the **achievability checklist (8 signals)** section. you'll grade each candidate against those 8 signals and nothing else.
 
 your job is the **fast triage cut**: catch obvious flunkers before the more expensive enhance and purge stages waste advanced-model quota on them. you are NOT rewriting, ranking, or commenting — only scoring and culling.
 

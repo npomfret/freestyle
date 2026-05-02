@@ -37,16 +37,16 @@ The gap is not that polygons do not exist. The gap is that there is no simple, p
 
 ## 3. Target Customers
 
-Primary buyers:
+Primary buyers are organisations that need to link UK addresses to physical space for valuation, risk, or logistics.
 
-*   **Insurtech and insurers**: property risk, flood, subsidence, fire spread, rebuild modelling, exposure analysis.
-*   **Energy and retrofit companies**: solar, heat pumps, insulation, grid connection, local targeting.
-*   **Proptech and conveyancing tools**: address-level spatial context, title candidate lookup, due diligence workflows.
-*   **Planning and development intelligence platforms**: site constraints, ownership adjacency, parcel/address reconciliation.
-*   **Utilities and telecoms**: service eligibility, wayleave screening, address-to-premise mapping.
-*   **Local authorities and public-sector teams**: data matching, asset management, enforcement, housing analytics.
+*   **Insurers and Insurtech**: For property risk (flood, subsidence), exposure analysis, and rebuild cost modelling. Target data teams at established insurers (e.g., Aviva, AXA) and underwriting teams at startups (e.g., FloodFlash, Laka).
+*   **Energy and Retrofit**: For solar potential, heat pump eligibility, insulation sales territories, and grid connection planning. A specific channel would be targeting members of trade bodies like **Solar Energy UK** or exhibitors at conferences like **Futurebuild**.
+*   **Proptech and Conveyancing Tech**: For pre-diligence checks, site context, and automating parts of the title search process. Target product managers at companies like **Searchland** or **Thirdfort**.
+*   **Planning and Development**: For site finding, ownership adjacency analysis, and reconciling planning applications with registered land parcels.
+*   **Utilities and Telecoms**: For service eligibility checks (e.g., fibre rollout) and mapping assets to premises.
+*   **Public Sector**: For data matching in local authorities, asset management, and housing analytics.
 
-The best early wedge is likely a narrow B2B workflow where polygon quality has direct commercial value, such as insurance risk enrichment or retrofit lead qualification.
+The best early wedge is a narrow B2B workflow where polygon quality has direct commercial value, such as insurance risk enrichment or retrofit lead qualification.
 
 ## 4. Product
 
@@ -178,23 +178,26 @@ Marketing channels:
 *   Sample open dashboard for one local authority
 *   Partnerships with GIS consultancies and OS/HMLR data users
 
-## 9. Competitive Landscape
+## 9. Landscape
 
-Likely adjacent competitors:
+The problem of linking addresses to polygons is addressed by a mix of official sources and commercial aggregators. There is no single, free, public API that cleanly provides this service.
 
-*   Large geospatial data vendors
-*   Ordnance Survey partners
-*   Property data companies
-*   Insurance risk data providers
-*   GIS consultancies doing custom joins
+### Incumbents & Comparables
 
-Differentiation:
+*   **[PropertyData.co.uk](https://propertydata.co.uk/api)**: Offers a developer API that includes UPRN lookup and can return property boundaries. This is a direct commercial comparable.
+*   **[Street.co.uk](https://docs.data.street.co.uk/)**: Provides a modern property data API, including spatial information, aimed at estate agents and developers.
+*   **[Searchland.co.uk](https://searchland.co.uk/)**: A platform focused on land sourcing for property developers, offering a developer API for title boundaries and UPRN data.
+*   **Ordnance Survey (OS) & HM Land Registry (HMLR)**: The official sources. They provide the highest quality data via commercial APIs (**OS NGD API**, **HMLR National Polygon Service**) but require complex integration and significant licensing fees (e.g., HMLR NPS is ~£20,000/year). Their free offerings require significant DIY data joining.
 
-*   Developer-first API and batch product
-*   Explicit confidence and ambiguity model
-*   Clear provenance for every returned polygon
-*   Multiple polygon types: title, building, parcel, candidate alternatives
-*   Focused UK property entity-resolution layer rather than broad GIS tooling
+### Data Sources & Licensing
+
+*   **HMLR INSPIRE Index Polygons (E&W)**: Free (OGL), updated monthly. Freehold only, indicative boundaries.
+*   **Registers of Scotland Cadastral Parcels (Scotland)**: Free (OGL), updated quarterly.
+*   **OS Open UPRN**: Free (OGL), contains the UPRN and its point coordinate, but no polygon. The essential link for a DIY open-data solution.
+*   **HMLR National Polygon Service (E&W)**: Commercial (~£20,000/year), updated monthly. The premium source, including leaseholds.
+*   **OS AddressBase Premium & OS NGD API**: Commercial (with a free tier), updated frequently. The most authoritative source for address and building feature data.
+
+The opportunity lies in offering a developer-first product that bridges the gap between the complex, expensive official APIs and the incomplete, DIY-heavy open data route, with a clear model for confidence and ambiguity.
 
 ## 10. Risks
 
@@ -291,9 +294,4 @@ Core match methods:
 *   building footprint containment
 *   manual QA override
 
-## 13. Verdict
-
-This is a real dataset opportunity, especially as a commercial B2B enrichment/API product.
-
-The open-data-only version can prove demand and support limited use cases, but the strongest product probably requires licensed OS and HMLR datasets. The winning product is not merely a polygon file. It is the cleaned, versioned, explainable address-to-polygon index that sits between messy official datasets and commercial workflows that need a dependable answer.
-
+<!-- reviewed: 2026-05-02 -->

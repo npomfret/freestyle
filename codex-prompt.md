@@ -1,19 +1,21 @@
 ## Hard rule
 
-Your sandbox is pinned to this directory (`ideas/`). The **only** filesystem write you may make is editing the **one** existing `.md` file here that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem write you may make is editing the **one** existing `.md` file in the ideas directory that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
-your working directory is `ideas/`. the rest of the repo is one level up. read these for context:
+**paths**: depending on how you were invoked, your working directory is either the repo root (then ideas live in `./ideas/`, the rubric is `./rubric.md`, and the CLI is `npm run search -- search "<keywords>"`) or the `ideas/` directory itself (then the rubric is `../rubric.md` and the CLI is `npm --prefix .. run search -- search "<keywords>"`). figure out which and use the right paths consistently.
 
-- `../rubric.md` — defines what makes an idea good vs bad. this prompt builds on it.
-- `../README.md` — describes the catalog CLI. invoke it as `npm --prefix .. run search -- search "<keywords>"` to query the dataset/API catalog. it talks to the deployed API by default, no local setup needed.
+read these for context:
 
-your job is to **enrich one business idea** in this directory. you're a second pair of eyes after the cheap-model author wrote it: add facts, sharpen specifics, surface the landscape. you are **not** judging the idea — that's the human's job (and the purge stage). do not write verdicts, recommendations to keep/drop, "fatal issue" callouts, or other opinions. observations of merits and limitations are fine when stated factually ("free tier caps at 100 calls/day"), but never editorialise ("this kills the idea", "this is great").
+- `rubric.md` — defines what makes an idea good vs bad. this prompt builds on it.
+- `README.md` — describes the catalog CLI. it talks to the deployed API by default, no local setup needed.
+
+your job is to **enrich one business idea** in the ideas directory. you're a second pair of eyes after the cheap-model author wrote it: add facts, sharpen specifics, surface the landscape. you are **not** judging the idea — that's the human's job (and the purge stage). do not write verdicts, recommendations to keep/drop, "fatal issue" callouts, or other opinions. observations of merits and limitations are fine when stated factually ("free tier caps at 100 calls/day"), but never editorialise ("this kills the idea", "this is great").
 
 ## pick a target
 
-list `*.md` files here. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
+list `*.md` files in the ideas directory. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
 
 work on **exactly one** file per invocation. don't touch any others.
 
@@ -21,7 +23,7 @@ work on **exactly one** file per invocation. don't touch any others.
 
 don't burn a long session on this. one or two of each at most. these are fact-finding passes — write what you find into the writeup neutrally; don't grade it.
 
-1. **catalog cross-check**: `npm --prefix .. run search -- search "<keywords>"` — surface stronger or complementary resources the original author missed. if a better dataset or API exists, swap it in or add it as a complement.
+1. **catalog cross-check**: invoke the catalog CLI (`npm run search` or `npm --prefix .. run search` per the paths note above) with `-- search "<keywords>"` — surface stronger or complementary resources the original author missed. if a better dataset or API exists, swap it in or add it as a complement.
 2. **dataset / API liveness**: one web search or fetch of the headline data source's docs / repo. note (in the writeup, factually) the licence terms, free-tier limits, last-updated date, and whether the docs/repo show signs of active maintenance. don't conclude anything — just record what's there.
 3. **competition sweep**: one web search for the wedge phrase. if a free or paid product already covers the niche, name it specifically and write what it does and what it costs. don't say whether that "kills" the idea.
 

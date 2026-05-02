@@ -140,14 +140,6 @@ count_unreviewed_ideas() {
   fi
 }
 
-# Print the path of the first un-reviewed idea file (or empty string if none).
-first_unreviewed_idea() {
-  find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
-    | xargs -0 grep -L -e '<!-- codex-reviewed:' -e '<!-- reviewed:' 2>/dev/null \
-    | head -n 1 \
-    || true
-}
-
 # Count idea files that have never been triaged or reviewed (fresh from generate).
 # Same pipefail-safe pattern as count_unreviewed_ideas.
 count_untriaged_ideas() {

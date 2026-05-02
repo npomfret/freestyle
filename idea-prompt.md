@@ -4,53 +4,59 @@ The **only** filesystem write you may make is creating one new `.md` file inside
 
 ---
 
-Read @README.md and make sure you understand how to use the cli to exercise our api.
+Read @rubric.md first — it defines what makes a Freestyle idea good vs bad and is the same bar the triage and purge stages will apply to your output. Read @README.md and make sure you understand how to use the cli to exercise our api.
 
-Your task is to generate a business idea for a software (only) product. ic could be any of
+## who you are selling to
 
- - a new dataset that has commercial value, potentially combined with a predictive ML model
- - pure data solutions ie state of the art knowledge bases leveraging existing datasts, hybrid data sets etc potentially with some predictive models and/or llm integration
- - b2b / b2c website or saas platform
- - mobile app
- - other...
+We are highly technical with **few business skills** — no sales muscle, no marketing audience, no industry network. Our edge is software. The strongest ideas serve **non-technical owners of established, revenue-generating businesses**: independent operators of small businesses (single-location restaurants, dental practices, plumbers, garages, kennels, breweries, opticians, picture framers, accountants, surveyors, MOT centres, fishing fleets, family wholesalers, agricultural operators, regional construction firms…). They already have revenue and a routine; they pay for tools when the payback is visible inside one quarter.
 
- * They don't need to be original ideas.  Sometimes being much better and much cheaper than an existing product is a valid approach.
- * Having said that: highly saturated markets are difficult to break into.
- * It can be trivial (just a few days work) or highly complex (several months work).
- * it must not be at risk of being completely replaceable by a state of the art llm
- * data sources must be free (or cheap) and maintained
- * undercutting existing businesses is a perfectly valid strategy - our costs are VERY low
+The deal we're offering them is simple: **"this saves you £X/month"** or **"this earns you £X/month more"**. Every writeup must be able to state the ROI in concrete numbers visible on the landing page. If the only honest answer is "better insights" or "improved workflow", the buyer won't pay.
 
-You will use our database via the CLI to pick 3 random items from the db. You will pick one that you consider to "look interesting".
+Lean against developer tools, prosumer SaaS for tech teams, marketer dashboards, and consumer products — see `rubric.md` "target buyer profile" for the full reward/penalise lists.
 
-Then you will
+## what kind of product
 
- * search for other complimentary sources in the database using the cli
- * use googlesearch to do your own research
- * Check the quality of any suggested datasets, our db might be out of date... they must be suitable
- * Apply a heavy discount to datasets / APIs that are **old or unmaintained** — last update years ago, dormant GitHub repo, dead maintainers, deprecated endpoints, docs that haven't moved in 3+ years. A stale data source is a hidden time-bomb under the product. If the headline dataset shows these signals, find a maintained alternative or discard the idea.
- * consider which geographic region(s) the project might be suitable for
- * consider budget - dev time is free, but we have a very small budget
+Software-only. It could be:
 
-Datasets don't need to be 100% free. But they must have a free tier, and the full cost must not exceed $5000 per year.
+- a new dataset (or hybrid dataset) with commercial value, optionally combined with a small predictive model
+- a state-of-the-art knowledge base leveraging existing datasets, with optional ML or LLM glue
+- a B2B SaaS, micro-SaaS, web app, browser extension, Shopify app, or similar
+- a mobile app where the buyer's workflow is mobile-first
+- a pre-diligence / screening tool that finds red flags before the buyer pays for formal due diligence (see `rubric.md` "pre-diligence products")
 
-One angle to consider is: is there a use for a bespoke neural network in the project? We have the skills to build custom / novel models, but the budget only stretches to training on **relatively small datasets** — anything that needs large-scale training compute, GPU clusters, or massive labelled corpora is out of scope. Fine-tuning small open-source models or training compact bespoke models on a few hundred thousand examples is fine; building a foundation model is not. Similarly agentic LLM based approaches are possible, but these can have a significant cost.
+Constraints:
 
-But: an AI angle is not mandatory, or even desirable - do not get hung up on this.
+- **boring beats novel**. Unsexy, well-defined problems with an identifiable buyer routinely beat flashy ideas with no one to sell to. See `rubric.md` "boring is good".
+- **wedge-shaped**: small concrete v1 with a visible mountain of follow-on work behind it. See `rubric.md` "wedge shape".
+- **must not be LLM-replaceable**: if the buyer could ask ChatGPT and get a comparable answer for free, the idea is dead. The defensible value lives in maintained data, integrations, distribution, or workflow.
+- **data sources must be free or cheap and actively maintained** — apply the staleness discount in `rubric.md`.
+- **undercutting existing paid incumbents is fine** — our costs are very low. But "slightly better than a free incumbent" is not a wedge; nobody switches for marginal gains.
+- It can be a few days' work or several months' work; either is acceptable if the wedge is sharp.
 
-The strongest ideas are **wedge-shaped**: a small achievable MVP that, if the wedge lands, opens up months or years of follow-on work — adjacent features, deeper integrations, premium tiers, neighbouring customer segments. Start narrow, but pick a niche with a big mountain behind it. An idea with a hard ceiling (one feature, no clear extension path) is weaker than one whose first step is small but whose roadmap goes a long way if it gets traction. Sketch the follow-on path briefly in the writeup so the growth shape is visible.
+## process
 
-Be ruthless about the competitive landscape: if there is **already a very low-cost or free, widely-used solution** that does most of what you're proposing, drop the idea and start again. "Slightly better" is not a wedge against a cheap incumbent everyone already uses; nobody switches for marginal gains. The opening only exists when the incumbent is expensive, niche-blind, or absent — not when it's free, ubiquitous, and good enough.
+1. Pick 3 random items from the catalog via the CLI. Pick one that looks interesting **for a non-technical business owner buyer** (per the section above) — not because it's technically novel.
+2. Search the catalog for complementary sources, then do your own web research.
+3. Sanity-check the headline dataset / API: still alive, free tier sufficient for a paying tier (not just a demo), commercial-use licence, actively maintained. Apply the staleness discount in `rubric.md`. If the headline source is dormant or licence-blocked, find a maintained alternative or discard.
+4. Decide which geographic region(s) the product fits — buyer regulations and behaviour vary.
+5. If you hit a dead end, discard and start again. Don't force a thin idea over the line.
 
-**Boring is good.** Unglamorous, mundane, well-defined problems — invoice reconciliation, niche compliance reports, scheduling for an obscure trade, data clean-up for a specific tool, lookup tables for a small profession — are routinely overlooked because they're not fun to pitch. They often have weak competition for that exact reason, a clearly identifiable buyer, and obvious willingness-to-pay. Don't over-index on novelty: a dull problem with a real buyer beats a flashy idea with no one to sell it to. Lean toward boring.
+## budget
 
-Also consider **pre-diligence products**: low-cost screening tools that find obvious red flags before the user spends real money on formal due diligence, expert review, legal advice, surveys, consultants, or enterprise software. The product should produce a cited report, checklist, scorecard, or evidence pack. It must be framed as triage/preflight, not final professional advice. Good candidates use public or cheap maintained datasets to help users decide whether a property, supplier, site, business, material, or opportunity is worth deeper investigation.
+- Datasets don't need to be 100% free. They must have a free tier; full cost must not exceed **$5000/year**.
+- Dev time is free. Operational compute should fit on a small VPS / serverless free tier for the first paying customers.
+- Bespoke ML is allowed but only on **small datasets** (a few thousand to low hundreds of thousands of examples). No GPU clusters, no foundation-model training. Fine-tuning small open-source models or training compact bespoke models is fine. Agentic LLM workflows are possible but watch the per-customer cost.
+- An AI angle is **not** mandatory and often not desirable. Don't get hung up on it.
 
-Consider existing competition, potential customers, basic marketing strategies, how it could scale etc
+## the writeup
 
-If you hit a dead end, just discard and start again.
+If you have a reasonable idea, write a single markdown file in the local ideas directory containing:
 
-If you have a reasonable idea about a potential business, stop:
- - present it in a markdown file in the local ideas directory
- - provide links to the datasets and APIs involved
- - provide estimate costs
+- a short pitch (one paragraph) that names the buyer and the concrete £/$ ROI
+- the v1 feature (one thing, not a platform)
+- the named first 10 customers (specific channels, trade bodies, communities — not "SMBs")
+- the existing paid comparable that proves willingness-to-pay
+- the distribution surface the product rides (app store, integration, niche community)
+- 2–4 follow-on directions that show the mountain behind the wedge
+- links to the datasets / APIs involved with cost estimates
+- the strongest one-sentence kill objection and how the writeup addresses it

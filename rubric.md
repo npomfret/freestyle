@@ -1,6 +1,26 @@
 # Idea Rubric
 
-Shared criteria for what makes a Freestyle business idea **good** vs **bad**. Loaded by `purge-prompt.md` and `codex-prompt.md`. Action-specific instructions live in those prompts.
+Shared criteria for what makes a Freestyle business idea **good** vs **bad**. Loaded by `idea-prompt.md`, `triage-prompt.md`, `purge-prompt.md`, and `codex-prompt.md`. Action-specific instructions live in those prompts.
+
+## target buyer profile
+
+we are highly technical operators with **few business skills** — no sales muscle, no marketing audience, no industry network. our edge is software, not commerce. the strongest ideas serve **non-technical owners of established, revenue-generating businesses** who can't build software themselves but can recognise ROI in concrete £/$ terms.
+
+reward these buyers:
+
+- independent owner-operated businesses with revenue (single-location restaurants, dental practices, plumbers, electricians, kennels, breweries, garages, opticians, picture framers, taxi operators, equipment rental yards, scrap dealers, small accounting/legal firms…)
+- regulated trades and licensed professionals where compliance is part of the daily job (surveyors, conveyancers, MOT centres, home inspectors, food-hygiene-rated operators, registered installers, EPC assessors…)
+- niche manufacturers, fishing fleets, regional construction firms, family wholesalers, agricultural operators — unsexy, established, busy, allergic to software demos
+- the operator does the books themselves or pays a part-time bookkeeper. they spend on tools when the spend has an obvious payback inside one quarter
+
+penalise these buyers:
+
+- **"developers"** / engineering teams — they build their own and don't pay for prosumer tools
+- **VC-backed startups** / scale-ups — they have ops people; we can't reach them and won't out-iterate their incumbents
+- **"SMBs"** / **"marketers"** as a category — too vague to reach with self-serve, no shared distribution surface
+- **consumers** — no ROI mental model, high price sensitivity, support load too heavy for a 1–2 person team
+
+every writeup must be able to answer, in concrete numbers, **"this saves the buyer £X/month"** OR **"this earns the buyer £X/month more"**. if the value can only be expressed as soft benefits (*better insights*, *improved efficiency*, *unlocks workflows*), the buyer won't pay. ROI must be visible from the marketing page, not buried in a deck.
 
 ## the discriminator: achievable vs grand
 
@@ -15,7 +35,7 @@ each signal present and convincingly addressed in the writeup = 1 point. vague o
 
 1. a solo dev or 2-person team can ship a saleable v1 in 4–12 weeks
 2. the MVP is **one concrete feature**, not a platform / ecosystem / marketplace
-3. the first 10 customers are nameable today (specific subreddit, Shopify category, conference attendee list, MSP partner network — not "SMBs", "marketers", "developers")
+3. the first 10 customers are nameable today (specific trade body member list, regional federation, niche subreddit, Shopify category, conference attendee list, MSP partner network — not "SMBs", "marketers", "developers")
 4. free public APIs / data tiers are sufficient for the first **paying** tier, not just the demo
 5. an existing paid product or category proves willingness-to-pay — the idea isn't inventing a new budget line
 6. the product delivers value to a single user with no other users present (no two-sided cold-start)

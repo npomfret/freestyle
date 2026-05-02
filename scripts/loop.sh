@@ -286,12 +286,19 @@ while true; do
   ACTION=""
   MODEL=""
   ENHANCE_RUNNER=""
+  PURGE_RUNNER=""
 
-  # 1. Purge takes priority when the backlog is over threshold AND pro is available.
-  #    Pro is reserved for purge first; only if purge isn't triggered does enhance get pro.
-  if [[ "$n" -gt "$THRESHOLD" && -n "$PRO_MODEL" ]]; then
-    ACTION="purge"
-    MODEL="$PRO_MODEL"
+  # 1. Purge takes priority when the backlog is over threshold and any advanced
+  #    runner is free. Prefer gemini-pro (best at the multi-file grading task);
+  #    fall back to codex when pro is exhausted, so the backlog can still drain.
+  #    Pro is reserved for purge first; only if purge isn't triggered does
+  #    enhance get pro.
+  if [[ "$n" -gt "$THRESHOLD" ]]; then
+    if [[ -n "$PRO_MODEL" ]]; then
+      ACTION="purge"; PURGE_RUNNER="pro"; MODEL="$PRO_MODEL"
+    elif [[ "$CODEX_AVAILABLE" -eq 1 ]]; then
+      ACTION="purge"; PURGE_RUNNER="codex"
+    fi
   fi
 
   # 2. Triage — cheap batch cull of obviously-broken fresh ideas, before any
@@ -330,9 +337,16 @@ while true; do
   fi
 
   # 4. Generate with the highest-remaining non-pro gemini family.
+  #    Self-throttle: if the backlog is already over threshold and no purge
+  #    runner is free (pro empty AND codex tight), don't pour more in. Idle
+  #    until pro/codex recovers and purge can drain.
   if [[ -z "$ACTION" && -n "$NON_PRO_MODEL" ]]; then
-    ACTION="generate"
-    MODEL="$NON_PRO_MODEL"
+    if [[ "$n" -gt "$THRESHOLD" && -z "$PRO_MODEL" && "$CODEX_AVAILABLE" -ne 1 ]]; then
+      : # skip generate — would only deepen a backlog we can't drain
+    else
+      ACTION="generate"
+      MODEL="$NON_PRO_MODEL"
+    fi
   fi
 
   if [[ -z "$ACTION" ]]; then
@@ -340,7 +354,7 @@ while true; do
     summary="$(jq -r '.families | map("\(.family)=\(.remainingPercent)%") | join("  ")' <<<"$snapshot")"
     codex_summary="codex=$([[ "$CODEX_AVAILABLE" -eq 1 ]] && echo available || echo unavailable) untriaged=$untriaged unreviewed=$unreviewed"
     if [[ "$n" -gt "$THRESHOLD" ]]; then
-      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD but no usable quota (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
+      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD with no purge runner (pro empty, codex tight); generate skipped to self-throttle (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     else
       echo "[$ts] iteration $iter — nothing to do (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     fi
@@ -360,6 +374,10 @@ while true; do
     runner_label="$ENHANCE_RUNNER"
     [[ "$ENHANCE_RUNNER" == "pro" ]] && runner_label="$MODEL"
     echo "[$ts] iteration $iter — $ACTION ($unreviewed/$n unreviewed) with $runner_label — log=$log"
+  elif [[ "$ACTION" == "purge" ]]; then
+    runner_label="$PURGE_RUNNER"
+    [[ "$PURGE_RUNNER" == "pro" ]] && runner_label="$MODEL"
+    echo "[$ts] iteration $iter — $ACTION ($n ideas) with $runner_label — log=$log"
   elif [[ "$ACTION" == "triage" ]]; then
     echo "[$ts] iteration $iter — $ACTION ($untriaged/$n untriaged) with $MODEL — log=$log"
   else
@@ -374,6 +392,9 @@ while true; do
   elif [[ "$ACTION" == "enhance" ]]; then
     log_loop "iter=$iter calling gemini-pro (enhance model=$MODEL unreviewed=$unreviewed log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"
+  elif [[ "$ACTION" == "purge" && "$PURGE_RUNNER" == "codex" ]]; then
+    log_loop "iter=$iter calling codex (purge n=$n log=$log)"
+    run_codex "$PROMPT_FILE" "$log"
   else
     log_loop "iter=$iter calling gemini ($ACTION model=$MODEL n=$n log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"

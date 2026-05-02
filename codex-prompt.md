@@ -1,21 +1,26 @@
 ## Hard rule
 
-The **only** filesystem write you may make is editing the **one** existing `.md` file in the ideas directory that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem writes you may make are:
+
+1. **editing in place** the **one** existing `.md` file in `ideas/2-triaged/` that you pick below, and
+2. **moving** that one file from `ideas/2-triaged/` to `ideas/3-reviewed/` once enrichment is complete (filename unchanged).
+
+Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas, no files in `ideas/1-raw/` or in any other file under `ideas/3-reviewed/`. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
-**paths**: depending on how you were invoked, your working directory is either the repo root (then ideas live in `./ideas/`, the rubric is `./rubric.md`, and the CLI is `npm run search -- search "<keywords>"`) or the `ideas/` directory itself (then the rubric is `../rubric.md` and the CLI is `npm --prefix .. run search -- search "<keywords>"`). figure out which and use the right paths consistently.
+**paths**: depending on how you were invoked, your working directory is either the repo root (then targets are `./ideas/2-triaged/` and `./ideas/3-reviewed/`, the rubric is `./rubric.md`, and the CLI is `npm run search -- search "<keywords>"`) or the `ideas/` directory itself (then targets are `2-triaged/` and `3-reviewed/`, the rubric is `../rubric.md`, and the CLI is `npm --prefix .. run search -- search "<keywords>"`). figure out which and use the right paths consistently.
 
 read these for context:
 
 - `rubric.md` — defines what makes an idea good vs bad. this prompt builds on it.
 - `README.md` — describes the catalog CLI. it talks to the deployed API by default, no local setup needed.
 
-your job is to **enrich one business idea** in the ideas directory. you're a second pair of eyes after the cheap-model author wrote it: add facts, sharpen specifics, surface the landscape. you are **not** judging the idea — that's the human's job (and the purge stage). do not write verdicts, recommendations to keep/drop, "fatal issue" callouts, or other opinions. observations of merits and limitations are fine when stated factually ("free tier caps at 100 calls/day"), but never editorialise ("this kills the idea", "this is great").
+your job is to **enrich one business idea** from `2-triaged/`. you're a second pair of eyes after the cheap-model author wrote it: add facts, sharpen specifics, surface the landscape. you are **not** judging the idea — that's the human's job (and the purge stage). do not write verdicts, recommendations to keep/drop, "fatal issue" callouts, or other opinions. observations of merits and limitations are fine when stated factually ("free tier caps at 100 calls/day"), but never editorialise ("this kills the idea", "this is great").
 
 ## pick a target
 
-list `*.md` files in the ideas directory. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
+list `*.md` files in `ideas/2-triaged/`. pick the **first file** alphabetically and work on it. if `2-triaged/` is empty, exit cleanly with a one-line note — there's nothing to do.
 
 work on **exactly one** file per invocation. don't touch any others.
 
@@ -43,14 +48,8 @@ specifically:
 
 do not write a `## Verdict` section. do not write "this idea should be discarded" or similar. enrichment only.
 
-## marker
+## promote
 
-at the very bottom of the file, append a single line:
-
-```
-<!-- reviewed: YYYY-MM-DD -->
-```
-
-(today's date.) this is how the loop knows the file has been reviewed and won't pick it again.
+once the file is enriched, **move** it from `ideas/2-triaged/` to `ideas/3-reviewed/` (filename unchanged). this is how the loop knows enrichment is done — the file's location is its state. do not append any marker comment.
 
 print a short summary to stdout: the filename you reviewed and the main facts you added (e.g. "added 3 named incumbents and updated the dataset licence note"). do not include opinions about whether the idea should survive.

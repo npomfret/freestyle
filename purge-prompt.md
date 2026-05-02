@@ -1,18 +1,18 @@
 ## Hard rule
 
-The **only** filesystem writes you may make are: deleting `.md` files in the ideas directory, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` when consolidating duplicates. Nothing else — no new files, no edits outside the ideas directory, no non-`.md` edits, no source code, no project scaffolding. **Do not write any marker comments.** Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem writes you may make are: deleting `.md` files in `ideas/3-reviewed/`, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` in `ideas/3-reviewed/` when consolidating duplicates. Nothing else — no new files, no writes to `ideas/1-raw/` or `ideas/2-triaged/`, no edits outside `ideas/3-reviewed/`, no non-`.md` edits, no source code, no project scaffolding. **Do not write any marker comments.** Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
-**paths**: depending on how you were invoked, your working directory is either the repo root (then ideas live in `./ideas/` and the rubric is `./rubric.md`) or the `ideas/` directory itself (then the rubric is `../rubric.md`). figure out which and use the right paths consistently.
+**paths**: depending on how you were invoked, your working directory is either the repo root (then the target is `./ideas/3-reviewed/` and the rubric is `./rubric.md`) or the `ideas/` directory itself (then the target is `3-reviewed/` and the rubric is `../rubric.md`). figure out which and use the right paths consistently.
 
 read `rubric.md` first. it defines what makes an idea good vs bad. this prompt builds on it.
 
 ## scope
 
-read every `.md` file in the ideas directory and grade it. there is no per-file "already purged" memory — every purge run re-evaluates every idea. that's deliberate: ideas the previous run let through under a looser bar should fall to today's bar; ideas neighbouring a stronger newcomer should be re-judged in that context.
+read every `.md` file in `ideas/3-reviewed/` and grade it. ignore `ideas/1-raw/` and `ideas/2-triaged/` — those files are mid-pipeline and not yet ready for the full bar. there is no per-file "already purged" memory — every purge run re-evaluates every reviewed idea. that's deliberate: ideas the previous run let through under a looser bar should fall to today's bar; ideas neighbouring a stronger newcomer should be re-judged in that context.
 
-if the directory is empty, exit cleanly with a one-line note.
+if `ideas/3-reviewed/` is empty, exit cleanly with a one-line note.
 
 ## grade each idea on these 7 axes (/10 each, /70 total)
 
@@ -68,16 +68,16 @@ don't waste compute on obvious passes or obvious deletes. concentrate research o
 
 ## merge near-duplicates
 
-if two ideas describe substantially the same product, merge: pick the stronger writeup as the survivor, copy in the weaker one's best points, delete the absorbed file, and add a short `## Merged Scope (from <other-file.md>)` appendix to the survivor. that appendix is the only edit allowed to a surviving file.
+if two ideas describe substantially the same product, merge: pick the stronger writeup as the survivor, copy in the weaker one's best points, delete the absorbed file, and add a short `## Merged Scope (from <other-file.md>)` appendix to the survivor. both files must be in `ideas/3-reviewed/` — never reach into `1-raw/` or `2-triaged/`. that appendix is the only edit allowed to a surviving file.
 
 ## output
 
 for each idea print one line:
 
 ```
-ideas/foo.md  43/70  (achievability 6/8)  pass
-ideas/bar.md  28/70  (achievability 3/8)  delete
-ideas/baz.md  37/70  (achievability 5/8)  merged into ideas/quux.md
+ideas/3-reviewed/foo.md  43/70  (achievability 6/8)  pass
+ideas/3-reviewed/bar.md  28/70  (achievability 3/8)  delete
+ideas/3-reviewed/baz.md  37/70  (achievability 5/8)  merged into ideas/3-reviewed/quux.md
 ```
 
 then a final tally: `vetted: V   passed: P   deleted: D   merged: M`.

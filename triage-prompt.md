@@ -2,10 +2,10 @@
 
 The only filesystem writes you may make in this run are:
 
-1. **deleting** `.md` files in `ideas/` that fail triage, and
-2. **appending** a single `<!-- triaged: YYYY-MM-DD (score=N/8) -->` line to the bottom of surviving `.md` files in `ideas/`
+1. **deleting** `.md` files in `ideas/1-raw/` that fail triage, and
+2. **moving** surviving `.md` files from `ideas/1-raw/` to `ideas/2-triaged/` (filename unchanged).
 
-Nothing else — no new files, no edits outside `ideas/`, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
+Nothing else — no new files, no edits to file contents, no edits outside `ideas/1-raw/` and `ideas/2-triaged/`, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
@@ -15,34 +15,22 @@ your job is the **fast triage cut**: catch obvious flunkers before the more expe
 
 ## pick targets
 
-list `.md` files in `ideas/` (top level only) whose body contains **none** of these markers:
+list every `.md` file in `ideas/1-raw/` (top level only). these are fresh ideas straight from the generator, awaiting triage. work through all of them in one batch.
 
-- `<!-- triaged:`
-- `<!-- reviewed:`
-- `<!-- codex-reviewed:`
-
-these are fresh ideas that haven't been screened yet. work through all of them in one batch.
-
-if there are zero such files, exit cleanly with a one-line stdout note — there's nothing to do.
+if `ideas/1-raw/` is empty, exit cleanly with a one-line stdout note — there's nothing to do.
 
 ## score and act
 
 for each candidate:
 
 1. read it. score it /8 against rubric.md's achievability checklist. each of the 8 signals **present and convincingly addressed** = 1 point; vague, missing, or wishful-thinking = 0.
-2. if the score is **≤ 3/8** → **delete** the file. it's beyond saving; let it go.
-3. otherwise → append exactly this line at the very bottom of the file:
-
-   ```
-   <!-- triaged: YYYY-MM-DD (score=N/8) -->
-   ```
-
-   (today's date; N is the integer score 4–8.)
+2. if the score is **≤ 3/8** → **delete** the file from `ideas/1-raw/`. it's beyond saving; let it go.
+3. otherwise → **move** the file from `ideas/1-raw/` to `ideas/2-triaged/`, filename unchanged. do not edit the file's contents.
 
 ## constraints
 
 - **only achievability** is in scope. do not score commercial potential, MVP timeline, novelty, or any other axis — those are handled later.
-- do not modify the body of surviving files. only append the marker line.
+- do not modify the body of surviving files. only `mv` them to the next subdir.
 - do not "fix" or rewrite anything. if an idea's writeup is weak but its bones pass achievability, let it pass; the enhance stage will sharpen it.
 - be conservative on deletions. only kill files that clearly score ≤ 3/8. when borderline (4 vs 3), pass it through.
 
@@ -51,9 +39,9 @@ for each candidate:
 print to stdout one line per file:
 
 ```
-ideas/foo.md  5/8  pass
-ideas/bar.md  2/8  delete
-ideas/baz.md  4/8  pass
+ideas/1-raw/foo.md  5/8  → 2-triaged/
+ideas/1-raw/bar.md  2/8  delete
+ideas/1-raw/baz.md  4/8  → 2-triaged/
 ```
 
 then a final tally: `triaged: T   passed: P   deleted: D`.

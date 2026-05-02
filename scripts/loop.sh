@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 # Pipeline driver: generate ideas, triage them, enhance them, purge them.
 # Each iteration picks one action by priority:
-#   1) purge   if total > THRESHOLD             and pro or codex available
-#   2) triage  if untriaged ≥ TRIAGE_THRESHOLD  and any non-pro available
-#   3) enhance if any unreviewed ideas          and pro or codex available
+#   1) purge   if reviewed > THRESHOLD          and pro or codex available
+#   2) triage  if 1-raw count ≥ TRIAGE_THRESHOLD and any non-pro available
+#   3) enhance if any 2-triaged ideas           and pro or codex available
 #   4) generate                                  with cheapest non-pro family
 #                  (throttled when total > THRESHOLD and no purge runner free)
 #   5) sleep
 #
-# Markers track progress through the cheap pipeline stages:
-#   <!-- triaged: YYYY-MM-DD (score=N/8) -->   passed cheap achievability cut
-#   <!-- reviewed: YYYY-MM-DD -->              enhanced by codex or gemini-pro
-# Purge has no marker: every run re-evaluates every idea against the current bar
-# (rubric.md). Surviving ideas are kept untouched; failures are deleted.
+# Pipeline state lives on the file system — `ls ideas/` shows the workflow:
+#   ideas/1-raw/        ← fresh from generate, awaiting triage
+#   ideas/2-triaged/    ← passed triage, awaiting enhance
+#   ideas/3-reviewed/   ← enriched by enhance, eligible for purge
+# Each stage's success path moves the file to the next subdir; failures rm.
+# Purge re-evaluates ideas/3-reviewed/ every run (no per-file memory).
 #
 # Usage:
 #   scripts/loop.sh                       # loop forever
 #   scripts/loop.sh 5                     # at most 5 iterations
-#   THRESHOLD=40 scripts/loop.sh          # ideas count that fires a purge / throttles generate
-#   TRIAGE_THRESHOLD=5 scripts/loop.sh    # untriaged ideas required to fire a triage
+#   THRESHOLD=40 scripts/loop.sh          # 3-reviewed count that fires purge;
+#                                         # also caps total before generate self-throttles
+#   TRIAGE_THRESHOLD=5 scripts/loop.sh    # 1-raw count required to fire a triage
 #   SLEEP_SECS=30 scripts/loop.sh         # sleep between productive iterations
 #   IDLE_SLEEP_SECS=3600 scripts/loop.sh  # sleep when quota is genuinely exhausted
 #   ERROR_RETRY_SECS=60 scripts/loop.sh   # sleep when the quota fetch itself fails
@@ -35,6 +37,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 IDEAS_DIR="$ROOT/ideas"
+RAW_DIR="$IDEAS_DIR/1-raw"
+TRIAGED_DIR="$IDEAS_DIR/2-triaged"
+REVIEWED_DIR="$IDEAS_DIR/3-reviewed"
 IDEA_PROMPT="$ROOT/idea-prompt.md"
 PURGE_PROMPT="$ROOT/purge-prompt.md"
 CODEX_PROMPT="$ROOT/codex-prompt.md"
@@ -83,7 +88,7 @@ command -v gemini >/dev/null || { echo "gemini CLI not on PATH" >&2; exit 1; }
 command -v codex  >/dev/null || { echo "codex CLI not on PATH" >&2; exit 1; }
 command -v jq     >/dev/null || { echo "jq not on PATH"        >&2; exit 1; }
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" "$RAW_DIR" "$TRIAGED_DIR" "$REVIEWED_DIR"
 
 # --- diagnostic lifecycle logging -------------------------------------------
 # Track where the loop is so an EXIT trap can show why it stopped.
@@ -122,36 +127,19 @@ log_loop "starting loop (pid=$$ MAX_ITERS=$MAX_ITERS SLEEP_SECS=$SLEEP_SECS IDLE
   echo "===================="
 } >&2
 
-count_ideas() {
-  find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' '
+# Pipeline state is now the directory: 1-raw / 2-triaged / 3-reviewed.
+# Counts are simple file enumerations — no marker greps, no pipefail dance.
+# Each stage's fire-condition reads its own input subdir:
+#   triage  reads RAW_DIR     fires when count_raw      ≥ TRIAGE_THRESHOLD
+#   enhance reads TRIAGED_DIR fires when count_triaged  > 0
+#   purge   reads REVIEWED_DIR fires when count_reviewed > THRESHOLD
+count_in() {
+  find "$1" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' '
 }
-
-# Count idea files that have not yet been reviewed by codex (no marker comment).
-# Pipefail-safe: grep -L can exit non-zero in edge cases (e.g. xargs propagates
-# a per-file grep status), so we tolerate that with `|| true` and let wc decide.
-count_unreviewed_ideas() {
-  local out
-  out="$(find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
-    | xargs -0 grep -L -e '<!-- codex-reviewed:' -e '<!-- reviewed:' 2>/dev/null || true)"
-  if [[ -z "$out" ]]; then
-    echo 0
-  else
-    printf '%s\n' "$out" | wc -l | tr -d ' '
-  fi
-}
-
-# Count idea files that have never been triaged or reviewed (fresh from generate).
-# Same pipefail-safe pattern as count_unreviewed_ideas.
-count_untriaged_ideas() {
-  local out
-  out="$(find "$IDEAS_DIR" -maxdepth 1 -type f -name '*.md' -print0 \
-    | xargs -0 grep -L -e '<!-- triaged:' -e '<!-- reviewed:' -e '<!-- codex-reviewed:' 2>/dev/null || true)"
-  if [[ -z "$out" ]]; then
-    echo 0
-  else
-    printf '%s\n' "$out" | wc -l | tr -d ' '
-  fi
-}
+count_ideas()    { echo $(( $(count_in "$RAW_DIR") + $(count_in "$TRIAGED_DIR") + $(count_in "$REVIEWED_DIR") )); }
+count_raw()      { count_in "$RAW_DIR"; }
+count_triaged()  { count_in "$TRIAGED_DIR"; }
+count_reviewed() { count_in "$REVIEWED_DIR"; }
 
 # Pick the highest-remaining model from a quota snapshot, optionally filtering by family.
 # Prints model id (e.g. gemini-2.5-pro) on stdout, or nothing if no family qualifies.
@@ -255,8 +243,9 @@ while true; do
   log="$LOG_DIR/run-$ts.log"
 
   n="$(count_ideas)"
-  unreviewed="$(count_unreviewed_ideas)"
-  untriaged="$(count_untriaged_ideas)"
+  raw="$(count_raw)"
+  triaged="$(count_triaged)"
+  reviewed="$(count_reviewed)"
 
   # Fetch the gemini quota snapshot once for this iteration.
   # gemini-quota's stderr flows straight through — errors are visible immediately.
@@ -285,7 +274,7 @@ while true; do
   set -e
   CODEX_AVAILABLE=0
   [[ "$codex_rc" -eq 0 ]] && CODEX_AVAILABLE=1
-  log_loop "iter=$iter codex quota rc=$codex_rc available=$CODEX_AVAILABLE unreviewed=$unreviewed"
+  log_loop "iter=$iter codex quota rc=$codex_rc available=$CODEX_AVAILABLE raw=$raw triaged=$triaged reviewed=$reviewed"
 
   PRO_MODEL="$(pick_model_from "$snapshot" "" "pro")"
   FLASH_MODEL="$(pick_model_from "$snapshot" "" "flash")"
@@ -296,13 +285,15 @@ while true; do
   ENHANCE_RUNNER=""
   PURGE_RUNNER=""
 
-  # 1. Purge fires when the total ideas count exceeds THRESHOLD and any advanced
-  #    runner is free. Purge is a quality gate (no top-N cap): every run re-grades
-  #    every idea against the current bar in `rubric.md`/`purge-prompt.md`,
-  #    deletes failures, and leaves survivors untouched. Prefer gemini-pro (best
-  #    at multi-file grading); fall back to codex when pro is exhausted. Pro is
-  #    reserved for purge first; only if purge isn't triggered does enhance get pro.
-  if [[ "$n" -gt "$THRESHOLD" ]]; then
+  # 1. Purge fires when the 3-reviewed/ count exceeds THRESHOLD and any advanced
+  #    runner is free. Purge only re-evaluates 3-reviewed/ — raw and triaged are
+  #    mid-pipeline and aren't ready for the full 45/70 bar yet. It's a quality
+  #    gate (no top-N cap): every run re-grades every reviewed idea against the
+  #    current bar in `rubric.md`/`purge-prompt.md`, deletes failures, leaves
+  #    survivors untouched. Prefer gemini-pro (best at multi-file grading); fall
+  #    back to codex when pro is exhausted. Pro is reserved for purge first; only
+  #    if purge isn't triggered does enhance get pro.
+  if [[ "$reviewed" -gt "$THRESHOLD" ]]; then
     if [[ -n "$PRO_MODEL" ]]; then
       ACTION="purge"; PURGE_RUNNER="pro"; MODEL="$PRO_MODEL"
     elif [[ "$CODEX_AVAILABLE" -eq 1 ]]; then
@@ -310,10 +301,10 @@ while true; do
     fi
   fi
 
-  # 2. Triage — cheap batch cull of obviously-broken fresh ideas, before any
-  #    advanced-model quota gets spent enhancing them. Prefers flash (better
+  # 2. Triage — cheap batch cull of obviously-broken fresh ideas in 1-raw/, before
+  #    any advanced-model quota gets spent enhancing them. Prefers flash (better
   #    judgment than flash-lite) but falls back to whatever non-pro is available.
-  if [[ -z "$ACTION" && "$untriaged" -ge "$TRIAGE_THRESHOLD" ]]; then
+  if [[ -z "$ACTION" && "$raw" -ge "$TRIAGE_THRESHOLD" ]]; then
     triage_model="$FLASH_MODEL"
     [[ -z "$triage_model" ]] && triage_model="$NON_PRO_MODEL"
     if [[ -n "$triage_model" ]]; then
@@ -322,12 +313,12 @@ while true; do
     fi
   fi
 
-  # 3. Enhance — share the per-idea polish evenly between codex and gemini-pro.
-  #    Both are "advanced" reviewers; strict alternation balances quota burn across them
-  #    so neither gets exhausted while the other sits idle. State persists in
-  #    tmp/last-enhancer; if the preferred runner has no capacity this iteration, fall
-  #    through to whichever does.
-  if [[ -z "$ACTION" && "$unreviewed" -gt 0 ]]; then
+  # 3. Enhance — pick a file from 2-triaged/ and enrich it, then move it to
+  #    3-reviewed/. Share work evenly between codex and gemini-pro; strict
+  #    alternation via tmp/last-enhancer balances quota burn across them so
+  #    neither gets exhausted while the other sits idle. If the preferred
+  #    runner has no capacity this iteration, fall through to whichever does.
+  if [[ -z "$ACTION" && "$triaged" -gt 0 ]]; then
     ENHANCER_STATE="$ROOT/tmp/last-enhancer"
     last_enhancer=""
     [[ -f "$ENHANCER_STATE" ]] && last_enhancer="$(cat "$ENHANCER_STATE" 2>/dev/null || true)"
@@ -361,7 +352,7 @@ while true; do
   if [[ -z "$ACTION" ]]; then
     # Nothing to do. Print a summary so the reason is visible.
     summary="$(jq -r '.families | map("\(.family)=\(.remainingPercent)%") | join("  ")' <<<"$snapshot")"
-    codex_summary="codex=$([[ "$CODEX_AVAILABLE" -eq 1 ]] && echo available || echo unavailable) untriaged=$untriaged unreviewed=$unreviewed"
+    codex_summary="codex=$([[ "$CODEX_AVAILABLE" -eq 1 ]] && echo available || echo unavailable) raw=$raw triaged=$triaged reviewed=$reviewed"
     if [[ "$n" -gt "$THRESHOLD" ]]; then
       echo "[$ts] iteration $iter — backlog $n > $THRESHOLD with no purge runner (pro empty, codex tight); generate skipped to self-throttle (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     else
@@ -382,13 +373,13 @@ while true; do
   if [[ "$ACTION" == "enhance" ]]; then
     runner_label="$ENHANCE_RUNNER"
     [[ "$ENHANCE_RUNNER" == "pro" ]] && runner_label="$MODEL"
-    echo "[$ts] iteration $iter — $ACTION ($unreviewed/$n unreviewed) with $runner_label — log=$log"
+    echo "[$ts] iteration $iter — $ACTION ($triaged/$n triaged) with $runner_label — log=$log"
   elif [[ "$ACTION" == "purge" ]]; then
     runner_label="$PURGE_RUNNER"
     [[ "$PURGE_RUNNER" == "pro" ]] && runner_label="$MODEL"
-    echo "[$ts] iteration $iter — $ACTION ($n ideas) with $runner_label — log=$log"
+    echo "[$ts] iteration $iter — $ACTION ($reviewed/$n reviewed) with $runner_label — log=$log"
   elif [[ "$ACTION" == "triage" ]]; then
-    echo "[$ts] iteration $iter — $ACTION ($untriaged/$n untriaged) with $MODEL — log=$log"
+    echo "[$ts] iteration $iter — $ACTION ($raw/$n raw) with $MODEL — log=$log"
   else
     echo "[$ts] iteration $iter — $ACTION ($n ideas) with $MODEL — log=$log"
   fi
@@ -396,16 +387,16 @@ while true; do
   LOOP_STAGE="$ACTION-running"
   set +e
   if [[ "$ACTION" == "enhance" && "$ENHANCE_RUNNER" == "codex" ]]; then
-    log_loop "iter=$iter calling codex (enhance unreviewed=$unreviewed log=$log)"
+    log_loop "iter=$iter calling codex (enhance triaged=$triaged log=$log)"
     run_codex "$PROMPT_FILE" "$log"
   elif [[ "$ACTION" == "enhance" ]]; then
-    log_loop "iter=$iter calling gemini-pro (enhance model=$MODEL unreviewed=$unreviewed log=$log)"
+    log_loop "iter=$iter calling gemini-pro (enhance model=$MODEL triaged=$triaged log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"
   elif [[ "$ACTION" == "purge" && "$PURGE_RUNNER" == "codex" ]]; then
-    log_loop "iter=$iter calling codex (purge n=$n log=$log)"
+    log_loop "iter=$iter calling codex (purge reviewed=$reviewed log=$log)"
     run_codex "$PROMPT_FILE" "$log"
   elif [[ "$ACTION" == "purge" ]]; then
-    log_loop "iter=$iter calling gemini-pro (purge model=$MODEL n=$n log=$log)"
+    log_loop "iter=$iter calling gemini-pro (purge model=$MODEL reviewed=$reviewed log=$log)"
     run_gemini "$MODEL" "$PROMPT_FILE" "$log"
   else
     log_loop "iter=$iter calling gemini ($ACTION model=$MODEL n=$n log=$log)"
@@ -417,12 +408,14 @@ while true; do
   log_loop "iter=$iter $ACTION returned rc=$rc"
 
   after="$(count_ideas)"
-  after_unreviewed="$(count_unreviewed_ideas)"
-  after_untriaged="$(count_untriaged_ideas)"
+  after_raw="$(count_raw)"
+  after_triaged="$(count_triaged)"
+  after_reviewed="$(count_reviewed)"
   if [[ $rc -eq 0 ]]; then
     case "$ACTION" in
-      enhance) echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; unreviewed $unreviewed → $after_unreviewed)" ;;
-      triage)  echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; untriaged $untriaged → $after_untriaged; $n → $after files)" ;;
+      enhance) echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; triaged $triaged → $after_triaged; reviewed $reviewed → $after_reviewed)" ;;
+      triage)  echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; raw $raw → $after_raw; triaged $triaged → $after_triaged; $n → $after files)" ;;
+      purge)   echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; reviewed $reviewed → $after_reviewed)" ;;
       *)       echo "[$(date +%H:%M:%S)] iteration $iter $ACTION done (exit 0; $n → $after)" ;;
     esac
   else

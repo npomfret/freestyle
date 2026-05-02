@@ -1,6 +1,6 @@
 ## Hard rule
 
-The **only** filesystem write you may make is creating one new `.md` file inside `ideas/`. Do not modify, create, delete, or rename any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles. Your job is to write the markdown, not implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem write you may make is creating one new `.md` file inside `ideas/1-raw/`. Do not modify, create, delete, or rename any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no files in `ideas/2-triaged/` or `ideas/3-reviewed/`. Your job is to write the markdown, not implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
@@ -50,7 +50,7 @@ Constraints:
 
 ## the writeup
 
-If you have a reasonable idea, write a single markdown file in the local ideas directory containing:
+If you have a reasonable idea, write a single markdown file in `ideas/1-raw/` (the inbox the triage stage consumes) containing:
 
 - a short pitch (one paragraph) that names the buyer and the concrete £/$ ROI
 - the v1 feature (one thing, not a platform)

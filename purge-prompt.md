@@ -37,21 +37,26 @@ before you decide on each unpurged idea, write the **single strongest one-senten
 - "the named buyer doesn't have a budget line for this and won't create one"
 - "the dataset's licence forbids commercial redistribution and the product *is* the data"
 
-then judge how well the writeup addresses it:
+then assign **exactly one** of these three verdicts — no other phrasings, no in-between language like "barely answered" or "acknowledged":
 
-- **answered well** — no penalty
-- **acknowledged but weakly answered** — subtract 6 from the total
-- **not addressed at all** — subtract 12, or fatal-drop if the objection is unanswerable
+- **answered well** — the writeup explicitly addresses the objection with a concrete mechanism, named differentiator, or specific numbers. no penalty.
+- **acknowledged but weakly answered** — the writeup mentions the issue but the response is hand-wavy, generic, or aspirational. subtract 6 from the 7-axis total.
+- **not addressed at all** — the writeup does not mention the issue, or the objection is fundamentally unanswerable (e.g. the cited dataset's licence forbids the product). subtract 12, or fatal-drop if unanswerable.
+
+apply the penalty to the 7-axis total **before** deciding pass/fail. the score you print and write into the marker line is the **post-penalty** score.
 
 print the kill objection and verdict to stdout per idea.
 
 ## quality bar (delete if any of these fails)
 
-an unpurged idea is **deleted** if:
+an unpurged idea is **deleted** if **any** of these are true:
 
-- achievability ≤ 4/8 (the `rubric.md` checklist), OR
-- 7-axis total (after adversarial penalty) < 35/70, OR
+- achievability ≤ 5/8 (the `rubric.md` checklist), OR
+- 7-axis total **after adversarial penalty** < 45/70, OR
+- the adversarial verdict is anything other than **answered well** (i.e. "acknowledged but weakly answered" or "not addressed at all" → delete; the penalty alone isn't enough to save it), OR
 - the adversarial pass produced a fatal-drop
+
+be ruthless. a "good" idea has a high achievability score, clears the 45/70 bar, AND survives its strongest objection cleanly. mediocre ideas with weakly-answered objections do not pass — there are always more candidates being generated.
 
 otherwise the idea **survives**: append a single line at the bottom of the file:
 
@@ -65,7 +70,7 @@ otherwise the idea **survives**: append a single line at the bottom of the file:
 
 ## light additional research (borderlines only)
 
-don't waste compute on obvious passes or obvious deletes. concentrate research on borderline ideas (within ±5 of the 35/70 cutoff).
+don't waste compute on obvious passes or obvious deletes. concentrate research on borderline ideas (within ±5 of the 45/70 cutoff).
 
 - **verify the headline dataset / API** with one fetch of its docs URL — still alive, free tier still meaningful, the licence permits commercial use, **and the source is actively maintained** (see `rubric.md` staleness discount).
 - **competition sweep** with one web search for the wedge name. if a free OSS tool or built-in OS / browser feature already owns the niche, downgrade (see `rubric.md` cheap-incumbent disqualifier).

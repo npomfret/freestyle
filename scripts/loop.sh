@@ -224,6 +224,11 @@ run_codex() {
   # --full-auto = workspace-write sandbox + auto-approve commands.
   # --skip-git-repo-check because the loop runs anywhere; codex defaults to refusing
   # outside a git repo, but this repo is already a git repo, so it's a no-op safety net.
+  #
+  # -C "$IDEAS_DIR" pins the workspace-write sandbox to ideas/ so codex physically
+  # cannot create source files, scaffold projects, or modify anything outside ideas/
+  # — even when its prompt-level "Hard rule" misfires. Reads are still global, so it
+  # can still see ../rubric.md, ../README.md, and run `npm --prefix .. run search ...`.
   local timeout_prefix=()
   if command -v timeout >/dev/null 2>&1; then
     timeout_prefix=(timeout --kill-after=10s "${MAX_RUN_SECS}s")
@@ -233,7 +238,7 @@ run_codex() {
     --full-auto \
     --skip-git-repo-check \
     --color never \
-    -C "$ROOT" \
+    -C "$IDEAS_DIR" \
     "$(cat "$prompt_file")" \
     </dev/null >"$log" 2>&1
 }

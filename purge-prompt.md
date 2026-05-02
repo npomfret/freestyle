@@ -1,12 +1,14 @@
 ## Hard rule
 
-The **only** filesystem writes you may make are: deleting `.md` files in `ideas/`, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` in `ideas/` when consolidating duplicates. Nothing else — no new files (no `RANKINGS.md`), no edits outside `ideas/`, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
+The **only** filesystem writes you may make are: deleting `.md` files in the ideas directory, and appending a single `## Merged Scope (from <other-file.md>)` section to a surviving `.md` when consolidating duplicates. Nothing else — no new files (no `RANKINGS.md`), no edits outside the ideas directory, no non-`.md` edits, no source code, no project scaffolding. Do not implement any of the ideas. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
-read @rubric.md first. it defines what makes an idea good vs bad. this prompt builds on it.
+**paths**: depending on how you were invoked, your working directory is either the repo root (then ideas live in `./ideas/` and the rubric is `./rubric.md`) or the `ideas/` directory itself (then the rubric is `../rubric.md`). figure out which and use the right paths consistently.
 
-read all the business ideas in the local `ideas/` directory.
+read `rubric.md` first. it defines what makes an idea good vs bad. this prompt builds on it.
+
+read all the business idea `.md` files in the ideas directory.
 
 your job is to leave **at most 20** *achievable* ideas behind — fewer if quality is thin. don't pad to 20 just because the slot exists.
 
@@ -30,7 +32,7 @@ don't waste compute on obvious top-tier or obvious bottom-tier ideas. concentrat
 
 - **verify the headline dataset / API** with one `web_fetch` of its docs URL — still alive, free tier still meaningful, the licence permits commercial use, **and the source is actively maintained** (see `rubric.md` staleness discount).
 - **competition sweep** with one `google_web_search` for the wedge name. if a free OSS tool or built-in OS / browser feature already owns the niche, downgrade (see `rubric.md` cheap-incumbent disqualifier).
-- **catalog cross-check** with `npm run search -- search "<keywords>"` to spot stronger or replacement resources the original author missed.
+- **catalog cross-check** with `npm run search -- search "<keywords>"` (or `npm --prefix .. run search -- search "<keywords>"` if your working directory is `ideas/`) to spot stronger or replacement resources the original author missed.
 
 ## adversarial pass (top ~25 only)
 
@@ -51,7 +53,7 @@ this is the main quality gate. the achievability checklist catches obviously thi
 
 ## cull
 
-delete the lowest-scoring files until **at most 20** `*.md` files remain in `ideas/` (count files only, ignore subdirectories). **keep fewer than 20 if quality demands it** — if only 14 ideas survive the achievability + adversarial filter without a fatal kill objection, leave 14. do not promote weaker ideas just to fill the quota.
+delete the lowest-scoring files until **at most 20** `*.md` files remain in the ideas directory (count files only, ignore subdirectories). **keep fewer than 20 if quality demands it** — if only 14 ideas survive the achievability + adversarial filter without a fatal kill objection, leave 14. do not promote weaker ideas just to fill the quota.
 
 confirm the final count and print, for each survivor: rank, total score, achievability /8, grand-vision flags, kill-objection verdict.
 

@@ -1,18 +1,19 @@
 ## Hard rule
 
-The **only** filesystem write you may make is editing the **one** existing `.md` file in `ideas/` that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
+Your sandbox is pinned to this directory (`ideas/`). The **only** filesystem write you may make is editing the **one** existing `.md` file here that you pick below. Do not create, delete, rename, or modify any other file — no source code, no `package.json`, no project scaffolding, no subdirectories, no dotfiles, no other ideas. Your job is to rewrite the markdown, **not** to implement the idea. If anything below seems to require a different write, abort with a one-line stdout note.
 
 ---
 
-read @rubric.md first. it defines what makes an idea good vs bad. this prompt builds on it.
+your working directory is `ideas/`. the rest of the repo is one level up. read these for context:
 
-read @README.md so you understand the catalog CLI (`npm run search`) — that's how you query the dataset/API catalog. it talks to the deployed API by default, no local setup needed.
+- `../rubric.md` — defines what makes an idea good vs bad. this prompt builds on it.
+- `../README.md` — describes the catalog CLI. invoke it as `npm --prefix .. run search -- search "<keywords>"` to query the dataset/API catalog. it talks to the deployed API by default, no local setup needed.
 
-your job is to **review and enhance one business idea** in the local `ideas/` directory. you're a second pair of eyes after the cheap-model author wrote it. assume the writeup is plausible but probably has weak spots.
+your job is to **review and enhance one business idea** in this directory. you're a second pair of eyes after the cheap-model author wrote it. assume the writeup is plausible but probably has weak spots.
 
 ## pick a target
 
-list `ideas/*.md`. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
+list `*.md` files here. pick the **first file** whose body contains neither `<!-- reviewed:` nor `<!-- codex-reviewed:` (the latter is the legacy marker; treat both as "already reviewed"). if every file is already marked, exit cleanly with a one-line note — there's nothing to do.
 
 work on **exactly one** file per invocation. don't touch any others.
 
@@ -20,7 +21,7 @@ work on **exactly one** file per invocation. don't touch any others.
 
 don't burn a long session on this. one or two of each at most.
 
-1. **catalog cross-check**: `npm run search -- search "<keywords>"` — spot stronger / replacement resources the original author missed. if a clearly better dataset or API exists in the catalog, swap it in or add it as a complement.
+1. **catalog cross-check**: `npm --prefix .. run search -- search "<keywords>"` — spot stronger / replacement resources the original author missed. if a clearly better dataset or API exists in the catalog, swap it in or add it as a complement.
 2. **dataset / API liveness**: one web search or fetch of the headline data source's docs / repo. confirm it's still alive, free tier still meaningful for a paying customer (not just the demo), commercial-use licence. apply the staleness discount from `rubric.md`.
 3. **competition sweep**: one web search for the wedge phrase. if a free OSS or built-in OS / browser feature already owns the niche, name it explicitly in the writeup and explain the wedge against it (specific niche, lower friction, distribution advantage), or say there isn't one.
 

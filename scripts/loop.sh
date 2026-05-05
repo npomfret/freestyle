@@ -33,6 +33,11 @@
 #   IDLE_SLEEP_SECS=3600 scripts/loop.sh  # sleep when quota is genuinely exhausted
 #   ERROR_RETRY_SECS=60 scripts/loop.sh   # sleep when the quota fetch itself fails
 #   MAX_RUN_SECS=1800 scripts/loop.sh     # hard cap on a single CLI invocation
+#   CODEX_MIN_PRIMARY=40 scripts/loop.sh  # minimum % remaining in codex's 5h window
+#                                         # before the loop will use codex this iter
+#   CODEX_MIN_SECONDARY=30 scripts/loop.sh # minimum % remaining in codex's 7d window
+#                                         # — set lower to lean on codex harder, higher
+#                                         # to preserve weekly headroom for interactive use
 #   SANDBOX=1 scripts/loop.sh             # run gemini tools inside its sandbox
 #                                         # (will likely break `npm run search` —
 #                                         # the sandbox image lacks your node/nvm)
@@ -61,6 +66,13 @@ THRESHOLD="${THRESHOLD:-25}"
 # Triage runs once at least this many fresh (un-triaged, un-reviewed) ideas pile up.
 # Triage is a batch operation, so running it on 1–2 files is silly; let some accumulate.
 TRIAGE_THRESHOLD="${TRIAGE_THRESHOLD:-5}"
+# Codex availability is gated per rate-limit window. Both must clear or the loop
+# refuses to invoke codex this iteration.
+#   primary   = 5h rolling window  (short-term burst)
+#   secondary = 7d rolling window  (long-term cap; exhausting it blocks codex
+#                                   for days even when primary is full)
+CODEX_MIN_PRIMARY="${CODEX_MIN_PRIMARY:-40}"
+CODEX_MIN_SECONDARY="${CODEX_MIN_SECONDARY:-30}"
 
 usage() {
   # Print the leading comment block (everything from line 2 up to the first
@@ -125,13 +137,21 @@ log_loop "starting loop (pid=$$ MAX_ITERS=$MAX_ITERS SLEEP_SECS=$SLEEP_SECS IDLE
 
 # One-time startup snapshot: print human-readable quota for every provider so
 # you can see at a glance what capacity the loop is starting with. Failures
-# are non-fatal — the loop will retry per-iteration anyway.
+# are non-fatal — the loop will retry per-iteration anyway. The codex banner
+# also echoes the per-window gate so the operator sees the effective decision
+# (e.g. "primary=100% secondary=0% min=primary≥40% secondary≥30% → no capacity").
 {
   echo "=== gemini quota ==="
   npm --prefix "$ROOT" run --silent gemini-quota || echo "(gemini quota fetch failed)"
   echo
   echo "=== codex quota ==="
   npm --prefix "$ROOT" run --silent codex-quota || echo "(codex quota fetch failed)"
+  echo
+  echo "loop uses codex when 5h-primary ≥ ${CODEX_MIN_PRIMARY}% AND 7d-secondary ≥ ${CODEX_MIN_SECONDARY}%"
+  npm --prefix "$ROOT" run --silent codex-quota -- \
+    --available \
+    "--min-primary=$CODEX_MIN_PRIMARY" \
+    "--min-secondary=$CODEX_MIN_SECONDARY" 2>&1 || true
   echo "===================="
 } >&2
 
@@ -272,12 +292,16 @@ while true; do
   fi
 
   # Probe codex availability. Don't fail the iteration if codex is down — just skip enhance.
-  # CODEX_MIN_REMAINING gates how much window headroom we demand before spending codex
-  # quota on an enhance pass. Default 50 keeps a healthy reserve for interactive use.
-  CODEX_MIN_REMAINING="${CODEX_MIN_REMAINING:-50}"
+  # Per-window thresholds: the call only counts as available if BOTH the 5h primary
+  # window and the 7d secondary window meet their minimums (see CODEX_MIN_* defaults
+  # at the top of this script). When secondary is exhausted, the API will reject
+  # codex calls even if primary is full — gating on both prevents wasted invocations.
   LOOP_STAGE="quota-fetch (codex)"
   set +e
-  npm --prefix "$ROOT" run --silent codex-quota -- --available "--min-remaining=$CODEX_MIN_REMAINING" >/dev/null
+  npm --prefix "$ROOT" run --silent codex-quota -- \
+    --available \
+    "--min-primary=$CODEX_MIN_PRIMARY" \
+    "--min-secondary=$CODEX_MIN_SECONDARY" >/dev/null
   codex_rc=$?
   set -e
   CODEX_AVAILABLE=0

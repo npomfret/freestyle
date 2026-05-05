@@ -5,22 +5,50 @@ const isAvailable = process.argv.includes('--available');
 
 // --min-remaining=<int> raises the bar the windows must clear to count as available.
 // Defaults to 5 (matches the lib default — "any non-trivial headroom"). Pass 50 to
-// require at least half the window unused.
-function parseMinRemaining(): number {
-    const arg = process.argv.find((a) => a.startsWith('--min-remaining='));
-    if (!arg) return 5;
-    const n = Number(arg.slice('--min-remaining='.length));
+// require at least half the window unused. Treats all windows with a single threshold:
+// the call counts as available if **any** window clears the bar (the lib's `some()`
+// semantics).
+//
+// --min-primary=<int> and --min-secondary=<int> are an alternative, per-window gate.
+// When either is set, the call counts as available only if **every** named window meets
+// its threshold (so an exhausted secondary blocks the call even if primary is full).
+// A window with no per-window threshold passes the per-window check trivially.
+function parsePercentArg(flag: string): number | undefined {
+    const arg = process.argv.find((a) => a.startsWith(`${flag}=`));
+    if (!arg) return undefined;
+    const n = Number(arg.slice(flag.length + 1));
     if (!Number.isFinite(n) || n < 0 || n > 100) {
-        process.stderr.write(`Invalid --min-remaining value: ${arg}\n`);
+        process.stderr.write(`Invalid ${flag} value: ${arg}\n`);
         process.exit(64);
     }
     return n;
 }
 
+function checkPerWindow(
+    windows: { name: string; remainingPercent: number; }[],
+    minPrimary: number | undefined,
+    minSecondary: number | undefined,
+): boolean {
+    return windows.every((w) => {
+        if (w.name === 'primary' && minPrimary !== undefined) return w.remainingPercent >= minPrimary;
+        if (w.name === 'secondary' && minSecondary !== undefined) return w.remainingPercent >= minSecondary;
+        return true;
+    });
+}
+
 try {
     const snapshot = await fetchCodexQuota();
-    const minRemaining = parseMinRemaining();
-    const available = deriveAvailable(snapshot.windows, snapshot.credits, minRemaining);
+    const minRemaining = parsePercentArg('--min-remaining') ?? 5;
+    const minPrimary = parsePercentArg('--min-primary');
+    const minSecondary = parsePercentArg('--min-secondary');
+    const usePerWindow = minPrimary !== undefined || minSecondary !== undefined;
+
+    let available: boolean;
+    if (usePerWindow && snapshot.windows.length > 0) {
+        available = checkPerWindow(snapshot.windows, minPrimary, minSecondary);
+    } else {
+        available = deriveAvailable(snapshot.windows, snapshot.credits, minRemaining);
+    }
 
     if (isAvailable) {
         const parts = snapshot.windows.length > 0
@@ -29,7 +57,9 @@ try {
         const creditsPart = snapshot.credits
             ? `  credits.hasCredits=${snapshot.credits.hasCredits} unlimited=${snapshot.credits.unlimited}`
             : '';
-        const threshold = `min=${minRemaining}%`;
+        const threshold = usePerWindow
+            ? `min=primary≥${minPrimary ?? '—'}% secondary≥${minSecondary ?? '—'}%`
+            : `min=${minRemaining}%`;
 
         if (!available) {
             process.stderr.write(`codex: ${parts}${creditsPart}  ${threshold}  → no capacity\n`);

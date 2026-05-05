@@ -5,7 +5,9 @@
 #   2) triage  if 1-raw count ≥ TRIAGE_THRESHOLD and pro or codex available
 #   3) enhance if any 2-triaged ideas           and pro or codex available
 #   4) generate                                  with cheapest non-pro family
-#                  (throttled when total > THRESHOLD and no purge runner free)
+#                  (runs whenever flash/lite has quota, regardless of pro/codex —
+#                  raw files accumulate in 1-raw/ until advanced runners recover
+#                  and triage drains them)
 #   5) sleep
 #
 # Model routing:
@@ -372,28 +374,22 @@ while true; do
     fi
   fi
 
-  # 4. Generate with the highest-remaining non-pro gemini family.
-  #    Self-throttle: if the directory is already over threshold and no purge
-  #    runner is free (pro empty AND codex tight), don't pour more in. Idle
-  #    until pro/codex recovers and purge can drain.
+  # 4. Generate with the highest-remaining non-pro gemini family. Runs whenever
+  #    flash/lite has quota — even when pro/codex are exhausted. Raw files
+  #    accumulate in 1-raw/ until advanced runners recover and triage drains
+  #    them; flash quota is cheap and resets daily, so generating is rarely
+  #    worth holding back.
   if [[ -z "$ACTION" && -n "$NON_PRO_MODEL" ]]; then
-    if [[ "$n" -gt "$THRESHOLD" && -z "$PRO_MODEL" && "$CODEX_AVAILABLE" -ne 1 ]]; then
-      : # skip generate — over threshold with no purge runner free
-    else
-      ACTION="generate"
-      MODEL="$NON_PRO_MODEL"
-    fi
+    ACTION="generate"
+    MODEL="$NON_PRO_MODEL"
   fi
 
   if [[ -z "$ACTION" ]]; then
-    # Nothing to do. Print a summary so the reason is visible.
+    # Genuinely nothing to do this iteration: no model has quota for any
+    # pending stage. Print a summary so the reason is visible and sleep long.
     summary="$(jq -r '.families | map("\(.family)=\(.remainingPercent)%") | join("  ")' <<<"$snapshot")"
     codex_summary="codex=$([[ "$CODEX_AVAILABLE" -eq 1 ]] && echo available || echo unavailable) raw=$raw triaged=$triaged reviewed=$reviewed"
-    if [[ "$n" -gt "$THRESHOLD" ]]; then
-      echo "[$ts] iteration $iter — backlog $n > $THRESHOLD with no purge runner (pro empty, codex tight); generate skipped to self-throttle (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
-    else
-      echo "[$ts] iteration $iter — nothing to do (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
-    fi
+    echo "[$ts] iteration $iter — nothing to do (gemini: $summary; $codex_summary) — sleeping ${IDLE_SLEEP_SECS}s" >&2
     if [[ "$MAX_ITERS" -gt 0 && "$iter" -ge "$MAX_ITERS" ]]; then break; fi
     sleep "$IDLE_SLEEP_SECS"
     continue

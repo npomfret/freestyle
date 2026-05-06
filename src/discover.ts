@@ -129,6 +129,8 @@ ${EXCLUDED_DOMAINS.join(', ')}
 Search for the subject matter directly — e.g. "crystal structure database", "earthquake data portal", "ship tracking AIS" — NOT "free crystal structure APIs databases datasets".
 Find the resource first, then evaluate whether it's free. Appending "free API" to every query produces worse results.
 
+**Emphasise open-source, public-domain, and primary sources.** Bias your queries toward terms that surface stable, openly accessible providers — for example "open data portal", "government dataset", "official statistics", "open-source library", "GitHub", "CC0 dataset", "CC-BY dataset", "academic dataset", "research data repository". Lean on .gov, .edu, and supranational bodies (EU, UN, World Bank, OECD, WHO) as well as well-known open-source projects. Generous free-tier and very-low-cost commercial resources remain in scope, but these open-by-default angles consistently surface the highest-quality primary sources, so search them first before falling back to commercial providers.
+
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
 
 // ============================================================

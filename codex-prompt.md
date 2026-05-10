@@ -38,7 +38,7 @@ edit the file in place — keep it as a single coherent writeup, not a sea of "r
 
 specifically:
 
-- **sharpen the first 10 customers**: replace "SMBs" / "marketers" / "developers" with named channels — specific subreddit, Shopify category, conference attendee list, MSP partner network, trade body member list, niche community.
+- **sharpen the first 10 customers**: replace vague labels ("SMBs", "marketers", "developers", "data teams") with named channels — for archetype A: specific subreddit, Shopify category, conference attendee list, MSP partner network, trade body member list, niche community. For archetype B (data/API/model products with technical buyers, see `rubric.md`): specific Hacker News / Lobsters / r/dataengineering / r/quant / r/MachineLearning thread, npm/PyPI/Hugging Face/RapidAPI listing surface, GitHub topic, niche newsletter, named Discord/Slack. Do not delete a developer/data-team buyer just because the words appear — only if the channel is unnamed.
 - **sharpen the comparable**: name an existing paid product or category in the same workflow, with its public price if you can find one. if you can't find one, write "no directly comparable paid product found" — don't editorialise about budget lines.
 - **sharpen the v1**: name one concrete feature. trim scope creep by deletion, not commentary.
 - **sharpen the distribution**: name the existing surface (app store, registry, integration, partner channel) the product would ride. if customer acquisition would require cold outreach or owned-audience content, write that as a fact in the distribution section.

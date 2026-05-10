@@ -2,25 +2,50 @@
 
 Shared criteria for what makes a Freestyle business idea **good** vs **bad**. Loaded by `idea-prompt.md`, `triage-prompt.md`, `purge-prompt.md`, and `codex-prompt.md`. Action-specific instructions live in those prompts.
 
-## target buyer profile
+## target buyer profiles
 
-we are highly technical operators with **few business skills** — no sales muscle, no marketing audience, no industry network. our edge is software, not commerce. the strongest ideas serve **non-technical owners of established, revenue-generating businesses** who can't build software themselves but can recognise ROI in concrete £/$ terms.
+we are technical operators with **few business skills** — no sales muscle, no marketing audience, no industry network. our edge is software, data, and modelling. reward **two** buyer archetypes equally — the strongest ideas land in either, and the pipeline should produce a healthy mix of both:
+
+**A. non-technical owners of revenue-generating businesses** — they can't build software themselves but recognise ROI in concrete £/$ terms inside one quarter.
+
+**B. technical buyers paying for high-leverage data, APIs, datasets, and compact models** they can't be bothered to assemble themselves — data teams, analytics engineers, quants, applied researchers, ML engineers, infra/ops/security engineers, indie devs integrating a domain-specific capability. they buy on unit economics (per-call, per-row, per-seat), capability unlock, freshness, accuracy, or coverage — not on £/month savings narratives.
+
+archetype B is a particularly natural fit for **dataset-as-product**, **API-as-product**, and **model-as-product** wedges (see "pure data is good" and "modelling is good" below). do not treat archetype A as the default; an idea that targets archetype B with a clear data/modelling moat is just as strong, often stronger, because distribution rides docs/SEO/registries instead of trade bodies.
 
 reward these buyers:
+
+archetype A — non-technical operators:
 
 - independent owner-operated businesses with revenue (single-location restaurants, dental practices, plumbers, electricians, kennels, breweries, garages, opticians, picture framers, taxi operators, equipment rental yards, scrap dealers, small accounting/legal firms…)
 - regulated trades and licensed professionals where compliance is part of the daily job (surveyors, conveyancers, MOT centres, home inspectors, food-hygiene-rated operators, registered installers, EPC assessors…)
 - niche manufacturers, fishing fleets, regional construction firms, family wholesalers, agricultural operators — unsexy, established, busy, allergic to software demos
 - the operator does the books themselves or pays a part-time bookkeeper. they spend on tools when the spend has an obvious payback inside one quarter
 
+archetype B — technical buyers of data / API / model products:
+
+- data teams and analytics engineers paying for clean, maintained, normalised, niche datasets they can't justify building in-house
+- developers integrating a domain-specific API / SDK / dataset where the unit economics are obvious (per-call, per-row, per-seat) and the moat is maintained data or specialised modelling — *not* generic developer-tooling competing with free OSS
+- quants, applied researchers, and ML engineers paying for compact models, eval datasets, fine-tuning corpora, or curated benchmarks in a niche domain
+- infra / ops / security engineers paying for narrow operational data feeds (e.g. CVE enrichment, cloud cost benchmarks, regional latency tables, anomaly catalogues, supply-chain SBOM enrichment)
+- indie devs and small product teams who self-onboard from API docs and pay through a marketplace listing (npm, PyPI, Hugging Face, RapidAPI, Stripe-billed metered tier)
+- analyst / research / journalist / policy users paying for curated maintained datasets with citations and exports — they have budget for primary-source data, not for SaaS dashboards
+
 penalise these buyers:
 
-- **"developers"** / engineering teams — they build their own and don't pay for prosumer tools
+- **generic developer-tooling** that lives in the IDE/CLI/CI and competes head-on with free, popular OSS — no defensible moat. (this is *developer-tools*, not *developer-buyers* of data/API/model products with a real data moat — the latter is welcomed under archetype B above.)
 - **VC-backed startups** / scale-ups — they have ops people; we can't reach them and won't out-iterate their incumbents
-- **"SMBs"** / **"marketers"** as a category — too vague to reach with self-serve, no shared distribution surface
+- **"SMBs"** / **"marketers"** as a vague category — too vague to reach with self-serve, no shared distribution surface (specific named SMB segments are fine under archetype A)
 - **consumers** — no ROI mental model, high price sensitivity, support load too heavy for a 1–2 person team
 
-every writeup must be able to answer, in concrete numbers, **"this saves the buyer £X/month"** OR **"this earns the buyer £X/month more"**. if the value can only be expressed as soft benefits (*better insights*, *improved efficiency*, *unlocks workflows*), the buyer won't pay. ROI must be visible from the marketing page, not buried in a deck.
+every writeup must state **concrete value visible from the landing page**. acceptable forms (use whichever fits the archetype):
+
+- "this saves the buyer £X/month" or "this earns the buyer £X/month more" — preferred for archetype A
+- "this saves N hours/week on a specific named repetitive task" — either archetype
+- per-call / per-row / per-seat pricing with a named comparable API and an explicit unit-economic uplift — archetype B
+- measurable accuracy, coverage, freshness, or latency uplift over the cheap or free incumbent, with the benchmark stated — archetype B
+- a maintained dataset's freshness/coverage/cost compared head-to-head with the cheapest paid comparable — archetype B
+
+if the only honest answer is "better insights" / "improved efficiency" / "unlocks workflows" with no quantifier or named comparable, the buyer won't pay — regardless of archetype.
 
 ## the discriminator: achievable vs grand
 
@@ -35,7 +60,7 @@ each signal present and convincingly addressed in the writeup = 1 point. vague o
 
 1. a solo dev or 2-person team can ship a saleable v1 in 4–12 weeks
 2. the MVP is **one concrete feature**, not a platform / ecosystem / marketplace
-3. the first 10 customers are nameable today (specific trade body member list, regional federation, niche subreddit, Shopify category, conference attendee list, MSP partner network — not "SMBs", "marketers", "developers")
+3. the first 10 customers are nameable today as a specific named channel — e.g. trade body member list, regional federation, niche subreddit, Shopify category, conference attendee list, MSP partner network (archetype A); or a specific Hacker News / Lobsters / r/dataengineering / r/quant thread, npm/PyPI/Hugging Face listing surface, RapidAPI category, GitHub topic, Discord/Slack with named members, niche newsletter (archetype B). vague "SMBs" / "marketers" / "developers" / "data teams" with no named channel = 0.
 4. free public APIs / data tiers are sufficient for the first **paying** tier, not just the demo
 5. an existing paid product or category proves willingness-to-pay — the idea isn't inventing a new budget line
 6. the product delivers value to a single user with no other users present (no two-sided cold-start)
@@ -115,7 +140,27 @@ penalise:
 
 ## pure data is good
 
-ideas that involve creating datasets, leveraging datasets in a unique or creative way, state-of-the-art knowledge bases, etc are well suited to the developer.
+data products — clean, maintained, defensible datasets — are a first-class wedge for this team. our software/data skills make them cheap to build; lack of sales muscle is not a blocker because distribution rides docs, SEO, registries, and self-serve onboarding. reward these patterns strongly:
+
+- **maintained data assets**: clean, deduped, normalised, scored, cited, versioned. moat = the maintenance loop (refresh cadence, source coverage, quality grading), not a one-off scrape that rots in 6 months
+- **novel hybrid datasets**: joining N public sources into one canonical table or graph that nobody else is bothered to assemble (e.g. trade registry × postcode × hygiene rating × planning permission)
+- **knowledge bases with audit trails**: every row cites its source, every change is dated, the buyer can defend the number to their boss / regulator / client
+- **dataset-as-product**: SQL-queryable, downloadable bulk dump, daily diff feed, and/or REST endpoint — sold per-row, per-query, or per-seat
+- **API-as-product**: developers find the docs via Google, self-onboard, and pay metered. the wedge is a domain capability the buyer can't trivially replicate
+- **niche operational feeds**: CVE enrichment, cloud cost benchmarks, regional latency, anomaly catalogues, SBOM enrichment, spectrum allocations, beneficial-ownership filings, regulatory rulings — narrow, technical, programmatically consumed
+
+a data product that can plausibly state "we maintain this dataset; here's the refresh cadence, the source coverage, and the per-row price" is a strong wedge regardless of whether the buyer is technical (archetype B) or non-technical (archetype A consuming the same data through a thin UI).
+
+## modelling is good
+
+bespoke modelling — small-data ML, classical statistics, calibrated probabilistic models, optimisation / constraint solvers, forecasting, simulation — is welcome where the **defensible value lives in the dataset, calibration, and evaluation**, not in foundation-model scale. see "small-dataset constraint" for the budget envelope. reward these patterns:
+
+- a compact bespoke model trained on a defensible niche dataset, sold via API or as a dataset of its own outputs
+- calibrated probabilistic outputs (with uncertainty intervals, backtests, and named accuracy benchmarks) — buyers in regulated/quant contexts pay extra for calibration and provenance
+- optimisation / scheduling / routing on small but operationally critical problem sets where a bespoke solver beats a generic LLM and beats hand-tuned spreadsheets
+- model-as-product where the eval set, the training corpus, and the refresh cadence are the moat — not the model architecture
+
+penalise modelling ideas where the moat is "we'll fine-tune a foundation model on data we'll figure out later", or where a state-of-the-art LLM with no extra data could deliver a comparable answer (see "LLM-replaceability").
 
 ## small-dataset constraint
 

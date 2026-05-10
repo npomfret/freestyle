@@ -8,11 +8,15 @@ Read @rubric.md first — it defines what makes a Freestyle idea good vs bad and
 
 ## who you are selling to
 
-We are highly technical with **few business skills** — no sales muscle, no marketing audience, no industry network. Our edge is software. The strongest ideas serve **non-technical owners of established, revenue-generating businesses**: independent operators of small businesses (single-location restaurants, dental practices, plumbers, garages, kennels, breweries, opticians, picture framers, accountants, surveyors, MOT centres, fishing fleets, family wholesalers, agricultural operators, regional construction firms…). They already have revenue and a routine; they pay for tools when the payback is visible inside one quarter.
+We are highly technical with **few business skills** — no sales muscle, no marketing audience, no industry network. Our edge is software, data, and modelling. Reward **two** buyer archetypes equally — over time the pipeline should produce a healthy mix of both, not 90% archetype A:
 
-The deal we're offering them is simple: **"this saves you £X/month"** or **"this earns you £X/month more"**. Every writeup must be able to state the ROI in concrete numbers visible on the landing page. If the only honest answer is "better insights" or "improved workflow", the buyer won't pay.
+**A. non-technical owners of revenue-generating businesses** — independent operators of small businesses (single-location restaurants, dental practices, plumbers, garages, kennels, breweries, opticians, picture framers, accountants, surveyors, MOT centres, fishing fleets, family wholesalers, agricultural operators, regional construction firms…). They already have revenue and a routine; they pay for tools when the payback is visible inside one quarter. The deal is simple: **"this saves you £X/month"** or **"this earns you £X/month more"**.
 
-Lean against developer tools, prosumer SaaS for tech teams, marketer dashboards, and consumer products — see `rubric.md` "target buyer profile" for the full reward/penalise lists.
+**B. technical buyers paying for high-leverage data, APIs, datasets, and compact models** they can't be bothered to assemble themselves — data teams, analytics engineers, quants, applied researchers, ML engineers, infra/ops/security engineers, indie devs integrating a domain-specific capability, analysts/journalists/policy users buying primary-source data. They buy on **per-call / per-row / per-seat unit economics**, capability unlock, freshness, accuracy, or coverage uplift over a named cheap incumbent — not on £/month savings narratives. Distribution rides docs, SEO, npm/PyPI/Hugging Face/RapidAPI, GitHub topics, niche dev communities — surfaces where buyers find products themselves.
+
+Either archetype is welcome on any given idea — pick the one that fits the catalog seed best, don't force everything into archetype A. Every writeup must state the concrete value visible on the landing page in whichever form fits: £/month for A; per-call / per-row pricing with a named comparable, or measurable accuracy / coverage / freshness uplift, for B. "Better insights" or "improved workflow" with no quantifier kills the writeup either way.
+
+Lean against generic developer-tooling that competes with free OSS, VC-backed startups, vague "SMBs" / "marketers", and consumers — see `rubric.md` "target buyer profiles" for the full reward/penalise lists. Note: **developer-buyers of niche data/API/model products are welcome under archetype B** — only generic dev-tooling is penalised.
 
 ## what kind of product
 
@@ -35,7 +39,7 @@ Constraints:
 
 ## process
 
-1. Pick 3 random items from the catalog via the CLI. Pick one that looks interesting **for a non-technical business owner buyer** (per the section above) — not because it's technically novel.
+1. Pick 3 random items from the catalog via the CLI. Pick one that looks interesting **for one of the two buyer archetypes** above — pick whichever archetype the seed naturally fits. Do not default to archetype A. If the seed is a clean structured dataset, an API surface, a data feed, a regulatory filing source, a benchmark, or anything else where a technical buyer would self-onboard from docs, lean to archetype B. If the seed is a paper-based workflow, a regulated trade, or a sector-specific operational pain, lean to archetype A. Don't pick on technical novelty — pick on whether you can name a concrete buyer and a concrete unit of value.
 2. Search the catalog for complementary sources, then do your own web research.
 3. Sanity-check the headline dataset / API: still alive, free tier sufficient for a paying tier (not just a demo), commercial-use licence, actively maintained. Apply the staleness discount in `rubric.md`. If the headline source is dormant or licence-blocked, find a maintained alternative or discard.
 4. Decide which geographic region(s) the product fits — buyer regulations and behaviour vary.
@@ -52,9 +56,9 @@ Constraints:
 
 If you have a reasonable idea, write a single markdown file in `ideas/1-raw/` (the inbox the triage stage consumes) containing:
 
-- a short pitch (one paragraph) that names the buyer and the concrete £/$ ROI
+- a short pitch (one paragraph) that names the buyer and the concrete unit of value (£/$ ROI for archetype A; per-call / per-row / per-seat pricing with a named comparable, or measurable accuracy / coverage / freshness uplift for archetype B)
 - the v1 feature (one thing, not a platform)
-- the named first 10 customers (specific channels, trade bodies, communities — not "SMBs")
+- the named first 10 customers — specific channels, trade bodies, niche communities for A; named dev/data communities, package registries, GitHub topics, niche newsletters for B. never vague "SMBs" / "developers" / "data teams"
 - the existing paid comparable that proves willingness-to-pay
 - the distribution surface the product rides (app store, integration, niche community)
 - 2–4 follow-on directions that show the mountain behind the wedge

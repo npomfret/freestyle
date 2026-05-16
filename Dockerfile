@@ -29,4 +29,7 @@ COPY --from=build /app/web/dist ./web/dist
 
 EXPOSE 3001
 
+RUN chown -R node:node /app
+USER node
+
 CMD ["npx", "tsx", "src/server.ts"]

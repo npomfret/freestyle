@@ -255,15 +255,32 @@ async function run(): Promise<void> {
     }
 }
 
+// Back off after a failed loop iteration. A one-off transient error (e.g. an
+// LLM timeout) retries quickly; sustained failures escalate up to a cap so a
+// genuinely broken dependency isn't hammered.
+const LOOP_BASE_RETRY_DELAY_MS = 15_000;
+const LOOP_MAX_RETRY_DELAY_MS = 5 * 60_000;
+
 async function main(): Promise<void> {
     if (loopMode) {
         log.info('running in loop mode');
+        let consecutiveFailures = 0;
         while (true) {
             try {
                 await run();
+                consecutiveFailures = 0;
             } catch (err) {
-                log.error('discovery loop iteration failed', serializeError(err));
-                await new Promise(r => setTimeout(r, 5 * 60_000));
+                consecutiveFailures += 1;
+                const delay = Math.min(
+                    LOOP_BASE_RETRY_DELAY_MS * 2 ** (consecutiveFailures - 1),
+                    LOOP_MAX_RETRY_DELAY_MS,
+                );
+                log.error('discovery loop iteration failed', {
+                    ...serializeError(err),
+                    consecutiveFailures,
+                    retryDelayMs: delay,
+                });
+                await new Promise((r) => setTimeout(r, delay));
             }
         }
     } else {

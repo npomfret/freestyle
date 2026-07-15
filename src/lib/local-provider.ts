@@ -1,7 +1,14 @@
 import { requiredEnv } from './config.js';
+import type { GenerateOptions, LLMMessage, LLMProvider, LLMResponse } from './llm.js';
 import { log } from './logger.js';
-import type { LLMProvider, LLMMessage, LLMResponse, GenerateOptions } from './llm.js';
+import { isTimeoutError, withRetry } from './retry.js';
 import { renderToolDescription } from './tool-runtime.js';
+
+// The local model's latency has a long tail that occasionally overruns the
+// per-request timeout. Retry a timed-out request a couple of times so one slow
+// generation doesn't abort the whole multi-turn agent run.
+const REQUEST_TIMEOUT_MS = 300_000;
+const TIMEOUT_RETRIES = 2;
 
 // ============================================================
 // OpenAI-compatible API types
@@ -112,19 +119,26 @@ export class LocalProvider implements LLMProvider {
             body.tool_choice = 'auto';
         }
 
-        const resp = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(300_000), // 300 second timeout
-        });
+        const data = await withRetry(
+            async () => {
+                const resp = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+                });
 
-        if (!resp.ok) {
-            const text = await resp.text();
-            throw new Error(`Local LLM API error ${resp.status}: ${text}`);
-        }
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(`Local LLM API error ${resp.status}: ${text}`);
+                }
 
-        const data = await resp.json() as OAIResponse;
+                return (await resp.json()) as OAIResponse;
+            },
+            'local-provider',
+            { isRetryable: isTimeoutError, maxRetries: TIMEOUT_RETRIES },
+        );
+
         const msg = data.choices[0]?.message;
 
         const functionCalls = (msg?.tool_calls ?? []).map((tc) => ({

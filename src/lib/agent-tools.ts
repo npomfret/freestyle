@@ -1,8 +1,10 @@
 import type pg from 'pg';
 import { embed } from './embeddings.js';
+import type { ToolResult } from './llm.js';
 import { log } from './logger.js';
+import type { SearchToolData } from './search.js';
 import type { Kind, QueueItemId, Region, ResourceId, SourceName, Topic, Url } from './types.js';
-import { KINDS, TOPICS, QueueItemId as mkQueueItemId, ResourceId as mkResourceId } from './types.js';
+import { KINDS, QueueItemId as mkQueueItemId, ResourceId as mkResourceId, TOPICS } from './types.js';
 
 // Re-export shared fetchPage
 export { fetchPage } from './fetch-page.js';
@@ -13,8 +15,8 @@ export { fetchPage } from './fetch-page.js';
 
 export async function checkExisting(
     db: pg.Pool | pg.Client,
-    args: { url: Url },
-): Promise<{ inResources: boolean; inQueue: boolean }> {
+    args: { url: Url; },
+): Promise<{ inResources: boolean; inQueue: boolean; }> {
     const { rows: rRows } = await db.query(
         'SELECT 1 FROM resources WHERE url = $1',
         [args.url],
@@ -41,7 +43,7 @@ export async function addResource(
         description: string;
         analysis?: string;
     },
-): Promise<{ id: ResourceId; status: 'added' | 'duplicate' }> {
+): Promise<{ id: ResourceId; status: 'added' | 'duplicate'; }> {
     // Use a dedicated client for the transaction if given a Pool
     const client = 'totalCount' in db ? await (db as pg.Pool).connect() : db as pg.Client;
     const isPoolClient = 'totalCount' in db;
@@ -168,8 +170,8 @@ export async function updateResource(
     db: pg.Pool,
     resource: ResourceRow,
     args: UpdateResourceArgs,
-    opts?: { skipLinkChecks?: boolean },
-): Promise<{ status: string; id: ResourceId; fail_count: number }> {
+    opts?: { skipLinkChecks?: boolean; },
+): Promise<{ status: string; id: ResourceId; fail_count: number; }> {
     const client = await db.connect();
     let newStatus = 'alive';
     let failCount = 0;
@@ -287,8 +289,8 @@ const MAX_DEPTH = 3;
 
 export async function queueItems(
     db: pg.Pool | pg.Client,
-    args: { items: { url: Url; label: string; source: SourceName; depth?: number }[] },
-): Promise<{ queued: number; skipped: number; tooDeep: number }> {
+    args: { items: { url: Url; label: string; source: SourceName; depth?: number; }[]; },
+): Promise<{ queued: number; skipped: number; tooDeep: number; }> {
     let queued = 0;
     let skipped = 0;
     let tooDeep = 0;
@@ -320,8 +322,8 @@ export async function queueItems(
 
 export async function getQueue(
     db: pg.Pool | pg.Client,
-    args: { limit: number },
-): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName; depth: number }[]> {
+    args: { limit: number; },
+): Promise<{ id: QueueItemId; url: Url; label: string; source: SourceName; depth: number; }[]> {
     // Reset items stuck in 'processing' for >10 minutes (crash recovery).
     // Use processing_started_at so we measure from when processing began, not when the item was queued.
     // IS NULL handles rows that were stuck in processing before this column was added.
@@ -347,11 +349,82 @@ export async function getQueue(
     RETURNING dq.id, dq.url, dq.label, dq.source, dq.depth`,
         [args.limit || 10],
     );
-    return rows.map((r: { id: number; url: string; label: string; source: string; depth: number }) => ({
+    return rows.map((r: { id: number; url: string; label: string; source: string; depth: number; }) => ({
         id: mkQueueItemId(r.id),
         url: r.url as Url,
         label: r.label,
         source: r.source as SourceName,
         depth: r.depth,
     }));
+}
+
+// ============================================================
+// Search history — cross-run memory of discovery queries
+// ============================================================
+
+/** Record a lookup_web query so future runs can avoid repeating it. */
+export async function recordSearch(db: pg.Pool | pg.Client, query: string): Promise<void> {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    await db.query('INSERT INTO search_history (query) VALUES ($1)', [trimmed]);
+}
+
+/** Most recently used distinct discovery queries, newest first. */
+export async function recentSearches(db: pg.Pool | pg.Client, limit: number): Promise<string[]> {
+    const { rows } = await db.query(
+        `SELECT query, max(created_at) AS last_run
+         FROM search_history
+         GROUP BY query
+         ORDER BY last_run DESC
+         LIMIT $1`,
+        [limit],
+    );
+    return rows.map((r: { query: string; }) => r.query);
+}
+
+/** Pull http(s) URLs out of free-form text (e.g. the prose summary of a search). */
+function extractUrls(text: string): string[] {
+    const matches = text.match(/https?:\/\/[^\s)\]<>"']+/g);
+    if (!matches) return [];
+    // Trim trailing punctuation that commonly abuts a URL in prose/markdown.
+    return matches.map((u) => u.replace(/[.,;:!?)\]]+$/, ''));
+}
+
+/**
+ * Drop search results whose URL is already in the catalog and annotate the
+ * result so the agent skips resources we already have.
+ *
+ * The structured `results`/`sources` arrays are filtered directly. The prose
+ * `summary` (which on the Gemini path carries the real candidate URLs) is left
+ * intact but gets an explicit skip-list appended, so the agent does not fetch,
+ * evaluate, or re-add anything already cataloged. Matching is exact-URL, the
+ * same invariant used by check_existing and add_resource.
+ */
+export async function filterCatalogedResults(
+    db: pg.Pool | pg.Client,
+    result: ToolResult<SearchToolData>,
+): Promise<ToolResult<SearchToolData>> {
+    if (!result.ok || !result.data) return result;
+
+    const candidateUrls = new Set<string>();
+    for (const r of result.data.results) candidateUrls.add(r.url);
+    for (const s of result.sources ?? []) candidateUrls.add(s.url);
+    for (const u of extractUrls(result.data.summary ?? '')) candidateUrls.add(u);
+    if (candidateUrls.size === 0) return result;
+
+    const { rows } = await db.query('SELECT url FROM resources WHERE url = ANY($1)', [[...candidateUrls]]);
+    if (rows.length === 0) return result;
+
+    const known = new Set<string>(rows.map((r: { url: string; }) => r.url));
+    const knownList = [...known];
+
+    return {
+        ...result,
+        data: {
+            ...result.data,
+            results: result.data.results.filter((r) => !known.has(r.url)),
+            summary: `${result.data.summary ?? ''}\n\n[${knownList.length} result(s) already in the catalog were hidden — do NOT fetch, evaluate, or re-add these URLs: ${knownList.join(', ')}]`,
+        },
+        sources: (result.sources ?? []).filter((s) => !known.has(s.url)),
+    };
 }

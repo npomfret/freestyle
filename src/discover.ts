@@ -1,6 +1,6 @@
 import { runAgent, toolHandlers } from './lib/agent-runner.js';
 import type { AgentConfig } from './lib/agent-runner.js';
-import { addResource, checkExisting, fetchPage, getQueue, queueItems } from './lib/agent-tools.js';
+import { addResource, checkExisting, fetchPage, filterCatalogedResults, getQueue, queueItems, recentSearches, recordSearch } from './lib/agent-tools.js';
 import { createPool } from './lib/db.js';
 import { generateDiscoveryQuery } from './lib/discovery-topics.js';
 import { fetchPageToolResult } from './lib/fetch-page.js';
@@ -129,6 +129,8 @@ ${EXCLUDED_DOMAINS.join(', ')}
 Search for the subject matter directly — e.g. "crystal structure database", "earthquake data portal", "ship tracking AIS" — NOT "free crystal structure APIs databases datasets".
 Find the resource first, then evaluate whether it's free. Appending "free API" to every query produces worse results.
 
+**Be inventive and vary every search.** Each query should probe a genuinely different corner of the space than the last — do not circle the same few obvious terms. Rotate deliberately across dimensions: specific sub-domains and niches, individual countries/regions and their national/state/municipal bodies, named institutions (agencies, observatories, museums, universities, standards bodies, research consortia), particular file formats and access models, and the precise vocabulary a practitioner in that field would actually use. Prefer concrete, specific nouns over broad category words. If a phrasing feels obvious, it has almost certainly been tried already — reach for a sharper, less-expected angle instead.
+
 **Emphasise open-source, public-domain, and primary sources.** Bias your queries toward terms that surface stable, openly accessible providers — for example "open data portal", "government dataset", "national statistics office", "state open data", "city open data", "municipal data portal", "official statistics", "open-source library", "GitHub", "CC0 dataset", "CC-BY dataset", "academic dataset", "research data repository". Lean on government open-data portals at every level — supranational (EU, UN, World Bank, OECD, WHO, IMF), national (e.g. data.gov, data.gov.uk, data.europa.eu, ONS, Eurostat, Statistics Canada, ABS, INSEE), state/provincial, and local/municipal (e.g. NYC Open Data, London Datastore, city statistics offices) — alongside .gov, .edu, and well-known open-source projects. Generous free-tier and very-low-cost commercial resources remain in scope, but these open-by-default angles consistently surface the highest-quality primary sources, so search them first before falling back to commercial providers.
 
 When done, say "DISCOVERY COMPLETE" and give a summary of what you added and what you skipped (with reasons).`;
@@ -139,6 +141,9 @@ When done, say "DISCOVERY COMPLETE" and give a summary of what you added and wha
 
 const db = createPool();
 
+/** How many recent distinct queries to show the agent as an avoid-list. */
+const RECENT_SEARCH_LIMIT = 60;
+
 /** If url is a GitHub org root (github.com/<org>), return the repositories listing URL. */
 function githubOrgReposUrl(url: string): string | null {
     const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/?$/);
@@ -146,10 +151,26 @@ function githubOrgReposUrl(url: string): string | null {
     return `https://github.com/orgs/${match[1]}/repositories?type=all`;
 }
 
+/** Append the recent-search avoid-list to the system instruction, if any exist. */
+function withRecentSearches(recent: string[]): string {
+    if (recent.length === 0) return SYSTEM_INSTRUCTION;
+    return `${SYSTEM_INSTRUCTION}
+
+## Searches already run recently — DO NOT repeat these
+The queries below (newest first) were issued in recent discovery runs. They have already surfaced whatever they surface, so re-running them wastes this run and re-adds nothing new. Deliberately go elsewhere — different niches, sub-domains, regions, institutions, and phrasings. Treat this as a list of terms to AVOID: do not re-issue any of them or a trivial variant.
+
+${recent.map((q) => `- ${q}`).join('\n')}`;
+}
+
 async function discover(query: string, isUrl = false): Promise<void> {
+    const recent = await recentSearches(db, RECENT_SEARCH_LIMIT).catch((err) => {
+        log.warn('failed to load recent searches', { ...serializeError(err) });
+        return [] as string[];
+    });
+
     const config: AgentConfig = {
         name: 'discover',
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: withRecentSearches(recent),
         tools: [
             webSearchTool,
             checkSocialTool,
@@ -163,7 +184,17 @@ async function discover(query: string, isUrl = false): Promise<void> {
         maxTurns: 20,
 
         toolHandlers: toolHandlers(
-            ['lookup_web', async (args) => webSearch(args.query as string)],
+            ['lookup_web', async (args) => {
+                const searchQuery = args.query as string;
+                const result = await webSearch(searchQuery);
+                // Best-effort: neither recording the query nor hiding cataloged
+                // results should ever fail the search itself.
+                await recordSearch(db, searchQuery).catch((err) => log.warn('failed to record search query', { query: searchQuery, ...serializeError(err) }));
+                return filterCatalogedResults(db, result).catch((err) => {
+                    log.warn('failed to filter cataloged results', { query: searchQuery, ...serializeError(err) });
+                    return result;
+                });
+            }],
             ['check_social', async (args) => checkSocial(args.name as string)],
             ['check_references', async (args) => checkReferences(args.url as string)],
             ['check_existing', async (args) => {

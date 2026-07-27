@@ -159,6 +159,18 @@ CREATE INDEX IF NOT EXISTS idx_discovery_queue_status ON discovery_queue(status)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_discovery_queue_url ON discovery_queue(url);
 
 -- ============================================================
+-- Search history (cross-run memory for the discover agent)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS search_history (
+    id         SERIAL PRIMARY KEY,
+    query      TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_history_created_at ON search_history(created_at DESC);
+
+-- ============================================================
 -- Indexes
 -- ============================================================
 

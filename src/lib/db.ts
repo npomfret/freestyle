@@ -5,7 +5,14 @@ import { log } from './logger.js';
 const DATABASE_URL = process.env.DATABASE_URL
     ?? 'postgresql://freestyle:freestyle@localhost:5433/freestyle';
 
-log.info('DATABASE_URL being used', { url: DATABASE_URL });
+/** Mask the password in a connection string so it is safe to log. */
+function redactDatabaseUrl(url: string): string {
+    const parsed = new URL(url);
+    if (parsed.password) parsed.password = '***';
+    return parsed.toString();
+}
+
+log.info('DATABASE_URL being used', { url: redactDatabaseUrl(DATABASE_URL) });
 
 /** Connection pool for long-running processes (server, agents). */
 export function createPool(): pg.Pool {

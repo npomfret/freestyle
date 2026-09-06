@@ -1,29 +1,9 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git show:*)",
-      "Bash(rg:*)",
-      "Bash(find:*)",
-      "Bash(ls:*)",
-      "Bash(sed:*)",
-      "Bash(ssh root@fsd.snowmonkey.co.uk:*)",
-      "Bash(cat:*)",
-      "Bash(wc:*)",
-      "Bash(npm test:*)",
-      "Bash(npm run compile:*)",
-      "Bash(npm run format:*)",
-      "Bash(npm run build:web:*)",
-      "Bash(npm run dev:web:*)",
-      "Bash(npm run server:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npx tsx:*)",
-      "WebSearch",
-      "WebFetch",
-      "Bash(curl -s http://localhost:*)",
-      "Bash(curl -I http://localhost:*)"
+      "Bash(git *)",
+      "Bash(npm run *)"
     ],
     "deny": [
       "Bash(git reset --hard:*)",
@@ -53,5 +33,10 @@
         ]
       }
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

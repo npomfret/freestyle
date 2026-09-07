@@ -1,11 +1,11 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
-      "Bash(git *)",
-      "Bash(npm run *)",
-      "Bash(python3 scripts/teamcity.py *)",
-      "Bash(./scripts/teamcity.py *)"
+      "Bash(*)",
+      "WebSearch",
+      "WebFetch"
     ],
     "deny": [
       "Bash(git reset --hard:*)",
@@ -23,6 +23,14 @@
       "Bash(docker compose -f docker-compose.production.yml:*)"
     ]
   },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "enabledPlugins": {
+    "task-files@npomfret": true
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -35,10 +43,5 @@
         ]
       }
     ]
-  },
-  "attribution": {
-    "commit": "",
-    "pr": "",
-    "sessionUrl": false
   }
 }

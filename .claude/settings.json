@@ -23,6 +23,25 @@
       "Bash(docker compose -f docker-compose.production.yml:*)"
     ]
   },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [
+        "*"
+      ]
+    },
+    "filesystem": {
+      "allowWrite": [
+        "~/.npm",
+        "~/.cache",
+        "~/Library/Caches",
+        "~/Library/Developer/Xcode/DerivedData",
+        "/var/folders"
+      ]
+    }
+  },
   "attribution": {
     "commit": "",
     "pr": "",

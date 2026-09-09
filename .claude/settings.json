@@ -20,6 +20,7 @@
       "Bash(npm run embed:*)",
       "Bash(npm run re-embed:*)",
       "Bash(psql:*)",
+      "Bash(ssh root@fsd.snowmonkey.co.uk:*)",
       "Bash(docker compose -f docker-compose.production.yml:*)"
     ]
   },

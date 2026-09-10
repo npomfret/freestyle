@@ -29,7 +29,6 @@ Freestyle catalogs free and near-free developer resources. The backend is TypeSc
 - Database and migration work: `.claude/skills/database-work/SKILL.md`
 - Bug investigation: `.claude/skills/bug-investigation/SKILL.md`
 - Working-tree review: `.claude/skills/review-working-tree/SKILL.md`
-- Claude setup maintenance: `.claude/skills/config-maintenance/SKILL.md`
 - Repo map: `.claude/references/architecture-map.md`
 
 ## Dangerous Areas

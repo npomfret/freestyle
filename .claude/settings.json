@@ -30,7 +30,6 @@
       "git push *",
       "git ls-remote *",
       "git clone *",
-      "gh *",
       "ssh *",
       "scp *",
       "rsync *",

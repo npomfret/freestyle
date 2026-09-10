@@ -2,12 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "defaultMode": "acceptEdits",
-    "allow": [
-      "Bash(*)",
-      "WebSearch",
-      "WebFetch",
-      "mcp__gitnexus"
-    ],
+    "allow": ["Bash(*)", "WebSearch", "WebFetch", "mcp__gitnexus"],
     "deny": [
       "Bash(git reset --hard:*)",
       "Bash(git checkout --:*)",
@@ -42,9 +37,7 @@
       "npm run deploy*"
     ],
     "network": {
-      "allowedDomains": [
-        "*"
-      ],
+      "allowedDomains": ["*"],
       "allowLocalBinding": true,
       "allowAllUnixSockets": true
     },
@@ -67,9 +60,7 @@
   "enabledPlugins": {
     "task-files@npomfret": true
   },
-  "enabledMcpjsonServers": [
-    "gitnexus"
-  ],
+  "enabledMcpjsonServers": ["gitnexus"],
   "hooks": {
     "PostToolUse": [
       {

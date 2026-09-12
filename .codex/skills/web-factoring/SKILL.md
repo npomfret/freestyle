@@ -1,0 +1,149 @@
+---
+name: web-factoring
+description: >-
+  The required factoring rules for all browser code in this project:
+  components, templates, hooks, stores, styles, formatters and client-side
+  logic. Load this before writing or changing any UI component, stylesheet,
+  hook, store or client module, and before design or reskin work lands in
+  code. Covers where every site-wide design value, primitive and application
+  concept lives, keeping logic out of templates, searching before writing,
+  extracting and converging shared code, and exceptions.
+---
+
+## Web factoring
+
+This standard is about how web application code is factored, not how the application looks. It covers all code that runs in the browser: components, templates, hooks, stores, styles, formatters, constants and client-side logic. Every site-wide decision has one home, every concern has one implementation, and new work uses or extends what exists instead of adding a near-copy.
+
+### Alongside design guidance
+
+- Design guidance, such as the `frontend-design` skill, decides what the product looks like. This standard decides where those decisions live in the code. Both apply together.
+- Design work lands in the shared homes. A new palette or type scale is written into the token layer, a new button treatment into the button primitive, a new icon set into the icon module. It never lands as styling on one screen.
+- A distinct visual direction belongs to a whole product or a deliberate reskin, never to one screen or feature inside an existing product.
+- Where the two disagree about code structure, this standard wins.
+
+### The reskin test
+
+Assume the site must be reskinned at a moment's notice: new colours, fonts, spacing rhythm, corners, borders, shadows, icons and motion. That job must be an edit to the token layer, the icon module and the shared components. It must never mean a sweep through feature code. When a change would make that job harder, the change is wrong.
+
+### Where site-wide decisions live
+
+- **Design tokens:** one token layer, a single file or folder, holds every visual value listed below. Nothing visual is defined anywhere else.
+- **Shared components:** one folder holds every primitive listed below.
+- **Application modules:** each concept listed below has one named module.
+- Colour has two tiers. The raw palette is private to the token layer; code uses semantic roles that map onto it.
+- Themes, such as light and dark, are alternative sets of role values in the token layer. Features never branch on the active theme.
+- Code that needs a token value in script, such as a chart or a canvas, reads it from the token layer. It never keeps a copy.
+- If a project has no home for one of these yet, create it in the expected place and say so. Never scatter the values.
+
+### Design values
+
+Every one of these comes from the token layer, by meaning:
+
+- Space: padding, margin, gap, insets, page gutters.
+- Size: layout widths, control heights, icon and avatar sizes, the minimum touch target.
+- Breakpoints: defined once, in whatever form the styling system can use in media queries.
+- Borders and separators: widths and styles.
+- Corner radii.
+- Typography: families, sizes, weights, line heights, letter spacing, text transforms.
+- Colour roles: surfaces, text, borders, actions, links, focus, selection, disabled, overlays, and states such as info, success, warning and danger.
+- Elevation: shadows and the stacking order (z-index).
+- Effects: opacity levels, blur, gradients.
+- Motion: durations, easing curves and delays, with a reduced-motion treatment.
+
+Rules:
+
+- No raw literal for any of these appears outside the token layer.
+- With utility-class styling such as Tailwind, the utility scale is generated from the token layer, and arbitrary values such as `p-[13px]` are raw literals.
+- Inline `style` attributes carry only values computed at runtime, such as a measured position or a progress width.
+- Choose a token by meaning, not appearance. Something that is merely red does not use `danger`. Two meanings may share a value and still have two names.
+- No fallback values such as `var(--token, #fff)`. A missing token is a defect to fix.
+- A token needs a meaning and a real consumer, and is deleted with its last consumer.
+- A literal that cannot be a token, such as geometry intrinsic to one component, carries a comment saying why.
+
+### Primitives
+
+Each has exactly one shared implementation. Features use them from the first use, never a raw element:
+
+- Buttons, icon buttons, and every other clickable surface, including clickable rows and cards.
+- Links, internal and external, from one component that knows how each behaves.
+- Icons and emoji, from one icon module that maps meaning names to glyphs. Features never import an icon library directly, so a new icon set is a one-file change. Every icon has an accessible name or is marked decorative.
+- Form fields: text, number, select, checkbox, radio, switch, text area, with their label, hint and error message.
+- Tooltips, hover cards and popovers.
+- Menus, dropdowns, tabs and segmented controls.
+- Dialogs, drawers, sheets and confirmation prompts, owning focus trapping, focus return, Escape and scroll locking.
+- Containers: page layout, section, card, panel, divider.
+- Notices: alerts, warnings, banners, toasts.
+- Badges, chips, tags and pills.
+- Tables, lists and pagination.
+- Loading, empty and error states, including skeletons and spinners.
+- Error boundaries, so a failing section shows the shared error state and the rest of the page keeps working.
+- Avatars and images.
+
+A third-party component library or headless UI library is used only inside primitives. Features import the primitive, never the library.
+
+### Application concepts
+
+Each has one module that owns it. Features call the module and never reimplement it:
+
+- **API access:** one client over one transport. The transport owns authentication, timeouts, retries and error translation. Responses are parsed and validated where they arrive. Components never call `fetch` or a vendor SDK.
+- **Data flow:** each resource has one owner, a hook or store that fetches, caches, refreshes and discards stale responses. Other consumers read from it and never start their own fetch of the same data.
+- **Input validation:** one schema per input shape, shared with the server where both validate it. The browser validates for feedback; the server is the authority.
+- **Formatting:** dates, times, durations, numbers, currency, percentages and plurals.
+- **Routes and URL state:** one route table. Links and redirects build URLs from it.
+- **Errors:** one policy for where errors are caught, how they are shown and how they are reported.
+- **Logging:** one logger. No stray `console` calls. Each entry is a fixed event label plus structured data, never an interpolated sentence, and never secrets or personal data.
+- **Auditing and analytics:** one module records user actions as named events.
+- **Animation and timing:** transitions defined once per kind, such as enter, exit and expand, from motion tokens. Non-visual timings such as debounce, polling and retry intervals are named constants in one place.
+- **Permissions:** one check per capability. Features ask the check and never inspect roles themselves.
+- **Browser storage:** one module owns every key, its parsing and its failure behaviour.
+- **User-facing text:** labels and messages used on more than one screen live in one place, or in the translation files where the project localises.
+- **Keyboard and focus:** shortcuts, Escape layering and focus management belong to the primitives and one keyboard module.
+
+### No logic in templates
+
+- A component file holds markup and wiring. All plain TypeScript logic moves to a separate module as pure functions with their own unit tests: calculations, formatting, sorting, filtering, grouping, parsing, validation, mapping API data to view data, business rules and constants.
+- Stateful behaviour, such as effects, subscriptions, timers and request orchestration, lives in a hook or store. Its decisions call pure functions from those modules.
+- Allowed in a template: reading props and state, rendering a list that is already prepared, choosing what to show from a value that is already computed, and passing handlers that call named functions.
+- If checking a value would mean rendering the component in a test, the logic is in the wrong place.
+- The browser and the server never hold separate definitions of the same rule. Shared code or the server owns it, and the browser asks the server for a better shape rather than re-deriving data.
+
+### Look before writing
+
+- Before writing a component, hook, store, style rule, formatter, constant or derived value, search for an existing one.
+- Search by what it renders or does: class names, CSS properties and values, markup shape, label text, the data it reads. Copies rarely share a name, so a name search is not enough.
+- Search the whole web package, not only the folder being edited. For a domain rule, search the server and shared code too.
+- Say what the search found before editing: the implementation you will use or extend, or that none exists.
+- Nearby code is not precedent. Before following a file's shape, confirm it is the canonical version and not a drifted copy. Where two variants already exist, converge them before adding a third use.
+
+### One concern, one implementation
+
+- Use the existing implementation. If it cannot serve the new need, extend it with a named variant or slot. If extending it would make it wrong, stop and raise the design decision.
+- Never copy a component, style block or hook and edit the copy.
+- Anything in the lists above gets its shared home on first use. Any other structure, style or behaviour is extracted on its second real use, in the same change, with the first use migrated onto it. Do not build shared code for a hypothetical future use.
+- A file that holds several markup-returning functions, or mixes data loading, layout and presentation, is split before more is added to it.
+
+### Ownership
+
+- A primitive owns structure, styling, interaction states and accessibility. Its callers own content and domain choices, passed in as props or children.
+- A primitive knows nothing about its callers: no feature class names, no domain types, no screen-specific branches.
+- Callers do not restyle a primitive's internals through descendant selectors, style overrides or class-name escape hatches. Variation the design needs becomes a named variant on the primitive.
+- Name variants by meaning (`tone="warning"`, `density="compact"`). Do not stack booleans or add a prop that serves one caller.
+- Page and route files compose. They do not define reusable UI.
+
+### Converge completely
+
+- A change that introduces a shared implementation moves every existing caller onto it and deletes what it replaces, in the same commit. Old and new never coexist.
+- Merging near-duplicates is a behaviour or visual change until shown otherwise. Find out whether a difference was deliberate before choosing one side.
+- Delete what becomes unused in the same change: components, hooks, class names, CSS rules, tokens, constants, exports and props.
+
+### Exceptions
+
+- A departure from this standard carries a comment at the site naming the constraint that makes the canonical route impossible. Verify the claim first: if the comment says no token or primitive exists, search for one.
+- A second exception with the same reason means the shared implementation must be extended instead. Extend it.
+
+### Finishing
+
+- The project's checks pass.
+- The summary of the work names what was reused, what was extracted or converged, and what was deleted.
+
+*Generated from `npomfret/agent-standards`. Edit the standard there, not this copy.*

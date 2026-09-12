@@ -78,7 +78,9 @@
   },
   "enabledPlugins": {
     "task-files@npomfret": true,
-    "webstorm@npomfret": true
+    "webstorm@npomfret": true,
+    "web-factoring@npomfret": true,
+    "frontend-design@claude-plugins-official": true
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"],
   "hooks": {

@@ -93,8 +93,7 @@ Each has one module that owns it. Features call the module and never reimplement
 - **Formatting:** dates, times, durations, numbers, currency and percentages, for the active locale.
 - **Routes and URL state:** one route table. Links and redirects build URLs from it.
 - **Errors:** one policy for where errors are caught, how they are shown and how they are reported.
-- **Logging:** one logger. No stray `console` calls. Each entry is a fixed event label plus structured data, never an interpolated sentence, and never secrets or personal data.
-- **Auditing and analytics:** one module records user actions as named events.
+- **Auditing and analytics:** one logger and one module recording user actions as named events. No stray `console` calls anywhere else. What a record may and may not say is the auditing standard's, not repeated here.
 - **Animation and timing:** transitions defined once per kind, such as enter, exit and expand, from motion tokens. Non-visual timings such as debounce, polling and retry intervals are named constants in one place.
 - **Permissions:** one check per capability. Features ask the check and never inspect roles themselves.
 - **Browser storage:** one module owns every key, its parsing and its failure behaviour.

@@ -50,7 +50,8 @@
     "webstorm@npomfret": true,
     "web-factoring@npomfret": true,
     "frontend-design@claude-plugins-official": true,
-    "database@npomfret": true
+    "database@npomfret": true,
+    "auditing@npomfret": true
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"],
   "hooks": {

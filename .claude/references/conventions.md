@@ -14,11 +14,10 @@
 - Use `serializeError(err)` for exception logs so stack traces are preserved.
 - Avoid repeated logging of the same exception at multiple layers.
 
-## Logging
+## Auditing
 
-- Message strings are stable event labels: `log.info('resource repaired', { id })`.
-- Runtime data belongs in the structured object, never interpolated into the message.
-- Keep logs one-line JSON and useful for filtering.
+The `auditing` standard owns the shape. Here it is `log` from `src/lib/logger.ts`:
+`log.info('resource repaired', { id })`.
 
 ## Tests
 

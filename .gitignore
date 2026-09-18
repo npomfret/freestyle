@@ -11,3 +11,4 @@ tmp
 ideas
 .claude/scheduled_tasks.lock
 .gitnexus
+.codex/config.toml

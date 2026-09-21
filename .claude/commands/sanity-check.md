@@ -16,7 +16,7 @@ Run a read-only review of the current working tree.
 
 - Do not edit, stage, unstage, or delete files.
 - Use `.claude/skills/review-working-tree/SKILL.md` as the primary workflow.
-- Use the canonical commands in `CLAUDE.md` for build/type/test confidence when evidence is needed.
+- Use the canonical commands in `AGENTS.md` for build/type/test confidence when evidence is needed.
 - Output:
   - brief status summary
   - findings ordered by severity

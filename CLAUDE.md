@@ -47,12 +47,11 @@ This project is indexed by GitNexus as **freestyle** (1266 symbols, 2133 relatio
 ## Always Do
 
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- Prefer WebStorm's MCP server (`mcp__webstorm`) whenever it is connected: `search_symbol` and `get_symbol_info` to find a symbol, `analyze_calls` for callers and callees, `rename_refactoring` for renames. Use `gitnexus_query` and `gitnexus_context` only for execution-flow questions WebStorm cannot answer, or when it is not connected.
 
 ## Never Do
 
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER rename symbols with find-and-replace — use WebStorm's `rename_refactoring`, or `gitnexus_rename` when WebStorm is not connected.
 - NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
 ## Resources

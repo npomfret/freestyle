@@ -29,6 +29,19 @@ The spine of it is one idea: **a fact is stored once, in the place that owns it,
 everything else is derived**. Most defects this standard prevents are two copies of
 one fact disagreeing.
 
+### Anti-patterns
+
+No project has a good reason for these, and no comment excuses one. Everything else
+in this standard is a strong default with a stated way out; these have none.
+
+- SQL assembled by string concatenation with a value in it.
+- Floating point for money or quantities.
+- A naive timestamp, or an instant held as a string.
+- Editing a migration that has already been applied somewhere.
+- A query issued once per row of a loop.
+- A connection or pool with no statement timeout.
+- A stored derivation that application code has to keep up to date.
+
 ### Never store what can be derived
 
 - A column whose value can be computed from other columns, other rows or other
@@ -189,8 +202,9 @@ one fact disagreeing.
 
 ### Migrations
 
-- Forward-only, numbered, checked in, plain SQL, one concern each. No down
-  migrations: the correction for a bad migration is the next migration.
+- Numbered, checked in, plain SQL, one concern each. Prefer forward-only to a down
+  migration: the correction for a bad migration is the next migration, and a down
+  path that is never exercised is not a rollback, it is an untested one.
 - An applied migration is never edited. Not even a typo in a comment — a checked-in
   migration has run somewhere.
 - Schema, the code that uses it, and regenerated types all land in the same commit.
@@ -236,7 +250,8 @@ one fact disagreeing.
 
 - SQL is written, not concatenated. Values reach it as bound parameters, always,
   including in scripts and one-off tools.
-- Select the columns needed. `SELECT *` breaks silently when the schema changes.
+- Prefer naming the columns to `SELECT *`, which breaks silently when the schema
+  changes.
 - No N+1. A loop issuing one query per row is one query with a join or an aggregate.
 - Paginate by keyset — `WHERE (sorted_at, id) < ($1, $2)` — not `OFFSET`, on anything
   large or live.
@@ -246,14 +261,30 @@ one fact disagreeing.
 
 ### Testing
 
-- Tests run against the real engine at the production version, in Docker. Never
-  SQLite standing in for Postgres, and never a mocked database: the things worth
-  testing are constraints, transactions, indexes and SQL semantics, and a mock has
-  none of them.
+- Prefer the real engine at the production version, in Docker, to a stand-in: not
+  SQLite for Postgres, and not a mocked database. The things worth testing are
+  constraints, transactions, indexes and SQL semantics, and a stand-in has none of
+  them.
 - Each test creates the data it needs and depends on no other test's state.
 - Migrations are tested by running them, from empty and from a realistic dump.
 - A query added for performance is tested for correctness and measured for the plan
   it actually gets.
+
+### Departing from this standard
+
+Everything here except the anti-patterns is a default, and a project can have a real
+reason to differ.
+
+- A departure carries a comment where it happens — in the migration, beside the
+  query, on the column — naming the constraint that makes the standard's route
+  impossible. Verify the claim first: if the comment says a foreign key cannot be
+  declared, check that it cannot.
+- Where the reason is cost, it is **measured**, on realistic data, and the
+  measurement is recorded beside the change. An unmeasured performance claim is not
+  a reason.
+- A second departure for the same reason is not two exceptions. Change the shape —
+  lift the key into a column, extend the view, fix the index — so the reason stops
+  applying.
 
 ### Finishing
 

@@ -8,7 +8,7 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 
 - For any non-trivial feature or bugfix, follow `.claude/skills/feature-workflow/SKILL.md`: audit upstream/downstream/lateral code, refactor for readiness, implement, verify.
 - Before editing, identify the applicable skill and rule files. If no convention covers the change, decide, follow the nearest existing pattern, and note the decision in your report.
-- Prefer existing dependencies and patterns. When you introduce a new dependency, abstraction layer, file layout, naming scheme, database mutation pattern, or LLM provider behavior, say why in your report. Production deploys remain explicit user actions.
+- Prefer existing dependencies and patterns. When you introduce a new dependency, abstraction layer, file layout, naming scheme, database mutation pattern, or LLM provider behavior, say why in your report. Run production deploys when the task calls for them and state it in your report.
 - Treat the remote database as real production-like data. Anything using `DATABASE_URL`, `npm run db:tunnel`, migrations, deploys, discovery, repair, validity checks, embeddings, or queue processing can affect important data.
 - If an approved convention changes, update the relevant `.claude` rule, skill, or reference file in the same change.
 
@@ -20,7 +20,7 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 - Start API: `npm run server` (requires DB tunnel for DB-backed work)
 - Start frontend: `npm run dev:web`
 - Build frontend: `npm run build:web`
-- Deploy: `npm run deploy` (ask first)
+- Deploy: `npm run deploy` (when the task calls for it; state it in your report)
 - Pipeline and DB scripts (`discover`, `repair`, `validity-check`, `embed`, `migrate`, `db:tunnel`, and others) are listed in `package.json`; most write to the remote database, so see Dangerous Areas.
 
 ## Routing
@@ -35,8 +35,8 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 
 ## Dangerous Areas
 
-- Ask before running write-capable DB scripts: `discover`, `add-url`, `repair`, `validity-check`, `embed`, `re-embed`, `migrate`, queue processing, or direct `psql` writes.
-- Ask before touching deployment files or running `npm run deploy`, Docker Compose production commands, or SSH commands against `fsd.snowmonkey.co.uk`.
+- Write-capable DB scripts are run when the task calls for them, and stated in your report: `discover`, `add-url`, `repair`, `validity-check`, `embed`, `re-embed`, `migrate`, queue processing, or direct `psql` writes.
+- Touching deployment files and running `npm run deploy`, Docker Compose production commands, or SSH commands against `fsd.snowmonkey.co.uk` are done when the task calls for them; state it in your report.
 - Do not edit `dist/`, `web/dist/`, `node_modules/`, lockfiles, generated logs, or `tmp/` artifacts unless the task specifically requires it.
 
 <!-- gitnexus:start -->

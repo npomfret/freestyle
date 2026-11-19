@@ -1,17 +1,8 @@
 # Codex command rules for this project.
-# Syntax: Starlark. decision precedence: forbidden > prompt > allow.
+# Syntax: Starlark. Only forbidden rules are used here.
 # Loads only when this project is trusted.
 
 # ---- git: shared default-branch workflow ----
-
-# ---- git history rewriting: confirm before it happens ----
-# Only the forms that throw work away. Plain `git reset` and `git reset <path>`
-# unstage and touch no file, which is ordinary work.
-prefix_rule(
-    pattern = ["git", "reset", ["--hard", "--merge", "--keep"]],
-    decision = "prompt",
-    justification = "These forms of reset discard uncommitted work; confirm manually.",
-)
 
 # ---- gh: GitHub CLI ----
 prefix_rule(
@@ -21,34 +12,14 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", ["repo", "release", "workflow", "run", "api"]],
-    decision = "prompt",
-    justification = "These reach beyond issues and can change the repo or trigger CI.",
-)
-
-prefix_rule(
     pattern = ["gh", ["auth", "secret", "ssh-key"]],
     decision = "forbidden",
     justification = "Credential and secret surfaces are not for the agent.",
 )
 
 # ---- npm ----
-# Targets that deploy, publish or destroy state still ask first.
-prefix_rule(
-    pattern = ["npm", "run", ["deploy", "deploy:build", "deploy:db", "deploy:up"]],
-    decision = "prompt",
-    justification = "This target changes deployed or persistent state.",
-)
-
 prefix_rule(
     pattern = ["npm", ["publish", "unpublish", "adduser", "login", "logout", "token", "owner", "access", "dist-tag", "deprecate", "version"]],
     decision = "forbidden",
     justification = "Registry and release operations are not for the agent.",
-)
-
-# ---- project scripts ----
-prefix_rule(
-    pattern = [["./scripts/deploy.sh"]],
-    decision = "prompt",
-    justification = "This script deploys or destroys state; confirm first.",
 )

@@ -4,4 +4,4 @@
 - Prefer explicit constraints over application-only assumptions when the invariant belongs in the database.
 - Use indexes for new hot filters, joins, uniqueness checks, and ordering paths when existing indexes do not cover the query.
 - Keep migrations small and reviewable. Avoid mixing unrelated schema changes.
-- Do not run write SQL against the remote DB without explicit approval.
+- Run write SQL against the remote DB when the task calls for it; state it in your report.

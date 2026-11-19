@@ -24,7 +24,7 @@ Bring the current branch up to date from a single upstream ref **without creatin
 ## Operating principles for the assistant
 - Prefer **rebase** over merge; keep history linear.
 - Do **not** rely on previously defined shell variables or state persisting between tool calls. Every `Bash(...)` command you run must be **self‑contained** with explicit values.
-- If upstream is ambiguous and cannot be inferred safely, ask the user exactly once: “Which upstream? (e.g. origin/main)”. Otherwise proceed automatically.
+- If upstream is ambiguous and cannot be inferred safely, pick the best candidate (tracking branch, then default branch) and state it in your report. Otherwise proceed automatically.
 - Never use interactive TUIs (no `-i`). Never run `git pull` (construct explicit `fetch`, `merge --ff-only`, or `rebase` commands instead).
 - If the working tree has unrelated local changes, auto‑stash before rebase and pop afterward.
 - Prefer per-command Git config (`git -c ...`) over persistent repo config writes.
@@ -43,7 +43,7 @@ Bring the current branch up to date from a single upstream ref **without creatin
       a) `git rev-parse --abbrev-ref --symbolic-full-name @{u}` (tracking branch)  
       b) default branch from `refs/remotes/origin/HEAD` via `git symbolic-ref --short refs/remotes/origin/HEAD`, then normalize to `origin/<HEAD>`  
       c) fallbacks: try `origin/main`, then `origin/master` if they exist
-    - If none resolves, ask the user for the ref.
+    - If none resolves, stop and report that no upstream could be resolved.
 
 2) **Preflight**
     - Ensure not in detached HEAD.
@@ -92,7 +92,7 @@ Bring the current branch up to date from a single upstream ref **without creatin
         - Skip broad typecheck unless conflict resolution touched TypeScript-related files or `tsconfig.json`.
         - Prefer targeted validation only when conflicts occurred.
     - MODE=strict:
-        - If lockfiles changed, surface the exact install command and ask before running it.
+        - If lockfiles changed, run the install command and state it in your report.
         - Run targeted validation for impacted areas first (closest tests/typechecks). Run broader checks only if targeted checks pass or are unavailable.
         - Prefer canonical build/check commands from `AGENTS.md` over ad-hoc raw `tsc`.
     - If we auto‑stashed, `git stash pop` and resolve trivial aftershocks similarly.

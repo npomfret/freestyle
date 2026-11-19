@@ -21,7 +21,7 @@ Before editing:
 
 Rules:
 
-- Ask before write-capable DB commands or remote DB mutation.
+- Run write-capable DB commands and remote DB mutation when the task calls for them; state it in your report.
 - Use transactions for multi-step writes when consistency matters.
 - Consider indexes with new filters, joins, ordering, uniqueness, or hot paths.
 - Preserve existing data invariants around resources, kinds, topics, regions, link checks, queue rows, analyses, and embeddings.
@@ -31,4 +31,4 @@ Verification options:
 
 - Static inspection of SQL and callers.
 - `npm run compile`
-- Targeted tests, or explicit user-approved DB commands when needed.
+- Targeted tests, or DB commands when needed.

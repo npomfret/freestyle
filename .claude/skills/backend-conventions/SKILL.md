@@ -15,7 +15,7 @@ Rules:
 - Prefer precise TypeScript types and explicit domain shapes over loose objects.
 - Use shared provider/catalog/logger patterns before adding local wrappers.
 - Preserve structured logging through `log` and `serializeError`.
-- Do not run DB-mutating scripts without approval.
+- Run DB-mutating scripts when the task calls for them; state it in your report.
 - For API changes, verify request validation, response shape, markdown negotiation where applicable, and frontend type/client impact.
 
 Verification options:

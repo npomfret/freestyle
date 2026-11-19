@@ -1,7 +1,7 @@
 {
   "name": "web-factoring",
-  "description": "How browser code is factored and tested: one home for every site-wide design value, primitive and application concept, icons and tooltips, translatable text, real-browser tests by what the user sees, no logic in templates",
-  "version": "1.0.13",
+  "description": "How browser code is factored and tested: one home for every site-wide design value, primitive and application concept, icons and tooltips, real-browser tests by what the user sees, no logic in templates",
+  "version": "1.0.15",
   "author": {
     "name": "npomfret"
   }

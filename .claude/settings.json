@@ -68,7 +68,8 @@
     "ui@npomfret": true,
     "workflow@npomfret": true,
     "playwright@claude-plugins-official": true,
-    "browser@npomfret": true
+    "browser@npomfret": true,
+    "localization@npomfret": false
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"],
   "extraKnownMarketplaces": {

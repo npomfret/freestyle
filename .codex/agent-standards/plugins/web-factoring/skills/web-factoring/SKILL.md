@@ -1,6 +1,6 @@
 ---
 name: web-factoring
-description: Browser front-end code. Use when writing or refactoring React, Vue or Svelte components, hooks, stores, CSS, themes, design tokens, client API transport and caching, message catalogues and i18n, routing, focus and ARIA, or reskinning a web UI. Use together with ui-implementation for any web UI change. Not for server code, native apps or browser tests.
+description: Browser front-end code. Use when writing or refactoring React, Vue or Svelte components, hooks, stores, CSS, themes, design tokens, client API transport and caching, routing, focus and ARIA, or reskinning a web UI. Use together with ui-implementation for any web UI change. Not for server code, native apps or browser tests.
 ---
 
 Keep shared browser behavior and design decisions in shared homes. Features compose those pieces. Visual design guidance chooses the look; these conventions govern its implementation.
@@ -31,7 +31,7 @@ Apply these rules to every UI platform, including web, macOS, iOS and Android. E
 - Copying a component, style block or hook and editing the copy.
 - Restyling shared internals with `!important`, descendant selectors or caller class/style overrides; nesting a primitive inside another of its own kind.
 - Div-based controls, tables or lists; semantic elements whose display/role hides their meaning; ARIA references to elements that are not rendered.
-- Translated sentences assembled from fragments, or assertions/`any` that silence missing type evidence.
+- Assertions/`any` that silence missing type evidence.
 ### Shared application behavior
 
 Give each concern one owner: API transport, resource loading/cache/invalidation, input schemas, formatting, routes/URL state, errors, logging/analytics, permissions, browser storage, keyboard/focus, text catalogues and test stubs. Consumers use or extend that owner rather than repeat its logic.
@@ -48,8 +48,8 @@ Give each concern one owner: API transport, resource loading/cache/invalidation,
 - Use recognizable icons with explanatory tooltips whenever a suitable icon communicates the action. Use button text only when an icon cannot communicate it adequately. Icon controls require localized accessible names and matching tooltips. Add headings or subheadings only when explicitly instructed by the user. Keep visible copy focused on the user's task and required decisions.
 - Primitives supply hover, focus, pressed and disabled states, pointer cursors and complete WAI-ARIA keyboard behavior. Tooltips open on hover/focus, close on Escape and contain no interactive or uniquely necessary content. An explanatory disabled control remains focusable with aria-disabled.
 - Keep roles and rendered ARIA targets consistent. Name horizontally scrolling regions. Meet minimum touch targets and WCAG AA contrast (4.5:1 text; 3:1 large text), measuring composited colors. Announce loading and failure states.
-- Put user-visible/heard strings in a message catalogue, including accessible names, errors and notifications. Use one translation module; keep an existing maintained solution or use FormatJS/ICU. IDs name meaning, messages are whole sentences with named placeholders and plural/select rules, and values use locale formatting.
-- Allow translated text to grow by at least a third; avoid fixed text dimensions or truncating the only label. Do not put words in images/CSS glyphs. Preserve user-entered text; server display text must be localized by the server or represented by a catalogue code.
+- In a project where localization applies, show text through its message catalogue, including accessible names, errors and notifications; the localization skill covers catalogues, translation, formatting and text growth.
+- Do not put words in images or CSS glyphs, and preserve user-entered text. Avoid fixed text dimensions and truncating the only label.
 ### Types
 
 Use meaningful types for IDs, units and domain values, literal unions for finite choices, and discriminated unions for state. Parse unknown input into validated domain types at boundaries and use exhaustive switches. Prefer strict toolchain checks, including unchecked-index and optional-property checks. Named exported component props derive from domain types where appropriate. Do not weaken checks to land a change without recording the concrete constraint.

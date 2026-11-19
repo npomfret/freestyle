@@ -14,7 +14,7 @@ Use this before writing code for non-trivial work.
    - lateral precedent in similarly named files, functions, hooks, scripts, tests, and API shapes
 3. State the current canonical pattern and any readiness problem.
 4. Refactor for readiness if the current structure would force duplication, helper creep, weak types, awkward branching, or pattern drift.
-5. Stop and ask before introducing a new dependency, abstraction, file layout, naming convention, data model, or operational behavior.
+5. Prefer existing dependencies and patterns. When you introduce a new dependency, abstraction, file layout, naming convention, data model, or operational behavior, say why in your report; do not stop for it.
 6. Implement against the prepared structure.
 7. Run targeted verification first, then broader checks when blast radius warrants it.
 8. If the work establishes or changes a convention, update `.claude` rules, skills, or references in the same change.

@@ -26,7 +26,7 @@ Bring the current branch up to date from a single upstream ref **without creatin
 - Do **not** rely on previously defined shell variables or state persisting between tool calls. Every `Bash(...)` command you run must be **self‑contained** with explicit values.
 - If upstream is ambiguous and cannot be inferred safely, pick the best candidate (tracking branch, then default branch) and state it in your report. Otherwise proceed automatically.
 - Never use interactive TUIs (no `-i`). Never run `git pull` (construct explicit `fetch`, `merge --ff-only`, or `rebase` commands instead).
-- If the working tree has unrelated local changes, auto‑stash before rebase and pop afterward.
+- Never stash, reset or discard local changes in the shared checkout; other agents' uncommitted work lives there. Do the rebase in a detached worktree instead: `git worktree add --detach tmp/worktrees/merge <UP>`, then rebase the commits to land onto `<UP>` there.
 - Prefer per-command Git config (`git -c ...`) over persistent repo config writes.
 - Use `rerere` and `merge.conflictStyle=zdiff3` (or `diff3` fallback) during rebase to speed repeat resolutions.
 - Treat commit messages as supporting context only. The actual code diffs and file content are authoritative if signals conflict.
@@ -63,7 +63,8 @@ Bring the current branch up to date from a single upstream ref **without creatin
         - Run `git merge --ff-only <UP>` (fast‑forward).
         - Clean-path exit: if MODE=fast, skip directly to output report (no extra checks).
     - Else → run rebase with per-command settings:
-      `git -c rerere.enabled=true -c merge.conflictStyle=zdiff3 rebase --autostash <UP>`
+      `git -c rerere.enabled=true -c merge.conflictStyle=zdiff3 rebase <UP>`
+      run inside a detached worktree (`git worktree add --detach tmp/worktrees/merge <UP>`; cherry-pick or rebase the commits to land there) when the shared checkout has uncommitted changes. Land with `git push upstream HEAD:main` and remove the worktree afterward.
       (fallback to `merge.conflictStyle=diff3` if `zdiff3` is unsupported).
     - If rebase completes with no conflicts and MODE=fast, skip directly to output report.
 
@@ -95,14 +96,14 @@ Bring the current branch up to date from a single upstream ref **without creatin
         - If lockfiles changed, run the install command and state it in your report.
         - Run targeted validation for impacted areas first (closest tests/typechecks). Run broader checks only if targeted checks pass or are unavailable.
         - Prefer canonical build/check commands from `AGENTS.md` over ad-hoc raw `tsc`.
-    - If we auto‑stashed, `git stash pop` and resolve trivial aftershocks similarly.
+    - Remove any detached worktree created for the update (`git worktree remove --force tmp/worktrees/merge`). Never stash.
     - Suggest `git push --force-with-lease` if branch was previously pushed.
 
 ## Examples (assistant may adapt as needed)
 - Detect tracking branch: `git rev-parse --abbrev-ref --symbolic-full-name @{u}`
 - Default remote head: `git symbolic-ref --short refs/remotes/origin/HEAD`
 - Check fast‑forward: `git merge-base --is-ancestor HEAD origin/main && git merge --ff-only origin/main`
-- Rebase explicitly: `git -c rerere.enabled=true -c merge.conflictStyle=zdiff3 rebase --autostash origin/main`
+- Rebase explicitly: `git -c rerere.enabled=true -c merge.conflictStyle=zdiff3 rebase upstream/main` (in a detached worktree if the shared checkout is dirty)
 - List conflicts: `git diff --name-only --diff-filter=U`
 
 ## Output

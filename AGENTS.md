@@ -7,8 +7,8 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 ## Non-Negotiables
 
 - For any non-trivial feature or bugfix, follow `.claude/skills/feature-workflow/SKILL.md`: audit upstream/downstream/lateral code, refactor for readiness, implement, verify.
-- Before editing, identify the applicable skill and rule files. If no convention covers the change, stop and ask before inventing a new pattern.
-- Never introduce a new dependency, abstraction layer, file layout, naming scheme, deployment behavior, database mutation pattern, or LLM provider behavior without explicit approval.
+- Before editing, identify the applicable skill and rule files. If no convention covers the change, decide, follow the nearest existing pattern, and note the decision in your report.
+- Prefer existing dependencies and patterns. When you introduce a new dependency, abstraction layer, file layout, naming scheme, database mutation pattern, or LLM provider behavior, say why in your report. Production deploys remain explicit user actions.
 - Treat the remote database as real production-like data. Anything using `DATABASE_URL`, `npm run db:tunnel`, migrations, deploys, discovery, repair, validity checks, embeddings, or queue processing can affect important data.
 - If an approved convention changes, update the relevant `.claude` rule, skill, or reference file in the same change.
 

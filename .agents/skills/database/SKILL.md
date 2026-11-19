@@ -3,6 +3,8 @@ name: database
 description: Database work. Use for schema, tables, constraints, indexes, migrations, SQL and queries, transactions, ORMs and query builders, Postgres or SQLite, slow queries and EXPLAIN, storing third-party API or webhook payloads, backfills and N+1 problems, including "add a table" and "save the response from X". Not for in-memory data structures.
 ---
 
+Before committing a change to schema, migrations or queries, spawn `database-change-reviewer` on the diff (Codex: `spawn_agent`; Claude Code: the Agent tool) and resolve its findings.
+
 Prefer Postgres in Docker with project-owned SQL or a thin builder. Use the engine's features directly. Store each fact once in its owning place and derive other shapes from it.
 
 This guidance applies to projects that use a database. Apply the same integrity, atomicity and query-design principles to other engines according to their supported capabilities.

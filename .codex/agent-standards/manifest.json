@@ -177,7 +177,7 @@
     },
     ".codex/agent-standards/plugins/database/.claude-plugin/plugin.json": {
       "source": "plugin:database@npomfret/.claude-plugin/plugin.json",
-      "sha256": "bee28beb8516a1dfbcbfb912e4a2e8d46644b32e984df705807ef17a7b95fb72",
+      "sha256": "087ada42aa03c66848652e4a06f104016c4606938e5b32615207db7402e11991",
       "link": false,
       "executable": false
     },
@@ -189,7 +189,7 @@
     },
     ".codex/agent-standards/plugins/database/skills/database/SKILL.md": {
       "source": "plugin:database@npomfret/skills/database/SKILL.md",
-      "sha256": "65e42e43ce585b40444777178360c0e91c7d127aa4d1f78132f5d3944dc8bf7b",
+      "sha256": "f315e5adb4716c335a6ed5f8bfa826b86129c4130261fa697c6054bf85261348",
       "link": false,
       "executable": false
     },
@@ -327,7 +327,7 @@
     },
     ".codex/agent-standards/plugins/ui/.claude-plugin/plugin.json": {
       "source": "plugin:ui@npomfret/.claude-plugin/plugin.json",
-      "sha256": "65c474d11ac51944aef6e9d5643b3c8a3083b83942fd22ffc3d229410ac8625c",
+      "sha256": "e0c461d6fa7efaeb50e376350d20b70c34b165f64a261d700e0cfcd505e82a75",
       "link": false,
       "executable": false
     },
@@ -339,7 +339,7 @@
     },
     ".codex/agent-standards/plugins/ui/skills/ui-implementation/SKILL.md": {
       "source": "plugin:ui@npomfret/skills/ui-implementation/SKILL.md",
-      "sha256": "e43cc9dec363093ad2329cb964c369cc5be3c4601099989dd8a4dbd98402bc06",
+      "sha256": "f472574441905ece0c3d37cdfdeb1a769251d6b18013f24a0e3c02d8652f4ecf",
       "link": false,
       "executable": false
     },
@@ -465,7 +465,7 @@
     },
     ".codex/agents/database-change-reviewer.toml": {
       "source": "plugin:database@npomfret/agents/database-change-reviewer.md",
-      "sha256": "170651f2384422851f24a01c54eec3e72c488a6a978ac85f299536b1fe8d8442",
+      "sha256": "a4bfea4cdc36d81c71980543bdc70454ad6c0a0e53397a3909553aa68f0f6771",
       "link": false,
       "executable": false
     },
@@ -477,13 +477,13 @@
     },
     ".codex/agents/ui-change-reviewer.toml": {
       "source": "plugin:ui@npomfret/agents/ui-change-reviewer.md",
-      "sha256": "8548da2906374cd87e441e618982c82defab5d83510c7184ead4c4d59d67567c",
+      "sha256": "1a213c18d294f90a98392e19cc12bbe4dc1d8311c77a23ba41cd9ca093ee2d55",
       "link": false,
       "executable": false
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "795af6ac8957e51c2e431806b95c8bdf32079bf03a7e809e4299410750fa4f14",
+      "sha256": "c584c52493c2fc1e025013de074c6b40f7b5a753041f876d135af5cc8f96a625",
       "link": false,
       "executable": false
     },

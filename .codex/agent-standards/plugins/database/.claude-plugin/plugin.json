@@ -1,0 +1,8 @@
+{
+  "name": "database",
+  "description": "How a project uses a database: derive rather than store, one fact in one place, views instead of denormalised tables, external payloads kept whole, an index behind every query, every query timed and slow ones reported in full, constraints in the database, forward-only migrations",
+  "version": "1.0.8",
+  "author": {
+    "name": "npomfret"
+  }
+}

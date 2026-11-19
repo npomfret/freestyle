@@ -1,0 +1,8 @@
+{
+  "name": "browser-testing",
+  "description": "Browser tests that survive an asynchronous page: tests never touch the page, page objects do; no change is instant, so every check polls; never force or retry a side effect",
+  "version": "1.0.13",
+  "author": {
+    "name": "npomfret"
+  }
+}

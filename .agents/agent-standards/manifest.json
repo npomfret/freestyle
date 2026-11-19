@@ -1,25 +1,5 @@
 {
   "generator": "agent-standards linked guidance",
-  "topics": {
-    "git": {
-      "path": ".agents/agent-standards/guidance/git.md",
-      "label": "Git",
-      "trigger": "always"
-    },
-    "legacy-scope": {
-      "path": ".agents/agent-standards/guidance/legacy-scope.md",
-      "label": "Scope",
-      "trigger": "always"
-    }
-  },
-  "files": {
-    ".agents/agent-standards/guidance/git.md": {
-      "sha256": "9d06bcd163d35bc0b77945104299545ccb92370adbc4048b61329e4af46a4f9d",
-      "link": false
-    },
-    ".agents/agent-standards/guidance/legacy-scope.md": {
-      "sha256": "6a16fc61b7e2b1e4a6bee209e58139901faad7dd3729254e8f9517b59528ca93",
-      "link": false
-    }
-  }
+  "topics": {},
+  "files": {}
 }

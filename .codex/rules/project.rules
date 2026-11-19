@@ -4,16 +4,6 @@
 
 # ---- git: shared default-branch workflow ----
 
-# Global git flags sit between "git" and the subcommand, so exact-prefix
-# matching would miss e.g. `git -C . push`. Route those through a prompt. -P and
-# --no-pager only choose how output is printed, conceal nothing, and were the two
-# that came up in ordinary work, so they are no longer listed.
-prefix_rule(
-    pattern = ["git", ["-c", "-C", "--git-dir", "--work-tree", "--exec-path", "--namespace"]],
-    decision = "prompt",
-    justification = "A global git flag can conceal a blocked subcommand; confirm manually.",
-)
-
 # ---- git history rewriting: confirm before it happens ----
 # Only the forms that throw work away. Plain `git reset` and `git reset <path>`
 # unstage and touch no file, which is ordinary work.

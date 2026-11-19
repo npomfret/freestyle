@@ -1,6 +1,6 @@
 ---
 description: Minimal, intent-first Claude Code command to update your branch with a linear history. Supports `--fast` for a speed-first conflict-free path and `--strict` for full validation. Lets the LLM decide exact Git commands; avoids brittle inline Bash snippets and environment leakage. Auto when possible; asks only if the upstream cannot be inferred.
-argument-hint: "[optional mode + upstream ref, e.g. --fast origin/main | --strict origin/main | origin/main]"
+argument-hint: "[optional mode + upstream ref, e.g. --fast upstream/main | --strict upstream/main | upstream/main]"
 allowed-tools:
   - Bash(git:*)
   - Bash(npm:*)
@@ -38,11 +38,11 @@ Bring the current branch up to date from a single upstream ref **without creatin
         - `--strict` => MODE=strict
         - no mode => MODE=strict
     - Remove mode token from arguments before upstream detection.
-    - If the user provided an argument, use it verbatim (e.g., `origin/main`).
+    - If the user provided an argument, use it verbatim (e.g., `upstream/main`).
     - Else try, in order:
       a) `git rev-parse --abbrev-ref --symbolic-full-name @{u}` (tracking branch)  
-      b) default branch from `refs/remotes/origin/HEAD` via `git symbolic-ref --short refs/remotes/origin/HEAD`, then normalize to `origin/<HEAD>`  
-      c) fallbacks: try `origin/main`, then `origin/master` if they exist
+      b) default branch from `refs/remotes/upstream/HEAD` via `git symbolic-ref --short refs/remotes/upstream/HEAD`, then normalize to `upstream/<HEAD>`  
+      c) fallbacks: try `upstream/main`, then `upstream/master` if they exist
     - If none resolves, stop and report that no upstream could be resolved.
 
 2) **Preflight**
@@ -101,8 +101,8 @@ Bring the current branch up to date from a single upstream ref **without creatin
 
 ## Examples (assistant may adapt as needed)
 - Detect tracking branch: `git rev-parse --abbrev-ref --symbolic-full-name @{u}`
-- Default remote head: `git symbolic-ref --short refs/remotes/origin/HEAD`
-- Check fast‑forward: `git merge-base --is-ancestor HEAD origin/main && git merge --ff-only origin/main`
+- Default remote head: `git symbolic-ref --short refs/remotes/upstream/HEAD`
+- Check fast‑forward: `git merge-base --is-ancestor HEAD upstream/main && git merge --ff-only upstream/main`
 - Rebase explicitly: `git -c rerere.enabled=true -c merge.conflictStyle=zdiff3 rebase upstream/main` (in a detached worktree if the shared checkout is dirty)
 - List conflicts: `git diff --name-only --diff-filter=U`
 

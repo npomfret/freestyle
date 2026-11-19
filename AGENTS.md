@@ -1,6 +1,8 @@
-# Freestyle Claude Operating Rules
+# Freestyle
 
-Freestyle catalogs free and near-free developer resources. The backend is TypeScript on Express/Postgres, pipeline scripts use LLM providers to discover/repair/check resources, and `web/` is a small Vite/React frontend.
+Freestyle catalogs free and near-free developer resources. The backend is TypeScript on Express/Postgres, pipeline scripts use LLM providers to discover/repair/check resources, and `web/` is a small Vite/React frontend. Postgres uses pgvector and trigram search; Docker is used for deployment.
+
+Lifecycle: not evidenced (status unknown). A production deploy target exists (`root@fsd.snowmonkey.co.uk`, `docker-compose.production.yml`).
 
 ## Non-Negotiables
 
@@ -8,7 +10,6 @@ Freestyle catalogs free and near-free developer resources. The backend is TypeSc
 - Before editing, identify the applicable skill and rule files. If no convention covers the change, stop and ask before inventing a new pattern.
 - Never introduce a new dependency, abstraction layer, file layout, naming scheme, deployment behavior, database mutation pattern, or LLM provider behavior without explicit approval.
 - Treat the remote database as real production-like data. Anything using `DATABASE_URL`, `npm run db:tunnel`, migrations, deploys, discovery, repair, validity checks, embeddings, or queue processing can affect important data.
-- Prefer source inspection and existing tests before browser tools, MCPs, or external research. Use external sources only when current or missing information is required.
 - If an approved convention changes, update the relevant `.claude` rule, skill, or reference file in the same change.
 
 ## Canonical Commands
@@ -20,6 +21,7 @@ Freestyle catalogs free and near-free developer resources. The backend is TypeSc
 - Start frontend: `npm run dev:web`
 - Build frontend: `npm run build:web`
 - Deploy: `npm run deploy` (ask first)
+- Pipeline and DB scripts (`discover`, `repair`, `validity-check`, `embed`, `migrate`, `db:tunnel`, and others) are listed in `package.json`; most write to the remote database, so see Dangerous Areas.
 
 ## Routing
 

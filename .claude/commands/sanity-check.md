@@ -15,7 +15,8 @@ allowed-tools:
 Run a read-only review of the current working tree.
 
 - Do not edit, stage, unstage, or delete files.
-- Use `.claude/skills/review-working-tree/SKILL.md` as the primary workflow.
+- Inspect `git status`, `git diff` and the surrounding code; check the changes against `.claude/rules/**` and the convention references.
+- Prioritize correctness, data loss, security, operational risk, behavior regressions, pattern drift and missing tests, with file and line references.
 - Use the canonical commands in `AGENTS.md` for build/type/test confidence when evidence is needed.
 - Output:
   - brief status summary

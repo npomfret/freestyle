@@ -6,7 +6,6 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 
 ## Non-Negotiables
 
-- For any non-trivial feature or bugfix, follow `.claude/skills/feature-workflow/SKILL.md`: audit upstream/downstream/lateral code, refactor for readiness, implement, verify.
 - Before editing, identify the applicable skill and rule files. If no convention covers the change, decide, follow the nearest existing pattern, and note the decision in your report.
 - Prefer existing dependencies and patterns. When you introduce a new dependency, abstraction layer, file layout, naming scheme, database mutation pattern, or LLM provider behavior, say why in your report. Run production deploys when the task calls for them and state it in your report.
 - Treat the remote database as real production-like data. Anything using `DATABASE_URL`, `npm run db:tunnel`, migrations, deploys, discovery, repair, validity checks, embeddings, or queue processing can affect important data.
@@ -26,16 +25,12 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 ## Routing
 
 - Global standing rules: `.claude/rules/global.md`
-- Backend/API conventions: `.claude/skills/backend-conventions/SKILL.md`
-- Frontend conventions: `.claude/skills/frontend-conventions/SKILL.md`
-- Database and migration work: `.claude/skills/database-work/SKILL.md`
-- Bug investigation: `.claude/skills/bug-investigation/SKILL.md`
-- Working-tree review: `.claude/skills/review-working-tree/SKILL.md`
 - Repo map: `.claude/references/architecture-map.md`
 
 ## Dangerous Areas
 
 - Write-capable DB scripts are run when the task calls for them, and stated in your report: `discover`, `add-url`, `repair`, `validity-check`, `embed`, `re-embed`, `migrate`, queue processing, or direct `psql` writes.
+- Paid LLM/API calls (provider runs, including while reproducing a bug) are made when the task calls for them, and stated in your report.
 - Touching deployment files and running `npm run deploy`, Docker Compose production commands, or SSH commands against `fsd.snowmonkey.co.uk` are done when the task calls for them; state it in your report.
 - Do not edit `dist/`, `web/dist/`, `node_modules/`, lockfiles, generated logs, or `tmp/` artifacts unless the task specifically requires it.
 

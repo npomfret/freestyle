@@ -39,44 +39,12 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 - Touching deployment files and running `npm run deploy`, Docker Compose production commands, or SSH commands against `fsd.snowmonkey.co.uk` are done when the task calls for them; state it in your report.
 - Do not edit `dist/`, `web/dist/`, `node_modules/`, lockfiles, generated logs, or `tmp/` artifacts unless the task specifically requires it.
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+## Code intelligence
 
-This project is indexed by GitNexus as **freestyle** (1266 symbols, 2133 relationships, 92 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze --skip-agents-md` in terminal first.
-
-## Always Do
-
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- Prefer WebStorm's MCP server (`mcp__webstorm`) whenever it is connected: `search_symbol` and `get_symbol_info` to find a symbol, `analyze_calls` for callers and callees, `rename_refactoring` for renames. Use `gitnexus_query` and `gitnexus_context` only for execution-flow questions WebStorm cannot answer, or when it is not connected.
-
-## Never Do
-
-- NEVER rename symbols with find-and-replace — use WebStorm's `rename_refactoring`, or `gitnexus_rename` when WebStorm is not connected.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/freestyle/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/freestyle/clusters` | All functional areas |
-| `gitnexus://repo/freestyle/processes` | All execution flows |
-| `gitnexus://repo/freestyle/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+- Use WebStorm's MCP server (`mcp__webstorm__*`) when the IDE has the project open: `search_symbol` and `get_symbol_info` to find a symbol, `analyze_calls` for callers and callees, `rename_refactoring` for renames.
+- Otherwise use ordinary search: `rg` for the symbol, then read its callers.
+- Check a shared function's callers before changing it.
+- Never rename symbols with blind find-and-replace. Use `rename_refactoring` when WebStorm is connected; otherwise rename, then `rg` for the old name to confirm nothing is left.
 
 <!-- agent-standards:begin -->
 ## Operating contract

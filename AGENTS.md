@@ -41,7 +41,7 @@ Lifecycle: not evidenced (status unknown). A production deploy target exists (`r
 
 ## Code intelligence
 
-- Use WebStorm's MCP server (`mcp__webstorm__*`) when the IDE has the project open: `search_symbol` and `get_symbol_info` to find a symbol, `analyze_calls` for callers and callees, `rename_refactoring` for renames.
+- Use WebStorm's MCP server (`mcp__webstorm__*`) when the IDE has the project open, for the languages it analyses (not Python): `search_symbol` and `get_symbol_info` to find a symbol, `analyze_calls` for callers and callees, `rename_refactoring` for renames.
 - Otherwise use ordinary search: `rg` for the symbol, then read its callers.
 - Check a shared function's callers before changing it.
 - Never rename symbols with blind find-and-replace. Use `rename_refactoring` when WebStorm is connected; otherwise rename, then `rg` for the old name to confirm nothing is left.

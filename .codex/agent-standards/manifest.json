@@ -37,42 +37,6 @@
       "link": true,
       "executable": false
     },
-    ".agents/skills/gitnexus-cli": {
-      "source": ".claude/skills/gitnexus/gitnexus-cli/SKILL.md",
-      "sha256": "36f4751f89f23f5c4a4ccd81d3de419601c15a620964a691dea1f32532efa257",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/gitnexus-debugging": {
-      "source": ".claude/skills/gitnexus/gitnexus-debugging/SKILL.md",
-      "sha256": "5278f11c6f7d734dcab6761ba632fe9576dccefb25e83b4bc6f43a83c0d18a0e",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/gitnexus-exploring": {
-      "source": ".claude/skills/gitnexus/gitnexus-exploring/SKILL.md",
-      "sha256": "3fc4d1a2c645948ba13ab50f693beb99ca889badc90aba942287e42b697b152e",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/gitnexus-guide": {
-      "source": ".claude/skills/gitnexus/gitnexus-guide/SKILL.md",
-      "sha256": "1f5ba13b48e694d223dd539108988743f78d05487f2779a293914abb85c0cd6e",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/gitnexus-impact-analysis": {
-      "source": ".claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md",
-      "sha256": "b25eab8427db6da6a651bd79da05b7e6a700b84c842fb96f4cdccb2388370701",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/gitnexus-refactoring": {
-      "source": ".claude/skills/gitnexus/gitnexus-refactoring/SKILL.md",
-      "sha256": "ec98a9a531de622a45183adda0fe0a53d1a1587192ea4919668c187f0b6ffb76",
-      "link": true,
-      "executable": false
-    },
     ".agents/skills/review-working-tree": {
       "source": ".claude/skills/review-working-tree/SKILL.md",
       "sha256": "b4b457e433151d38195d47a55b322b91fbd9a25513833448ef271bfc5daedf93",
@@ -483,7 +447,7 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "aea9ef700669f82ed54d84a642a03dfad66f5c1967eecff1d8cef77218b034de",
+      "sha256": "05bfc2b74cdf8c36ca354fbf913c109e39c1c577f65b6c7ba3bfeeec33a00dad",
       "link": false,
       "executable": false
     },

@@ -15,7 +15,7 @@ image reference; take verified recovery material before database replacement.
   and deploy through `npm run deploy`; verify app health.
   The CPU-only rebuild deployed successfully at `6ab1a14`; health passed and
   the database container was unchanged. A fresh scan remains pending.
-- [ ] Prepare and verify a patched, pinned PG17 pgvector image and a deliberate
+- [x] Prepare and verify a patched, pinned PG17 pgvector image and a deliberate
   database maintenance path. The normal app deploy must keep the DB untouched.
   Reuse the existing deliberate `deploy:db` command after a verified recovery
   dump. `Dockerfile.database` keeps pgvector 0.8.2 and PG17 and refreshes signed
@@ -32,7 +32,14 @@ image reference; take verified recovery material before database replacement.
   16 application tables/views, vector 0.8.2 and pg_trgm 1.6. Deliberately expecting
   vector 0.0.0 was rejected; both scratch containers/volumes were removed.
   Independent database review found no substantive issues in this image diff.
-  Live database replacement and fresh scan are still pending.
+  The database replacement is healthy at `98f05d1`: PostgreSQL 17.12, unchanged
+  extensions and `freestyle_freestyle_pgdata`, with 14,279 resources retained.
+  The server has no npm binary, so its existing target's exact Docker Compose
+  command was invoked with health wait from the verified managed checkout.
+- [x] Verify the final fresh staging scan clears both Freestyle image alerts.
+  The 24 November 17:10:52 UTC scan checked all 23 staging images with zero
+  failures and zero unaccepted fixable criticals. Both Freestyle images report
+  zero fixable criticals; existing unfixable/high findings remain visible.
 
 The deployment source is the server's committed Git checkout, updated by
 `git pull --ff-only`; laptop untracked files never reach it. Match the estate's
@@ -44,11 +51,12 @@ which blocked an otherwise reproducible committed release.
 
 Verification: `npm run compile`, all 93 existing backend tests with one test
 worker, shell syntax and substantive shellcheck checks pass. Independent
-delegated review found no substantive issues. Live acceptance is pending.
+delegated review found no substantive issues. Live acceptance and the final
+fresh image scan pass.
 The first managed deployment stopped during image build, before replacing any
 service: ONNX's optional CUDA 1.21.0 archive now returns HTTP 404. Its bundled
 installer and README support `--onnxruntime-node-install-cuda=skip`; specify it
 on the existing npm ci build step for this CPU-only host. Other dependency
-lifecycle scripts remain enabled. Rebuild/acceptance are pending.
-No database writes, migration,
-paid provider jobs, volume deletion or new risk acceptance is requested.
+lifecycle scripts remain enabled. The CPU-only rebuild and deployment passed.
+No live SQL mutations, schema migrations, paid provider jobs, data-volume
+deletion or new risk acceptance occurred.

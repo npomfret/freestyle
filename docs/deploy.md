@@ -104,6 +104,23 @@ docker compose -f docker-compose.production.yml --env-file .env.production run -
 
 ## 8. Useful operations
 
+Normal releases use `npm run deploy` from the local checkout. The server needs
+Docker, not a host npm installation. For deliberate database image maintenance,
+use the existing `deploy:db` target's Docker Compose command from its verified
+server checkout after committing, publishing and deploying the new recipe:
+
+```bash
+docker compose -f docker-compose.production.yml --env-file .env.production build db
+docker compose -f docker-compose.production.yml --env-file .env.production up -d --wait --wait-timeout 90 db
+```
+
+Before replacement, retain the old image and a checksum-verified custom-format
+dump, and fully restore that dump with the estate's isolated restore checker
+using the candidate image. Preserve `freestyle_freestyle_pgdata`, PostgreSQL
+major 17 and pgvector 0.8.2; confirm application resource counts and health
+afterward. The security image runs as postgres and removes unused gosu.
+Ordinary app deployment still leaves the database untouched.
+
 Restart:
 
 ```bash

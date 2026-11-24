@@ -37,12 +37,12 @@ err() { printf '✗ %s\n' "$*" >&2; }
 
 step "Pre-flight"
 
-if [[ -n "$(git status --porcelain)" ]]; then
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   err "working tree is not clean — commit or stash first"
   git status --short >&2
   exit 1
 fi
-ok "working tree clean"
+ok "tracked deployment sources clean"
 
 current_branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ "$current_branch" != "$DEPLOY_BRANCH" ]]; then

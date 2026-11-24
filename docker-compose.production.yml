@@ -1,6 +1,9 @@
 services:
   db:
-    image: pgvector/pgvector:pg17
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+    image: freestyle-db:pg17-security-20261124
     container_name: freestyle-db
     restart: unless-stopped
     ports:

@@ -11,10 +11,28 @@ targeted lock update resolves the existing compatible ranges to protobufjs
 Retain the database major, extension compatibility, persistent volume and old
 image reference; take verified recovery material before database replacement.
 
-- [ ] Verify and independently review the dependency lock update, then publish
-  and deploy through `npm run deploy`; verify app health and a fresh image scan.
+- [x] Verify and independently review the dependency lock update, then publish
+  and deploy through `npm run deploy`; verify app health.
+  The CPU-only rebuild deployed successfully at `6ab1a14`; health passed and
+  the database container was unchanged. A fresh scan remains pending.
 - [ ] Prepare and verify a patched, pinned PG17 pgvector image and a deliberate
   database maintenance path. The normal app deploy must keep the DB untouched.
+  Reuse the existing deliberate `deploy:db` command after a verified recovery
+  dump. `Dockerfile.database` keeps pgvector 0.8.2 and PG17 and refreshes signed
+  Debian packages; its versioned image is separate from the app. Build and
+  inspect the candidate before replacement; preserve the old image and volume.
+  Run the database entrypoint as its existing unprivileged postgres user and
+  remove unused gosu, whose old embedded Go runtime would otherwise lose the
+  existing upstream-image acceptance when this custom image is named. Verify
+  both initialization and existing-data startup rather than adding acceptance.
+  Candidate `sha256:4b8cac90fbf433f59b34bceb5d3b7948b32505f46492e95e1a714c59e89b6835`
+  built on staging. The native 32,774,141-byte maintenance dump is verified at
+  `/var/backups/freestyle-maintenance/20261124T162456Z/freestyle.dump`.
+  The canonical estate checker fully restored it into isolated scratch storage:
+  16 application tables/views, vector 0.8.2 and pg_trgm 1.6. Deliberately expecting
+  vector 0.0.0 was rejected; both scratch containers/volumes were removed.
+  Independent database review found no substantive issues in this image diff.
+  Live database replacement and fresh scan are still pending.
 
 The deployment source is the server's committed Git checkout, updated by
 `git pull --ff-only`; laptop untracked files never reach it. Match the estate's

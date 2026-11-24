@@ -27,5 +27,10 @@ which blocked an otherwise reproducible committed release.
 Verification: `npm run compile`, all 93 existing backend tests with one test
 worker, shell syntax and substantive shellcheck checks pass. Independent
 delegated review found no substantive issues. Live acceptance is pending.
+The first managed deployment stopped during image build, before replacing any
+service: ONNX's optional CUDA 1.21.0 archive now returns HTTP 404. Its bundled
+installer and README support `--onnxruntime-node-install-cuda=skip`; specify it
+on the existing npm ci build step for this CPU-only host. Other dependency
+lifecycle scripts remain enabled. Rebuild/acceptance are pending.
 No database writes, migration,
 paid provider jobs, volume deletion or new risk acceptance is requested.

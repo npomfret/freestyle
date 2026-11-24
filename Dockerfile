@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY web/package.json web/package-lock.json ./web/
 
-RUN npm ci
+# The staging host uses the bundled CPU runtime; do not fetch optional CUDA.
+RUN npm ci --onnxruntime-node-install-cuda=skip
 RUN npm --prefix web ci
 
 ARG GIT_SHA=unknown

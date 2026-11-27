@@ -207,13 +207,13 @@
     },
     ".codex/agent-standards/plugins/testing/.claude-plugin/plugin.json": {
       "source": "plugin:testing@npomfret/.claude-plugin/plugin.json",
-      "sha256": "3578a70268ebd78cda8a702e18282fbd3f160c2729b02b3a929cd9b2a29b4b3e",
+      "sha256": "2d2f7d82357916acda81b37d8f19d74c74da9977d30633bf3a5ca54bedc9790c",
       "link": false,
       "executable": false
     },
     ".codex/agent-standards/plugins/testing/skills/test-design/SKILL.md": {
       "source": "plugin:testing@npomfret/skills/test-design/SKILL.md",
-      "sha256": "1c8fa8215c0d6ab418e0a5eb4e5f16ec8a89bc2d7055c6bc722759e1eae8e20f",
+      "sha256": "e75b03eea5f96770fed4c56da2729a0393793f3bebfa8d32fd909fb3496bc903",
       "link": false,
       "executable": false
     },
@@ -375,7 +375,7 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "aaf2349f9c09f78c72526dfef74ec118238f3def0bed2e2ba672cf3a0b2b5f9c",
+      "sha256": "dfd794bedadb9b451a6d7270feefab40c6cde6a293bf2e1c4177805902e62a2d",
       "link": false,
       "executable": false
     },
